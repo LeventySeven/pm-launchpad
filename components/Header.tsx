@@ -7,9 +7,11 @@ import { User } from '../types';
 interface HeaderProps {
   onLoginClick: () => void;
   user: User | null;
+  searchQuery: string;
+  onSearchChange: (value: string) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onLoginClick, user }) => {
+const Header: React.FC<HeaderProps> = ({ onLoginClick, user, searchQuery, onSearchChange }) => {
   return (
     <header className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-white/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
@@ -28,6 +30,8 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, user }) => {
         <div className="hidden md:flex flex-1 max-w-lg mx-8 relative">
           <input 
             type="text" 
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Поиск по рынкам..." 
             className="w-full bg-neutral-900 border border-neutral-800 rounded-lg py-2 pl-10 pr-4 text-sm text-white focus:border-[#BEFF1D] focus:outline-none focus:ring-1 focus:ring-[#BEFF1D] transition-all placeholder:text-neutral-600"
           />

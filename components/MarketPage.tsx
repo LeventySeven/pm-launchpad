@@ -1,9 +1,16 @@
 
 import React, { useState } from 'react';
-import { Market, User } from '../types';
-import Button from './Button';
+import dynamic from 'next/dynamic';
 import { ChevronLeft, MessageSquare, Clock, ShieldCheck, User as UserIcon, Send, ThumbsUp } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import Button from './Button';
+import { Market, User } from '../types';
+
+const MarketChart = dynamic(() => import('./MarketChart'), {
+  ssr: false,
+  loading: () => (
+    <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6 h-[400px] animate-pulse" />
+  ),
+});
 
 interface MarketPageProps {
   market: Market;
@@ -67,46 +74,7 @@ const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin }
             </div>
 
             {/* Chart */}
-            <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6 h-[400px]">
-                <div className="flex items-baseline gap-3 mb-6">
-                    <span className="text-4xl font-bold text-[#BEFF1D]">{market.chance}%</span>
-                    <span className="text-neutral-400">Вероятность исхода "Да"</span>
-                </div>
-                <ResponsiveContainer width="100%" height="80%">
-                    <AreaChart data={market.history}>
-                        <defs>
-                            <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#BEFF1D" stopOpacity={0.3}/>
-                                <stop offset="95%" stopColor="#BEFF1D" stopOpacity={0}/>
-                            </linearGradient>
-                        </defs>
-                        <XAxis 
-                            dataKey="date" 
-                            axisLine={false} 
-                            tickLine={false} 
-                            tick={{fill: '#525252', fontSize: 12}} 
-                            minTickGap={30}
-                        />
-                        <YAxis 
-                            hide domain={[0, 100]} 
-                        />
-                        <CartesianGrid vertical={false} stroke="#262626" strokeDasharray="3 3" />
-                        <Tooltip 
-                            contentStyle={{backgroundColor: '#171717', border: '1px solid #333', borderRadius: '8px'}}
-                            itemStyle={{color: '#BEFF1D'}}
-                            labelStyle={{color: '#999'}}
-                        />
-                        <Area 
-                            type="monotone" 
-                            dataKey="value" 
-                            stroke="#BEFF1D" 
-                            strokeWidth={3}
-                            fillOpacity={1} 
-                            fill="url(#colorValue)" 
-                        />
-                    </AreaChart>
-                </ResponsiveContainer>
-            </div>
+            <MarketChart history={market.history} chance={market.chance} />
 
             {/* Tabs */}
             <div>
