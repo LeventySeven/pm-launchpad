@@ -23,18 +23,18 @@ export default function HomePage() {
   const [loadingMarkets, setLoadingMarkets] = useState(false);
   const [loadingUser, setLoadingUser] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [myBets, setMyBets] = useState<
-    {
-      id: number;
-      marketTitle: string;
-      side: "YES" | "NO";
-      amount: number;
-      status: string;
-      payout: number | null;
-      createdAt: string;
-      marketOutcome: "YES" | "NO" | null;
-    }[]
-  >([]);
+  type BetItem = {
+    id: number;
+    marketTitle: string;
+    side: "YES" | "NO";
+    amount: number;
+    status: string;
+    payout: number | null;
+    createdAt: string;
+    marketOutcome: "YES" | "NO" | null;
+  };
+
+  const [myBets, setMyBets] = useState<BetItem[]>([]);
   const [loadingBets, setLoadingBets] = useState(false);
   const [marketsLoadingMessage, setMarketsLoadingMessage] = useState<
     string | null
