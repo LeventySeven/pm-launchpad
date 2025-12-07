@@ -29,6 +29,9 @@ export default function HomePage() {
   const [betMessage, setBetMessage] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
+  const getTelegramId = () =>
+    (window.Telegram?.WebApp?.initDataUnsafe as any)?.user?.id ?? null;
+
   useEffect(() => {
     const hasSeenOnboarding = localStorage.getItem("hasSeenOnboarding");
     if (!hasSeenOnboarding) {
@@ -87,30 +90,25 @@ export default function HomePage() {
     username?: string;
     displayName?: string;
   }) => {
-    try {
-      setAuthError(null);
-      const telegramId =
-        (window.Telegram?.WebApp?.initDataUnsafe as any)?.user?.id ||
-        Number(localStorage.getItem("mockTelegramId") || "1001");
+    setAuthError(null);
+    const telegramId = getTelegramId();
 
-      const resolvedId = telegramId || 1001;
-
-      const me = await trpcClient.user.registerUser.mutate({
-        telegramId: Number(resolvedId),
-        username: payload.username,
-        displayName: payload.displayName,
-      });
-      setUser({
-        id: String(me.id),
-        email: me.username ?? undefined,
-        balance: me.balance,
-      });
-      localStorage.setItem("mockTelegramId", String(resolvedId));
-      setShowAuth(false);
-    } catch (err) {
-      console.error("Failed to register user from modal", err);
-      setAuthError((err as any)?.message || "Не удалось сохранить профиль");
+    if (!telegramId) {
+      setAuthError("Telegram ID не найден. Откройте через миниапп Telegram.");
+      return;
     }
+
+    const me = await trpcClient.user.registerUser.mutate({
+      telegramId: Number(telegramId),
+      username: payload.username,
+      displayName: payload.displayName,
+    });
+    setUser({
+      id: String(me.id),
+      email: me.username ?? undefined,
+      balance: me.balance,
+    });
+    setShowAuth(false);
   };
 
   // Register or fetch user from Supabase via tRPC using Telegram id when available.
@@ -118,9 +116,7 @@ export default function HomePage() {
     const loadUser = async () => {
       setLoadingUser(true);
       try {
-        const telegramId =
-          (window.Telegram?.WebApp?.initDataUnsafe as any)?.user?.id ||
-          Number(localStorage.getItem("mockTelegramId") || "1001");
+        const telegramId = getTelegramId();
 
         if (!telegramId) return;
 
@@ -139,7 +135,6 @@ export default function HomePage() {
           email: me.username ?? undefined,
           balance: me.balance,
         });
-        localStorage.setItem("mockTelegramId", String(telegramId));
       } catch (err) {
         console.error("Failed to load/register user", err);
       } finally {
@@ -236,12 +231,11 @@ export default function HomePage() {
         onPlaceBet={async ({ amount, marketId, side }) => {
           try {
             setBetMessage(null);
-            const telegramId =
-              (window.Telegram?.WebApp?.initDataUnsafe as any)?.user?.id ||
-              Number(localStorage.getItem("mockTelegramId") || "1001");
+            const telegramId = getTelegramId();
 
             if (!telegramId) {
               setShowAuth(true);
+              setBetMessage("Откройте приложение через Telegram, чтобы сделать ставку.");
               return;
             }
 
