@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { publicProcedure, router } from "../router";
+import { publicProcedure, router } from "../trpc";
 
 const userShape = {
   id: z.number(),
