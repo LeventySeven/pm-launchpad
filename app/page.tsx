@@ -47,7 +47,8 @@ export default function HomePage() {
     side: "YES" | "NO";
     amount: number;
     newBalance?: number;
-  }>({ open: false, marketTitle: "", side: "YES", amount: 0, newBalance: undefined });
+    errorMessage?: string | null;
+  }>({ open: false, marketTitle: "", side: "YES", amount: 0, newBalance: undefined, errorMessage: null });
 
   const formatBetError = (msg?: string) => {
     if (!msg) return "Не удалось поставить ставку";
@@ -257,10 +258,16 @@ export default function HomePage() {
             onLogin={() => setShowAuth(true)}
             onPlaceBet={async ({ amount, marketId, side, marketTitle }) => {
               try {
-                setBetMessage(null);
                 if (!user) {
                   setShowAuth(true);
-                  setBetMessage("Войдите, чтобы сделать ставку.");
+                  setBetConfirm({
+                    open: true,
+                    marketTitle,
+                    side,
+                    amount,
+                    newBalance: user?.balance,
+                    errorMessage: "Войдите, чтобы сделать ставку.",
+                  });
                   return;
                 }
 
@@ -270,44 +277,43 @@ export default function HomePage() {
                   side,
                 });
 
-                // Update local balance optimistically
                 setUser((prev) =>
                   prev
                     ? { ...prev, balance: res.newBalance }
                     : { id: String(res.userId), balance: res.newBalance }
                 );
 
-                // Refresh data from backend to ensure pools and balances are in sync
                 await loadMarkets();
                 await refreshUser();
                 await loadMyBets();
 
-                setBetMessage(null);
                 setBetConfirm({
                   open: true,
                   marketTitle,
                   side,
                   amount,
                   newBalance: res.newBalance,
+                  errorMessage: null,
                 });
               } catch (err: any) {
                 console.error("placeBet failed", err);
                 const friendly = formatBetError(err?.message || err?.data?.message);
-                setBetMessage(friendly || "Не удалось поставить ставку");
-                // Even on error, refresh to keep UI consistent with backend state
                 await loadMarkets();
                 await refreshUser();
                 await loadMyBets();
+                setBetConfirm({
+                  open: true,
+                  marketTitle,
+                  side,
+                  amount,
+                  newBalance: user?.balance,
+                  errorMessage: friendly || "Не удалось поставить ставку",
+                });
               }
             }}
           />
         ) : (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 animate-fade-in">
-            {betMessage && (
-              <div className="mb-4 text-sm text-center text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg py-2 px-3">
-                {betMessage}
-              </div>
-            )}
             <div className="mb-8">
               <div className="relative w-full md:hidden">
                 <input
@@ -382,6 +388,7 @@ export default function HomePage() {
         side={betConfirm.side}
         amount={betConfirm.amount}
         newBalance={betConfirm.newBalance}
+        errorMessage={betConfirm.errorMessage}
       />
     </div>
   );

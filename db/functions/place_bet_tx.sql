@@ -41,7 +41,7 @@ begin
   if v_outcome is not null then
     raise exception 'MARKET_RESOLVED';
   end if;
-  if v_expires_at <= now() then
+  if v_expires_at <= now() - interval '5 minutes' then
     raise exception 'MARKET_EXPIRED';
   end if;
 

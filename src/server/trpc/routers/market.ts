@@ -115,11 +115,12 @@ export const marketRouter = router({
         });
       }
 
-      const expiresAt = new Date(marketRes.data.expires_at).getTime();
-      if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
+      const expiresAt = Date.parse(marketRes.data.expires_at as any);
+      const graceMs = 5 * 60 * 1000;
+      if (Number.isFinite(expiresAt) && expiresAt + graceMs < Date.now()) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Market expired",
+          message: "MARKET_EXPIRED",
         });
       }
 
