@@ -27,10 +27,11 @@ export default function HomePage() {
     string | null
   >(null);
   const [betMessage, setBetMessage] = useState<string | null>(null);
-  const [authError, setAuthError] = useState<string | null>(null);
 
-  const getTelegramId = () =>
-    (window.Telegram?.WebApp?.initDataUnsafe as any)?.user?.id ?? null;
+  const getTelegramUser = () =>
+    typeof window !== "undefined"
+      ? (window.Telegram?.WebApp?.initDataUnsafe as any)?.user ?? null
+      : null;
 
   useEffect(() => {
     const hasSeenOnboarding = localStorage.getItem("hasSeenOnboarding");
@@ -90,18 +91,20 @@ export default function HomePage() {
     username?: string;
     displayName?: string;
   }) => {
-    setAuthError(null);
-    const telegramId = getTelegramId();
+    const tgUser = getTelegramUser();
 
-    if (!telegramId) {
-      setAuthError("Telegram ID не найден. Откройте через миниапп Telegram.");
-      return;
+    if (!tgUser?.id) {
+      throw new Error("Telegram ID не найден. Откройте миниапп из Telegram.");
     }
 
     const me = await trpcClient.user.registerUser.mutate({
-      telegramId: Number(telegramId),
-      username: payload.username,
-      displayName: payload.displayName,
+      telegramId: Number(tgUser.id),
+      username: payload.username ?? tgUser.username ?? undefined,
+      displayName:
+        payload.displayName ??
+        tgUser.first_name ??
+        tgUser.last_name ??
+        undefined,
     });
     setUser({
       id: String(me.id),
@@ -116,18 +119,14 @@ export default function HomePage() {
     const loadUser = async () => {
       setLoadingUser(true);
       try {
-        const telegramId = getTelegramId();
+        const tgUser = getTelegramUser();
 
-        if (!telegramId) return;
+        if (!tgUser?.id) return;
 
         const me = await trpcClient.user.registerUser.mutate({
-          telegramId: Number(telegramId),
-          username:
-            (window.Telegram?.WebApp?.initDataUnsafe as any)?.user?.username ??
-            undefined,
-          displayName:
-            (window.Telegram?.WebApp?.initDataUnsafe as any)?.user?.first_name ??
-            undefined,
+          telegramId: Number(tgUser.id),
+          username: tgUser.username ?? undefined,
+          displayName: tgUser.first_name ?? tgUser.last_name ?? undefined,
         });
 
         setUser({
@@ -231,9 +230,9 @@ export default function HomePage() {
         onPlaceBet={async ({ amount, marketId, side }) => {
           try {
             setBetMessage(null);
-            const telegramId = getTelegramId();
+            const tgUser = getTelegramUser();
 
-            if (!telegramId) {
+            if (!tgUser?.id) {
               setShowAuth(true);
               setBetMessage("Откройте приложение через Telegram, чтобы сделать ставку.");
               return;
@@ -243,7 +242,7 @@ export default function HomePage() {
               amount,
               marketId: Number(marketId),
               side,
-              telegramId: Number(telegramId),
+              telegramId: Number(tgUser.id),
             });
 
             setUser((prev) =>
