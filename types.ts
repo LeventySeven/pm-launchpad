@@ -33,6 +33,7 @@ export interface Market {
 export interface User {
   id: string;
   email?: string;
+  username?: string;
   walletAddress?: string;
   balance: number;
 }
