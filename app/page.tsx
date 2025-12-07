@@ -6,9 +6,10 @@ import Header from "@/components/Header";
 import MarketCard from "@/components/MarketCard";
 import MarketPage from "@/components/MarketPage";
 import OnboardingModal from "@/components/OnboardingModal";
-import { CATEGORIES, MOCK_MARKETS } from "@/constants";
-import type { Category, User } from "@/types";
+import { CATEGORIES, MOCK_MARKETS, generateHistory } from "@/constants";
+import type { Category, Market, User } from "@/types";
 import useTelegramWebApp from "@/hooks/useTelegramWebApp";
+import { trpcClient } from "@/src/utils/trpcClient";
 import { Search } from "lucide-react";
 
 export default function HomePage() {
@@ -18,6 +19,9 @@ export default function HomePage() {
   const [showAuth, setShowAuth] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
+  const [markets, setMarkets] = useState<Market[]>(MOCK_MARKETS);
+  const [loadingMarkets, setLoadingMarkets] = useState(false);
+  const [loadingUser, setLoadingUser] = useState(false);
   const { themeParams, isTelegram } = useTelegramWebApp();
 
   useEffect(() => {
@@ -35,12 +39,7 @@ export default function HomePage() {
   };
 
   const handleLogin = () => {
-    setUser({
-      id: "u1",
-      email: "user@pravda.market",
-      balance: 1500.0,
-    });
-    setShowAuth(false);
+    setShowAuth(true);
   };
 
   // Sync Telegram theme colors when inside a Telegram Mini App.
@@ -79,9 +78,93 @@ export default function HomePage() {
     };
   }, [isTelegram, themeParams]);
 
+  // Register or fetch user from Supabase via tRPC using Telegram id when available.
+  useEffect(() => {
+    const loadUser = async () => {
+      setLoadingUser(true);
+      try {
+        const telegramId =
+          (window.Telegram?.WebApp?.initDataUnsafe as any)?.user?.id ||
+          Number(localStorage.getItem("mockTelegramId") || "1001");
+
+        if (!telegramId) return;
+
+        const me = await trpcClient.user.registerUser.mutate({
+          telegramId: Number(telegramId),
+          username:
+            (window.Telegram?.WebApp?.initDataUnsafe as any)?.user?.username ??
+            undefined,
+          displayName:
+            (window.Telegram?.WebApp?.initDataUnsafe as any)?.user?.first_name ??
+            undefined,
+        });
+
+        setUser({
+          id: String(me.id),
+          email: me.username ?? undefined,
+          balance: me.balance,
+        });
+        localStorage.setItem("mockTelegramId", String(telegramId));
+      } catch (err) {
+        console.error("Failed to load/register user", err);
+      } finally {
+        setLoadingUser(false);
+      }
+    };
+
+    void loadUser();
+  }, []);
+
+  // Load markets from Supabase via tRPC; fallback to mocks if none or on error.
+  useEffect(() => {
+    const loadMarkets = async () => {
+      setLoadingMarkets(true);
+      try {
+        const response = await trpcClient.market.listMarkets.query({
+          onlyOpen: false,
+        });
+        if (response && response.length > 0) {
+          const mapped: Market[] = response.map((m) => ({
+            id: String(m.id),
+            title: m.title,
+            category: "ALL",
+            imageUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(
+              m.title
+            )}&background=random&color=fff&size=128`,
+            volume: `$${(Number(m.poolYes) + Number(m.poolNo)).toFixed(2)}`,
+            endDate: new Date(m.expiresAt).toLocaleDateString("ru-RU", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            }),
+            yesPrice: Number(m.priceYes.toFixed(2)),
+            noPrice: Number(m.priceNo.toFixed(2)),
+            chance: Math.round(m.priceYes * 100),
+            description: m.description ?? "Описание будет добавлено.",
+            history: generateHistory(
+              Math.max(5, Math.round(m.priceYes * 100)),
+              Math.round(m.priceYes * 100)
+            ),
+            comments: [],
+          }));
+          setMarkets(mapped);
+        } else {
+          setMarkets(MOCK_MARKETS);
+        }
+      } catch (err) {
+        console.error("Failed to load markets; fallback to mocks", err);
+        setMarkets(MOCK_MARKETS);
+      } finally {
+        setLoadingMarkets(false);
+      }
+    };
+
+    void loadMarkets();
+  }, []);
+
   const filteredMarkets = useMemo(
     () =>
-      MOCK_MARKETS.filter((market) => {
+      markets.filter((market) => {
         const matchesCategory =
           activeCategory === "ALL" || market.category === activeCategory;
         const matchesSearch = market.title
@@ -89,12 +172,12 @@ export default function HomePage() {
           .includes(searchQuery.toLowerCase());
         return matchesCategory && matchesSearch;
       }),
-    [activeCategory, searchQuery]
+    [activeCategory, searchQuery, markets]
   );
 
   const selectedMarket = useMemo(
-    () => MOCK_MARKETS.find((market) => market.id === selectedMarketId),
-    [selectedMarketId]
+    () => markets.find((market) => market.id === selectedMarketId),
+    [selectedMarketId, markets]
   );
 
   return (
@@ -151,7 +234,11 @@ export default function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredMarkets.length > 0 ? (
+              {loadingMarkets ? (
+                <div className="col-span-full text-center py-10 text-neutral-500">
+                  Загрузка рынков...
+                </div>
+              ) : filteredMarkets.length > 0 ? (
                 filteredMarkets.map((market) => (
                   <MarketCard
                     key={market.id}
@@ -174,7 +261,7 @@ export default function HomePage() {
       <AuthModal
         isOpen={showAuth}
         onClose={() => setShowAuth(false)}
-        onLogin={handleLogin}
+        onLogin={() => setShowAuth(false)}
       />
     </div>
   );
