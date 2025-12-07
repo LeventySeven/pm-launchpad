@@ -41,6 +41,13 @@ export default function HomePage() {
     string | null
   >(null);
   const [betMessage, setBetMessage] = useState<string | null>(null);
+  const [betConfirm, setBetConfirm] = useState<{
+    open: boolean;
+    marketTitle: string;
+    side: "YES" | "NO";
+    amount: number;
+    newBalance?: number;
+  }>({ open: false, marketTitle: "", side: "YES", amount: 0, newBalance: undefined });
 
   useEffect(() => {
     const hasSeenOnboarding = localStorage.getItem("hasSeenOnboarding");
