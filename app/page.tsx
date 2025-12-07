@@ -175,7 +175,19 @@ export default function HomePage() {
     setLoadingBets(true);
     try {
       const bets = await trpcClient.market.myBets.query();
-      setMyBets(bets);
+      const normalized: BetItem[] = (bets || [])
+        .filter((b): b is NonNullable<typeof b> => !!b && b.id !== undefined)
+        .map((b) => ({
+          id: Number(b.id),
+          marketTitle: b.marketTitle ?? "—",
+          side: b.side,
+          amount: Number(b.amount ?? 0),
+          status: b.status ?? "open",
+          payout: b.payout !== null && b.payout !== undefined ? Number(b.payout) : null,
+          createdAt: b.createdAt ?? new Date().toISOString(),
+          marketOutcome: b.marketOutcome ?? null,
+        }));
+      setMyBets(normalized);
     } catch (err) {
       console.error("Failed to load bets", err);
     } finally {
