@@ -27,6 +27,7 @@ export default function HomePage() {
     string | null
   >(null);
   const [betMessage, setBetMessage] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     const hasSeenOnboarding = localStorage.getItem("hasSeenOnboarding");
@@ -87,17 +88,15 @@ export default function HomePage() {
     displayName?: string;
   }) => {
     try {
+      setAuthError(null);
       const telegramId =
         (window.Telegram?.WebApp?.initDataUnsafe as any)?.user?.id ||
         Number(localStorage.getItem("mockTelegramId") || "1001");
 
-      if (!telegramId) {
-        setShowAuth(true);
-        return;
-      }
+      const resolvedId = telegramId || 1001;
 
       const me = await trpcClient.user.registerUser.mutate({
-        telegramId: Number(telegramId),
+        telegramId: Number(resolvedId),
         username: payload.username,
         displayName: payload.displayName,
       });
@@ -106,10 +105,11 @@ export default function HomePage() {
         email: me.username ?? undefined,
         balance: me.balance,
       });
-      localStorage.setItem("mockTelegramId", String(telegramId));
+      localStorage.setItem("mockTelegramId", String(resolvedId));
       setShowAuth(false);
     } catch (err) {
       console.error("Failed to register user from modal", err);
+      setAuthError((err as any)?.message || "Не удалось сохранить профиль");
     }
   };
 

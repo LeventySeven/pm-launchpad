@@ -14,6 +14,8 @@ interface AuthModalProps {
 const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin }) => {
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const isValid = useMemo(
     () => username.trim().length > 0 || displayName.trim().length > 0,
@@ -23,11 +25,19 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin }) => {
   if (!isOpen) return null;
 
   const handleSubmit = () => {
-    if (!isValid) return;
-    onLogin({
-      username: username.trim() || undefined,
-      displayName: displayName.trim() || undefined,
-    });
+    if (!isValid || loading) return;
+    setError(null);
+    setLoading(true);
+    Promise.resolve(
+      onLogin({
+        username: username.trim() || undefined,
+        displayName: displayName.trim() || undefined,
+      })
+    )
+      .catch((err) =>
+        setError(err?.message || "Не удалось сохранить профиль")
+      )
+      .finally(() => setLoading(false));
   };
 
   return (
@@ -46,7 +56,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin }) => {
 
         <h2 className="text-2xl font-bold text-white mb-2">Обновить профиль</h2>
         <p className="text-neutral-400 mb-6 text-sm">
-          Telegram ID берём из initData. Уточните ник или имя для профиля.
+          Уточните ник или имя для профиля.
         </p>
 
         <div className="space-y-4">
@@ -72,9 +82,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin }) => {
               className="w-full bg-black border border-neutral-700 rounded-lg p-3 text-white focus:border-[#BEFF1D] focus:outline-none transition-colors"
             />
           </div>
-          <Button fullWidth onClick={handleSubmit} disabled={!isValid}>
-            Сохранить
+          <Button fullWidth onClick={handleSubmit} disabled={!isValid || loading}>
+            {loading ? "Сохранение..." : "Сохранить"}
           </Button>
+          {error && (
+            <p className="text-xs text-red-400 text-center">{error}</p>
+          )}
         </div>
       </div>
     </div>
