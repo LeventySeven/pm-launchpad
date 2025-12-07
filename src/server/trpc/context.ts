@@ -13,15 +13,26 @@ function parseCookies(req: Request) {
 
 export const createContext = (opts: { req: Request }) => {
   const supabase = supabaseServerClient();
-  const headers = new Headers();
+  const responseHeaders: Record<string, string | string[]> = {};
   const cookies = parseCookies(opts.req);
+
+  const appendHeader = (key: string, value: string) => {
+    const existing = responseHeaders[key];
+    if (!existing) {
+      responseHeaders[key] = value;
+    } else if (Array.isArray(existing)) {
+      responseHeaders[key] = [...existing, value];
+    } else {
+      responseHeaders[key] = [existing, value];
+    }
+  };
 
   return {
     supabase,
     req: opts.req,
-    headers,
     cookies,
-    setCookie: (value: string) => headers.append("set-cookie", value),
+    responseHeaders,
+    setCookie: (value: string) => appendHeader("set-cookie", value),
   };
 };
 

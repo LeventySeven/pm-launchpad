@@ -14,10 +14,8 @@ const handler = (req: Request) =>
     router: appRouter,
     createContext: () => createContext({ req }),
     responseMeta({ ctx }) {
-      if (ctx?.headers) {
-        return {
-          headers: ctx.headers,
-        };
+      if (ctx?.responseHeaders) {
+        return { headers: ctx.responseHeaders };
       }
       return {};
     },
