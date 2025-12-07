@@ -81,29 +81,32 @@ export default function HomePage() {
     });
   };
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const me = await trpcClient.auth.me.query();
+      if (me) {
+        setUser({
+          id: String(me.id),
+          email: me.email,
+          username: me.username,
+          balance: me.balance,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to refresh session user", err);
+    }
+  }, []);
+
   // Fetch session user via auth.me
   useEffect(() => {
     const loadUser = async () => {
       setLoadingUser(true);
-      try {
-        const me = await trpcClient.auth.me.query();
-        if (me) {
-          setUser({
-            id: String(me.id),
-            email: me.email,
-            username: me.username,
-            balance: me.balance,
-          });
-        }
-      } catch (err) {
-        console.error("Failed to fetch session user", err);
-      } finally {
-        setLoadingUser(false);
-      }
+      await refreshUser();
+      setLoadingUser(false);
     };
 
     void loadUser();
-  }, []);
+  }, [refreshUser]);
 
   const loadMarkets = useCallback(async () => {
     setLoadingMarkets(true);
@@ -204,16 +207,24 @@ export default function HomePage() {
               side,
             });
 
+            // Update local balance optimistically
             setUser((prev) =>
               prev
                 ? { ...prev, balance: res.newBalance }
                 : { id: String(res.userId), balance: res.newBalance }
             );
-            setBetMessage("Ставка принята");
+
+            // Refresh data from backend to ensure pools and balances are in sync
             await loadMarkets();
+            await refreshUser();
+
+            setBetMessage("Ставка принята");
           } catch (err: any) {
             console.error("placeBet failed", err);
             setBetMessage(err?.message || "Не удалось поставить ставку");
+            // Even on error, refresh to keep UI consistent with backend state
+            await loadMarkets();
+            await refreshUser();
           }
         }}
           />
