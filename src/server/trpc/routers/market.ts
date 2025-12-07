@@ -66,7 +66,6 @@ export const marketRouter = router({
   placeBet: publicProcedure
     .input(
       z.object({
-        telegramId: z.number(),
         marketId: z.number(),
         side: z.enum(["YES", "NO"]),
         amount: z.number().positive(),
@@ -80,20 +79,23 @@ export const marketRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { supabase } = ctx;
-      const { telegramId, marketId, side, amount } = input;
+      const { supabase, authUser } = ctx;
+      const { marketId, side, amount } = input;
+
+      if (!authUser) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
+      }
 
       const userRes = await supabase
         .from("users")
         .select("id, balance")
-        .eq("telegram_id", telegramId)
+        .eq("id", authUser.id)
         .maybeSingle();
 
       if (!userRes.data) {
         throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
       }
 
-      const userId = Number(userRes.data.id);
       const balance = Number(userRes.data.balance);
       if (balance < amount) {
         throw new TRPCError({
@@ -133,7 +135,7 @@ export const marketRouter = router({
        * and call via supabase.rpc. PostgREST does not support multi-step transactions.
        */
       const rpc = await supabase.rpc("place_bet_tx", {
-        p_user_id: userId,
+        p_user_id: authUser.id,
         p_market_id: marketId,
         p_side: side,
         p_amount: amount,
@@ -156,7 +158,7 @@ export const marketRouter = router({
 
       return {
         betId: Number(result.bet_id),
-        userId,
+        userId: authUser.id,
         newBalance: Number(result.new_balance),
       };
     }),

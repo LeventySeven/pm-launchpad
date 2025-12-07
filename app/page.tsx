@@ -196,7 +196,6 @@ export default function HomePage() {
               amount,
               marketId: Number(marketId),
               side,
-              telegramId: Number(user.id),
             });
 
             setUser((prev) =>

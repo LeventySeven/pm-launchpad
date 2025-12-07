@@ -1,4 +1,5 @@
 import { supabaseServerClient } from "../supabase/client";
+import { verifyAuthToken } from "../auth/jwt";
 import type { inferAsyncReturnType } from "@trpc/server";
 
 function parseCookies(req: Request) {
@@ -11,10 +12,25 @@ function parseCookies(req: Request) {
   );
 }
 
-export const createContext = (opts: { req: Request }) => {
+export const createContext = async (opts: { req: Request }) => {
   const supabase = supabaseServerClient();
   const responseHeaders: Record<string, string | string[]> = {};
   const cookies = parseCookies(opts.req);
+  let authUser: { id: number; email: string; username: string } | null = null;
+
+  const token = cookies["auth_token"];
+  if (token) {
+    try {
+      const payload = await verifyAuthToken(token);
+      authUser = {
+        id: Number(payload.sub),
+        email: payload.email,
+        username: payload.username,
+      };
+    } catch {
+      authUser = null;
+    }
+  }
 
   const appendHeader = (key: string, value: string) => {
     const existing = responseHeaders[key];
@@ -33,6 +49,7 @@ export const createContext = (opts: { req: Request }) => {
     cookies,
     responseHeaders,
     setCookie: (value: string) => appendHeader("set-cookie", value),
+    authUser,
   };
 };
 
