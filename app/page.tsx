@@ -44,6 +44,9 @@ export default function HomePage() {
     payout: number | null;
     createdAt: string;
     marketOutcome: "YES" | "NO" | null;
+    expiresAt?: string | null;
+    priceYes?: number | null;
+    priceNo?: number | null;
   };
 
   const [myBets, setMyBets] = useState<BetItem[]>([]);
@@ -219,6 +222,9 @@ export default function HomePage() {
           payout: b.payout !== null && b.payout !== undefined ? Number(b.payout) : null,
           createdAt: b.createdAt ?? new Date().toISOString(),
           marketOutcome: b.marketOutcome ?? null,
+          expiresAt: b.expiresAt ?? null,
+          priceYes: b.priceYes ?? null,
+          priceNo: b.priceNo ?? null,
         }));
       setMyBets(normalized);
     } catch (err) {
