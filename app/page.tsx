@@ -147,6 +147,34 @@ export default function HomePage() {
     }
   }, []);
 
+  const loadMyBets = useCallback(async () => {
+    if (!user) return;
+    setLoadingBets(true);
+    try {
+      const bets = await trpcClient.market.myBets.query();
+      const normalized: BetItem[] = (bets || [])
+        .filter((b): b is NonNullable<typeof b> => !!b && b.id !== undefined)
+        .map((b) => ({
+          id: Number(b.id),
+          marketTitle: b.marketTitle ?? "—",
+          side: b.side,
+          amount: Number(b.amount ?? 0),
+          status: b.status ?? "open",
+          payout: b.payout !== null && b.payout !== undefined ? Number(b.payout) : null,
+          createdAt: b.createdAt ?? new Date().toISOString(),
+          marketOutcome: b.marketOutcome ?? null,
+          expiresAt: b.expiresAt ?? null,
+          priceYes: b.priceYes ?? null,
+          priceNo: b.priceNo ?? null,
+        }));
+      setMyBets(normalized);
+    } catch (err) {
+      console.error("Failed to load bets", err);
+    } finally {
+      setLoadingBets(false);
+    }
+  }, [user]);
+
   // Fetch session user via auth.me
   useEffect(() => {
     const loadUser = async () => {
@@ -192,6 +220,9 @@ export default function HomePage() {
       } else {
         setMarkets(MOCK_MARKETS);
       }
+      if (user) {
+        await loadMyBets();
+      }
     } catch (err) {
       console.error("Failed to load markets; fallback to mocks", err);
       setMarketsLoadingMessage("Не удалось загрузить рынки, показаны демо данные.");
@@ -200,39 +231,21 @@ export default function HomePage() {
       setLoadingMarkets(false);
       setMarketsLoadingMessage(null);
     }
-  }, []);
+  }, [user, loadMyBets]);
 
   useEffect(() => {
     void loadMarkets();
   }, [loadMarkets]);
 
-  const loadMyBets = useCallback(async () => {
-    if (!user) return;
-    setLoadingBets(true);
-    try {
-      const bets = await trpcClient.market.myBets.query();
-      const normalized: BetItem[] = (bets || [])
-        .filter((b): b is NonNullable<typeof b> => !!b && b.id !== undefined)
-        .map((b) => ({
-          id: Number(b.id),
-          marketTitle: b.marketTitle ?? "—",
-          side: b.side,
-          amount: Number(b.amount ?? 0),
-          status: b.status ?? "open",
-          payout: b.payout !== null && b.payout !== undefined ? Number(b.payout) : null,
-          createdAt: b.createdAt ?? new Date().toISOString(),
-          marketOutcome: b.marketOutcome ?? null,
-          expiresAt: b.expiresAt ?? null,
-          priceYes: b.priceYes ?? null,
-          priceNo: b.priceNo ?? null,
-        }));
-      setMyBets(normalized);
-    } catch (err) {
-      console.error("Failed to load bets", err);
-    } finally {
-      setLoadingBets(false);
-    }
-  }, [user]);
+  // Refresh bets periodically while profile is open
+  useEffect(() => {
+    if (!showProfile || !user) return;
+    void loadMyBets();
+    const id = setInterval(() => {
+      void loadMyBets();
+    }, 15000);
+    return () => clearInterval(id);
+  }, [showProfile, user, loadMyBets]);
 
   const filteredMarkets = useMemo(
     () =>

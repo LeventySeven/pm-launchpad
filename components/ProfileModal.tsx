@@ -63,10 +63,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
   };
 
   const formatChance = (yes?: number | null, no?: number | null) => {
-    if (yes == null || no == null) return "—";
-    const total = yes + no;
-    if (total === 0) return "50%";
-    const chanceYes = Math.round((no / total) * 100);
+    if (yes == null && no == null) return "—";
+    const chanceYes = Math.round(((yes ?? 0.5) as number) * 100);
     return `${chanceYes}% Да`;
   };
   return (
