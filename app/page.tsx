@@ -1,15 +1,28 @@
 'use client';
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import AuthModal from "@/components/AuthModal";
 import Header from "@/components/Header";
 import MarketCard from "@/components/MarketCard";
 import MarketPage from "@/components/MarketPage";
 import OnboardingModal from "@/components/OnboardingModal";
-import { CATEGORIES, MOCK_MARKETS } from "@/constants";
-import type { Category, User } from "@/types";
-import useTelegramWebApp from "@/hooks/useTelegramWebApp";
+import ProfileModal from "@/components/ProfileModal";
+import BetConfirmModal from "@/components/BetConfirmModal";
+import { CATEGORIES, MOCK_MARKETS, generateHistory } from "@/constants";
+import type { Category, Market, User } from "@/types";
+import { trpcClient } from "@/src/utils/trpcClient";
 import { Search } from "lucide-react";
+
+const buildHistoryFromPools = (poolYes: number, poolNo: number) => {
+  const total = poolYes + poolNo;
+  const priceYes = total === 0 ? 0.5 : poolNo / total;
+  const chance = Math.round(priceYes * 100);
+  // Simple two-point history to reflect current price; can be extended when real history is available.
+  return [
+    { date: "T-1", value: chance },
+    { date: "Now", value: chance },
+  ];
+};
 
 export default function HomePage() {
   const [activeCategory, setActiveCategory] = useState<Category>("ALL");
@@ -18,7 +31,49 @@ export default function HomePage() {
   const [showAuth, setShowAuth] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
-  const { themeParams, isTelegram } = useTelegramWebApp();
+  const [markets, setMarkets] = useState<Market[]>(MOCK_MARKETS);
+  const [loadingMarkets, setLoadingMarkets] = useState(false);
+  const [loadingUser, setLoadingUser] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  type BetItem = {
+    id: number;
+    marketTitle: string;
+    side: "YES" | "NO";
+    amount: number;
+    status: string;
+    payout: number | null;
+    createdAt: string;
+    marketOutcome: "YES" | "NO" | null;
+  };
+
+  const [myBets, setMyBets] = useState<BetItem[]>([]);
+  const [loadingBets, setLoadingBets] = useState(false);
+  const [marketsLoadingMessage, setMarketsLoadingMessage] = useState<
+    string | null
+  >(null);
+  const [betMessage, setBetMessage] = useState<string | null>(null);
+  const [betConfirm, setBetConfirm] = useState<{
+    open: boolean;
+    marketTitle: string;
+    side: "YES" | "NO";
+    amount: number;
+    newBalance?: number;
+    errorMessage?: string | null;
+  }>({ open: false, marketTitle: "", side: "YES", amount: 0, newBalance: undefined, errorMessage: null });
+
+  const formatBetError = (msg?: string) => {
+    if (!msg) return "Не удалось поставить ставку";
+    if (msg.includes("MARKET_EXPIRED") || msg.toLowerCase().includes("expired")) {
+      return "Событие завершено, ставки закрыты.";
+    }
+    if (msg.includes("INSUFFICIENT_BALANCE")) {
+      return "Недостаточно средств на балансе.";
+    }
+    if (msg.includes("MARKET_RESOLVED")) {
+      return "Событие уже разрешено.";
+    }
+    return msg;
+  };
 
   useEffect(() => {
     const hasSeenOnboarding = localStorage.getItem("hasSeenOnboarding");
@@ -35,53 +90,147 @@ export default function HomePage() {
   };
 
   const handleLogin = () => {
-    setUser({
-      id: "u1",
-      email: "user@pravda.market",
-      balance: 1500.0,
-    });
-    setShowAuth(false);
+    setShowAuth(true);
   };
 
-  // Sync Telegram theme colors when inside a Telegram Mini App.
+  const handleSignUp = async (payload: {
+    email: string;
+    username: string;
+    password: string;
+    displayName?: string;
+  }) => {
+    const me = await trpcClient.auth.signUp.mutate({
+      email: payload.email,
+      username: payload.username,
+      password: payload.password,
+    });
+    setUser({
+      id: String(me.user.id),
+      email: me.user.email,
+      username: me.user.username,
+      balance: me.user.balance,
+    });
+  };
+
+  const handleLoginSubmit = async (payload: {
+    emailOrUsername: string;
+    password: string;
+  }) => {
+    const me = await trpcClient.auth.login.mutate({
+      emailOrUsername: payload.emailOrUsername,
+      password: payload.password,
+    });
+    setUser({
+      id: String(me.user.id),
+      email: me.user.email,
+      username: me.user.username,
+      balance: me.user.balance,
+    });
+  };
+
+  const refreshUser = useCallback(async () => {
+    try {
+      const me = await trpcClient.auth.me.query();
+      if (me) {
+        setUser({
+          id: String(me.id),
+          email: me.email,
+          username: me.username,
+          balance: me.balance,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to refresh session user", err);
+    }
+  }, []);
+
+  // Fetch session user via auth.me
   useEffect(() => {
-    if (!isTelegram || !themeParams) return;
-    const root = document.documentElement;
-    const defaults = {
-      background: "#0a0a0a",
-      foreground: "#ffffff",
-      accent: "#BEFF1D",
-      accentText: "#000000",
+    const loadUser = async () => {
+      setLoadingUser(true);
+      await refreshUser();
+      setLoadingUser(false);
     };
 
-    root.style.setProperty(
-      "--background",
-      themeParams.bg_color ?? defaults.background
-    );
-    root.style.setProperty(
-      "--foreground",
-      themeParams.text_color ?? defaults.foreground
-    );
-    root.style.setProperty(
-      "--accent-color",
-      themeParams.button_color ?? defaults.accent
-    );
-    root.style.setProperty(
-      "--accent-text-color",
-      themeParams.button_text_color ?? defaults.accentText
-    );
+    void loadUser();
+  }, [refreshUser]);
 
-    return () => {
-      root.style.setProperty("--background", defaults.background);
-      root.style.setProperty("--foreground", defaults.foreground);
-      root.style.setProperty("--accent-color", defaults.accent);
-      root.style.setProperty("--accent-text-color", defaults.accentText);
-    };
-  }, [isTelegram, themeParams]);
+  const loadMarkets = useCallback(async () => {
+    setLoadingMarkets(true);
+    setMarketsLoadingMessage("Загрузка рынков...");
+    try {
+      const response = await trpcClient.market.listMarkets.query({
+        onlyOpen: false,
+      });
+      if (response && response.length > 0) {
+        const mapped: Market[] = response.map((m) => ({
+          id: String(m.id),
+          title: m.title,
+          category: "ALL",
+          imageUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(
+            m.title
+          )}&background=random&color=fff&size=128`,
+          volume: `$${(Number(m.poolYes) + Number(m.poolNo)).toFixed(2)}`,
+          endDate: new Date(m.expiresAt).toLocaleDateString("ru-RU", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          }),
+          yesPrice: Number(m.priceYes.toFixed(2)),
+          noPrice: Number(m.priceNo.toFixed(2)),
+          chance: Math.round(m.priceYes * 100),
+          description: m.description ?? "Описание будет добавлено.",
+          poolYes: Number(m.poolYes),
+          poolNo: Number(m.poolNo),
+          history: buildHistoryFromPools(Number(m.poolYes), Number(m.poolNo)),
+          comments: [],
+        }));
+        setMarkets(mapped);
+      } else {
+        setMarkets(MOCK_MARKETS);
+      }
+    } catch (err) {
+      console.error("Failed to load markets; fallback to mocks", err);
+      setMarketsLoadingMessage("Не удалось загрузить рынки, показаны демо данные.");
+      setMarkets(MOCK_MARKETS);
+    } finally {
+      setLoadingMarkets(false);
+      setMarketsLoadingMessage(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadMarkets();
+  }, [loadMarkets]);
+
+  const loadMyBets = useCallback(async () => {
+    if (!user) return;
+    setLoadingBets(true);
+    try {
+      const bets = await trpcClient.market.myBets.query();
+      const normalized: BetItem[] = (bets || [])
+        .filter((b): b is NonNullable<typeof b> => !!b && b.id !== undefined)
+        .map((b) => ({
+          id: Number(b.id),
+          marketTitle: b.marketTitle ?? "—",
+          side: b.side,
+          amount: Number(b.amount ?? 0),
+          status: b.status ?? "open",
+          payout: b.payout !== null && b.payout !== undefined ? Number(b.payout) : null,
+          createdAt: b.createdAt ?? new Date().toISOString(),
+          marketOutcome: b.marketOutcome ?? null,
+        }));
+      setMyBets(normalized);
+    } catch (err) {
+      console.error("Failed to load bets", err);
+    } finally {
+      setLoadingBets(false);
+    }
+  }, [user]);
 
   const filteredMarkets = useMemo(
     () =>
-      MOCK_MARKETS.filter((market) => {
+      markets.filter((market) => {
         const matchesCategory =
           activeCategory === "ALL" || market.category === activeCategory;
         const matchesSearch = market.title
@@ -89,12 +238,12 @@ export default function HomePage() {
           .includes(searchQuery.toLowerCase());
         return matchesCategory && matchesSearch;
       }),
-    [activeCategory, searchQuery]
+    [activeCategory, searchQuery, markets]
   );
 
   const selectedMarket = useMemo(
-    () => MOCK_MARKETS.find((market) => market.id === selectedMarketId),
-    [selectedMarketId]
+    () => markets.find((market) => market.id === selectedMarketId),
+    [selectedMarketId, markets]
   );
 
   return (
@@ -104,6 +253,10 @@ export default function HomePage() {
         user={user}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        onProfileClick={() => {
+          setShowProfile(true);
+          void loadMyBets();
+        }}
       />
 
       <main>
@@ -113,28 +266,65 @@ export default function HomePage() {
             user={user}
             onBack={() => setSelectedMarketId(null)}
             onLogin={() => setShowAuth(true)}
+            onPlaceBet={async ({ amount, marketId, side, marketTitle }) => {
+              try {
+                if (!user) {
+                  setShowAuth(true);
+                  setBetConfirm({
+                    open: true,
+                    marketTitle,
+                    side,
+                    amount,
+                    newBalance: user?.balance,
+                    errorMessage: "Войдите, чтобы сделать ставку.",
+                  });
+                  return;
+                }
+
+                const res = await trpcClient.market.placeBet.mutate({
+                  amount,
+                  marketId: Number(marketId),
+                  side,
+                });
+
+                setUser((prev) =>
+                  prev
+                    ? { ...prev, balance: res.newBalance }
+                    : { id: String(res.userId), balance: res.newBalance }
+                );
+
+                await loadMarkets();
+                await refreshUser();
+                await loadMyBets();
+
+                setBetConfirm({
+                  open: true,
+                  marketTitle,
+                  side,
+                  amount,
+                  newBalance: res.newBalance,
+                  errorMessage: null,
+                });
+              } catch (err: any) {
+                console.error("placeBet failed", err);
+                const friendly = formatBetError(err?.message || err?.data?.message);
+                await loadMarkets();
+                await refreshUser();
+                await loadMyBets();
+                setBetConfirm({
+                  open: true,
+                  marketTitle,
+                  side,
+                  amount,
+                  newBalance: user?.balance,
+                  errorMessage: friendly || "Не удалось поставить ставку",
+                });
+              }
+            }}
           />
         ) : (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 animate-fade-in">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8">
-              <div className="flex overflow-x-auto pb-2 md:pb-0 gap-2 w-full md:w-auto scrollbar-hide">
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setActiveCategory(cat.id)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap border
-                        ${
-                          activeCategory === cat.id
-                            ? "bg-[#BEFF1D] text-black border-[#BEFF1D]"
-                            : "bg-transparent text-neutral-400 border-transparent hover:bg-neutral-900 hover:text-white"
-                        }`}
-                  >
-                    <span>{cat.icon}</span>
-                    {cat.label}
-                  </button>
-                ))}
-              </div>
-
+            <div className="mb-8">
               <div className="relative w-full md:hidden">
                 <input
                   type="text"
@@ -151,7 +341,11 @@ export default function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredMarkets.length > 0 ? (
+              {loadingMarkets ? (
+                <div className="col-span-full text-center py-10 text-neutral-500">
+                  {marketsLoadingMessage || "Загрузка рынков..."}
+                </div>
+              ) : filteredMarkets.length > 0 ? (
                 filteredMarkets.map((market) => (
                   <MarketCard
                     key={market.id}
@@ -174,7 +368,37 @@ export default function HomePage() {
       <AuthModal
         isOpen={showAuth}
         onClose={() => setShowAuth(false)}
-        onLogin={handleLogin}
+        onSignUp={handleSignUp}
+        onLogin={handleLoginSubmit}
+      />
+      <ProfileModal
+        isOpen={showProfile}
+        onClose={() => setShowProfile(false)}
+        email={user?.email}
+        username={user?.username}
+        balance={user?.balance}
+        bets={myBets}
+        loadingBets={loadingBets}
+        onLogout={async () => {
+          try {
+            await trpcClient.auth.logout.mutate();
+          } catch (err) {
+            console.error("logout failed", err);
+          } finally {
+            setUser(null);
+            setMyBets([]);
+            setShowProfile(false);
+          }
+        }}
+      />
+      <BetConfirmModal
+        isOpen={betConfirm.open}
+        onClose={() => setBetConfirm((prev) => ({ ...prev, open: false }))}
+        marketTitle={betConfirm.marketTitle}
+        side={betConfirm.side}
+        amount={betConfirm.amount}
+        newBalance={betConfirm.newBalance}
+        errorMessage={betConfirm.errorMessage}
       />
     </div>
   );

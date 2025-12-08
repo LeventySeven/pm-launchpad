@@ -1,4 +1,4 @@
-# Pravda Market (Next.js + Bun)
+# Pravda Market Next.js + Bun
 
 Prediction market demo being prepared for Telegram Mini App. Current stack:
 - Bun.js + Next.js (App Router) + TypeScript

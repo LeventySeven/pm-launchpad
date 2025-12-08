@@ -22,7 +22,14 @@ const useTelegramWebApp = (): TelegramHookState => {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const tg = window.Telegram?.WebApp;
-    if (!tg) return;
+    if (!tg) {
+      console.warn("Telegram WebApp is not available. Are you inside Telegram?");
+      return;
+    }
+
+    const unsafe = tg.initDataUnsafe as any;
+    console.log("Telegram initDataUnsafe:", unsafe);
+    console.log("Telegram user:", unsafe?.user);
 
     const applyTelegramState = () =>
       setState({
