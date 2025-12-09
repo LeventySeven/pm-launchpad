@@ -36,24 +36,24 @@ const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, lang }) => {
   return (
     <div 
         onClick={onClick}
-        className="bg-black border border-neutral-900 rounded-xl p-4 hover:border-neutral-700 transition-all duration-300 flex flex-col h-full group cursor-pointer relative overflow-hidden"
+        className="group relative rounded-xl border border-zinc-800 bg-[#09090b] text-card-foreground shadow hover:border-zinc-700 transition-all duration-300 flex flex-col h-full cursor-pointer overflow-hidden p-5"
     >
       
       {/* NEW Badge - Subtle Outline */}
       {market.isNew && (
-          <div className="absolute top-2 left-2 border border-[#BEFF1D]/40 text-[#BEFF1D] text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider bg-black/50 backdrop-blur-sm z-10">
+          <div className="absolute top-3 left-3 border border-[#BEFF1D]/30 text-[#BEFF1D] text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider z-10">
               NEW
           </div>
       )}
 
       {/* Header: Icon + Title */}
-      <div className="flex items-start gap-3 mb-5 mt-2">
+      <div className="flex items-start gap-3 mb-6 mt-1">
         <img 
           src={market.imageUrl} 
           alt={market.title} 
-          className="w-10 h-10 rounded-full grayscale opacity-80 group-hover:opacity-100 transition-opacity bg-neutral-900 object-cover flex-shrink-0"
+          className="w-10 h-10 rounded-full grayscale opacity-80 group-hover:opacity-100 transition-opacity bg-zinc-900 object-cover flex-shrink-0 border border-zinc-800"
         />
-        <h3 className="text-[16px] font-medium text-neutral-200 leading-snug group-hover:text-white transition-colors line-clamp-3">
+        <h3 className="text-[15px] font-medium tracking-tight text-zinc-100 leading-snug group-hover:text-white transition-colors line-clamp-3">
           {market.title}
         </h3>
       </div>
@@ -61,14 +61,14 @@ const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, lang }) => {
       {/* Main Stats: Chance Bar */}
       <div className="mt-auto">
         <div className="flex items-end justify-between mb-2">
-            <span className="text-2xl font-bold text-[#BEFF1D] leading-none">{market.chance}%</span>
-            <span className="text-xs text-neutral-600 font-mono uppercase">
+            <span className="text-2xl font-bold text-[#BEFF1D] leading-none tracking-tight">{market.chance}%</span>
+            <span className="text-xs text-zinc-500 font-medium uppercase tracking-wide">
                 {lang === 'RU' ? 'Вероятность' : 'Chance'}
             </span>
         </div>
         
         {/* Progress Bar */}
-        <div className="w-full h-1 bg-neutral-900 rounded-full mb-5 overflow-hidden flex">
+        <div className="w-full h-1.5 bg-zinc-900 rounded-full mb-6 overflow-hidden flex">
           <div 
             className="h-full bg-[#BEFF1D]" 
             style={{ width: `${market.chance}%` }}
@@ -82,22 +82,22 @@ const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, lang }) => {
         {/* Buttons and Info */}
         <div className="flex items-center justify-between gap-3" onClick={(e) => e.stopPropagation()}>
             <div className="flex gap-2 w-full">
-                {/* YES Button - Green Active */}
-                <button className="flex-1 bg-neutral-900 hover:bg-[#BEFF1D]/10 hover:text-[#BEFF1D] hover:border-[#BEFF1D]/30 text-neutral-400 text-xs font-semibold py-2 px-3 rounded-lg text-center transition-colors border border-neutral-800 uppercase">
+                {/* YES Button */}
+                <button className="flex-1 h-9 rounded-md bg-zinc-900 hover:bg-[#BEFF1D]/10 hover:text-[#BEFF1D] hover:border-[#BEFF1D]/30 text-zinc-400 text-xs font-semibold px-3 text-center transition-colors border border-zinc-800 uppercase focus-visible:ring-2 focus-visible:ring-[#BEFF1D] focus-visible:outline-none">
                     {lang === 'RU' ? 'Да' : 'Yes'} ${market.yesPrice}
                 </button>
-                {/* NO Button - Pink Active */}
-                <button className="flex-1 bg-neutral-900 hover:bg-[#f544a6]/10 hover:text-[#f544a6] hover:border-[#f544a6]/30 text-neutral-400 text-xs font-semibold py-2 px-3 rounded-lg text-center transition-colors border border-neutral-800 uppercase">
+                {/* NO Button */}
+                <button className="flex-1 h-9 rounded-md bg-zinc-900 hover:bg-[#f544a6]/10 hover:text-[#f544a6] hover:border-[#f544a6]/30 text-zinc-400 text-xs font-semibold px-3 text-center transition-colors border border-zinc-800 uppercase focus-visible:ring-2 focus-visible:ring-[#f544a6] focus-visible:outline-none">
                     {lang === 'RU' ? 'Нет' : 'No'} ${market.noPrice}
                 </button>
             </div>
         </div>
 
         {/* Footer Meta */}
-        <div className="flex items-center gap-4 text-[10px] uppercase tracking-wider text-neutral-600 mt-4 pt-3 border-t border-white/5">
+        <div className="flex items-center gap-4 text-[10px] uppercase tracking-wider text-zinc-500 mt-4 pt-3 border-t border-zinc-800/50">
             <div className="flex items-center gap-1">
                 <span>{lang === 'RU' ? 'Объем' : 'Vol'}</span>
-                <span className="text-neutral-400">{market.volume}</span>
+                <span className="text-zinc-400 font-medium">{market.volume}</span>
             </div>
             <div className="flex items-center gap-1 ml-auto font-mono text-[#BEFF1D]">
                 <Clock size={10} />

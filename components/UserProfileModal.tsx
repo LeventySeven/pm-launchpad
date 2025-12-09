@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { User, PortfolioPosition } from '../types';
 import { X, TrendingUp, TrendingDown, Clock, Wallet, Shield, Edit2, RefreshCw, Save } from 'lucide-react';
@@ -51,16 +50,16 @@ const PortfolioItem: React.FC<PortfolioItemProps> = ({ item, lang, onClick }) =>
     return (
         <div 
             onClick={onClick}
-            className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4 flex items-center justify-between group hover:border-neutral-700 transition-colors cursor-pointer"
+            className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4 flex items-center justify-between group hover:border-zinc-700 transition-colors cursor-pointer"
         >
             <div>
                 <div className="flex items-center gap-2 mb-1">
-                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${item.type === 'YES' ? 'bg-[#BEFF1D] text-black' : 'bg-[#f544a6] text-black'}`}>
+                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm ${item.type === 'YES' ? 'bg-[#BEFF1D] text-black' : 'bg-[#f544a6] text-black'}`}>
                         {typeLabel}
                      </span>
-                     <span className="text-xs text-neutral-400 max-w-[150px] truncate group-hover:text-white transition-colors">{item.marketTitle}</span>
+                     <span className="text-xs text-zinc-400 max-w-[150px] truncate group-hover:text-white transition-colors font-medium">{item.marketTitle}</span>
                 </div>
-                <div className="flex items-center gap-2 text-[10px] text-neutral-600 uppercase tracking-wider">
+                <div className="flex items-center gap-2 text-[10px] text-zinc-600 uppercase tracking-wider">
                     <span className="flex items-center gap-1 text-[#f544a6]"><Clock size={10} /> {timer}</span>
                 </div>
             </div>
@@ -68,7 +67,7 @@ const PortfolioItem: React.FC<PortfolioItemProps> = ({ item, lang, onClick }) =>
                 <div className={`font-mono text-sm font-bold ${isProfit ? 'text-[#BEFF1D]' : 'text-[#f544a6]'}`}>
                     {isProfit ? '+' : ''}${pnlValue.toFixed(2)} ({pnlPercent.toFixed(1)}%)
                 </div>
-                <div className="text-[10px] text-neutral-500">
+                <div className="text-[10px] text-zinc-500">
                     {item.shares} {sharesLabel} @ ${item.avgPrice}
                 </div>
             </div>
@@ -117,37 +116,37 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, us
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div 
-        className="absolute inset-0 bg-black/90 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
         onClick={onClose}
       ></div>
-      <div className="relative bg-black border border-neutral-800 w-full max-w-lg rounded-2xl p-6 shadow-2xl animate-fade-in-up flex flex-col max-h-[90vh]">
+      <div className="relative bg-[#09090b] border border-zinc-800 w-full max-w-lg rounded-xl p-6 shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
         
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-white tracking-wide uppercase flex items-center gap-2">
-                {isOwnProfile ? <Wallet size={20} className="text-neutral-500"/> : <Shield size={20} className="text-neutral-500" />}
+                {isOwnProfile ? <Wallet size={20} className="text-zinc-500"/> : <Shield size={20} className="text-zinc-500" />}
                 {isOwnProfile ? (lang === 'RU' ? 'Профиль' : 'Profile') : user.name || 'User'}
             </h2>
             <button 
                 onClick={onClose}
-                className="text-neutral-600 hover:text-white transition-colors"
+                className="text-zinc-500 hover:text-white transition-colors"
             >
                 <X size={20} />
             </button>
         </div>
 
         {/* User Info Block (Avatar & Name) */}
-        <div className="flex items-center gap-4 mb-8 bg-neutral-900/30 p-4 rounded-xl border border-neutral-800">
+        <div className="flex items-center gap-4 mb-8 bg-zinc-900/30 p-4 rounded-xl border border-zinc-800">
             <div className="relative">
                 <img 
                     src={displayAvatar} 
                     alt="Avatar" 
-                    className="w-16 h-16 rounded-full object-cover border-2 border-neutral-800" 
+                    className="w-16 h-16 rounded-full object-cover border border-zinc-700" 
                 />
                 {isEditing && (
                     <button 
                         onClick={regenerateAvatar}
-                        className="absolute bottom-0 right-0 bg-neutral-800 text-white p-1 rounded-full hover:bg-neutral-700 border border-black"
+                        className="absolute bottom-0 right-0 bg-zinc-800 text-white p-1 rounded-full hover:bg-zinc-700 border border-zinc-900"
                         title={lang === 'RU' ? 'Сменить аватар' : 'Refresh avatar'}
                     >
                         <RefreshCw size={12} />
@@ -161,41 +160,41 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, us
                          <input 
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
-                            className="bg-neutral-800 border border-neutral-700 text-white px-2 py-1 rounded text-sm w-full focus:outline-none focus:border-[#BEFF1D]"
+                            className="flex h-9 w-full rounded-md border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D]"
                             placeholder="Nickname"
                          />
-                         <button onClick={handleSave} className="text-[#BEFF1D] p-1.5 hover:bg-neutral-800 rounded">
+                         <button onClick={handleSave} className="text-[#BEFF1D] p-1.5 hover:bg-zinc-800 rounded">
                             <Save size={18} />
                          </button>
                     </div>
                 ) : (
                     <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-bold text-white">{user.name || 'User'}</h3>
+                        <h3 className="text-lg font-bold text-white tracking-tight">{user.name || 'User'}</h3>
                         {isOwnProfile && (
-                            <button onClick={() => setIsEditing(true)} className="text-neutral-600 hover:text-white transition-colors">
+                            <button onClick={() => setIsEditing(true)} className="text-zinc-500 hover:text-white transition-colors">
                                 <Edit2 size={14} />
                             </button>
                         )}
                     </div>
                 )}
-                <p className="text-xs text-neutral-500 font-mono mt-1 truncate max-w-[200px]">{user.email || 'user@kachan.market'}</p>
+                <p className="text-xs text-zinc-500 font-mono mt-1 truncate max-w-[200px]">{user.email || 'user@normis.market'}</p>
             </div>
         </div>
 
         {/* Total PnL Stats */}
         <div className="grid grid-cols-2 gap-4 mb-8">
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-                <span className="text-[10px] uppercase text-neutral-500 font-bold tracking-widest block mb-1">
+            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4">
+                <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest block mb-1">
                     {lang === 'RU' ? 'Баланс' : 'Balance'}
                 </span>
-                <span className="text-2xl font-mono text-white">${user.balance.toLocaleString()}</span>
+                <span className="text-2xl font-mono text-white tracking-tight">${user.balance.toLocaleString()}</span>
             </div>
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 relative overflow-hidden">
-                <span className="text-[10px] uppercase text-neutral-500 font-bold tracking-widest block mb-1">
+            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4 relative overflow-hidden">
+                <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest block mb-1">
                     PnL (Profit/Loss)
                 </span>
                 <div className="flex items-center gap-2">
-                    <span className={`text-2xl font-mono ${(user.pnl || 0) >= 0 ? 'text-[#BEFF1D]' : 'text-[#f544a6]'}`}>
+                    <span className={`text-2xl font-mono tracking-tight ${(user.pnl || 0) >= 0 ? 'text-[#BEFF1D]' : 'text-[#f544a6]'}`}>
                         {(user.pnl || 0) >= 0 ? '+' : ''}${(user.pnl || 0).toLocaleString()}
                     </span>
                     {(user.pnl || 0) >= 0 ? <TrendingUp size={16} className="text-[#BEFF1D]"/> : <TrendingDown size={16} className="text-[#f544a6]"/>}
@@ -205,7 +204,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, us
 
         {/* Active Positions */}
         <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar mb-4">
-            <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4 sticky top-0 bg-black py-2">
+            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4 sticky top-0 bg-[#09090b] py-2">
                 {lang === 'RU' ? 'Активные ставки' : 'Active Positions'}
             </h3>
             <div className="space-y-3">
@@ -219,7 +218,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, us
                         />
                     ))
                 ) : (
-                    <div className="text-center py-10 text-neutral-700 text-sm">
+                    <div className="text-center py-10 text-zinc-600 text-sm">
                         {lang === 'RU' ? 'Нет активных ставок' : 'No active positions'}
                     </div>
                 )}
@@ -227,7 +226,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, us
         </div>
 
         {isOwnProfile && (
-            <div className="mt-auto pt-4 border-t border-neutral-900">
+            <div className="mt-auto pt-4 border-t border-zinc-800">
                 <Button variant="ghost" fullWidth onClick={onLogout} className="text-red-500 hover:text-red-400 hover:bg-red-500/10">
                     {lang === 'RU' ? 'Выйти' : 'Log Out'}
                 </Button>

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Users, Copy, Check, UserPlus, X } from 'lucide-react';
 import Button from './Button';
@@ -38,36 +37,36 @@ const Referrals: React.FC<ReferralsProps> = ({ user, onLogin, lang }) => {
   };
 
   return (
-    <div className="max-w-md mx-auto px-4 py-8 pb-24 text-center animate-fade-in">
-        <div className="bg-neutral-900/30 border border-neutral-800 rounded-2xl p-8 mb-8">
-            <div className="w-16 h-16 bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-6">
+    <div className="max-w-md mx-auto px-4 py-8 pb-24 text-center animate-in fade-in duration-500">
+        <div className="bg-zinc-900/30 border border-zinc-800 rounded-xl p-8 mb-8">
+            <div className="w-16 h-16 bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-6 border border-zinc-700">
                 <Users size={32} className="text-[#BEFF1D]" />
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2 uppercase tracking-wider">
+            <h2 className="text-2xl font-bold text-white mb-2 uppercase tracking-wide">
                 {lang === 'RU' ? 'Пригласи Друзей' : 'Invite Friends'}
             </h2>
-            <p className="text-neutral-500 text-sm mb-6 leading-relaxed">
+            <p className="text-zinc-500 text-sm mb-6 leading-relaxed">
                 {lang === 'RU' 
                     ? 'Получайте 30% от комиссий ваших друзей пожизненно. Просто поделитесь ссылкой.' 
                     : 'Earn 30% of your friends\' trading fees forever. Just share your invite link.'}
             </p>
 
-            <div className="bg-black border border-neutral-800 rounded-lg p-3 flex items-center gap-3 mb-6 relative group">
+            <div className="bg-[#09090b] border border-zinc-800 rounded-md p-1.5 flex items-center gap-2 mb-6 relative group focus-within:ring-1 focus-within:ring-[#BEFF1D]">
                  <input 
                     readOnly 
                     value={user ? inviteLink : (lang === 'RU' ? 'Войдите чтобы получить ссылку' : 'Log in to get link')} 
-                    className="bg-transparent text-sm text-neutral-400 w-full focus:outline-none font-mono"
+                    className="bg-transparent text-sm text-zinc-400 w-full focus:outline-none font-mono px-2"
                  />
                  <button 
                     onClick={handleCopy}
-                    className="p-2 hover:bg-neutral-800 rounded-md transition-colors text-neutral-500 hover:text-white"
+                    className="p-2 hover:bg-zinc-800 rounded-sm transition-colors text-zinc-500 hover:text-white"
                  >
                     {copied ? <Check size={16} className="text-[#BEFF1D]" /> : <Copy size={16} />}
                  </button>
             </div>
 
             {!user && (
-                <Button onClick={onLogin} fullWidth>
+                <Button onClick={onLogin} fullWidth variant="primary">
                     {lang === 'RU' ? 'Войти' : 'Log In'}
                 </Button>
             )}
@@ -76,14 +75,14 @@ const Referrals: React.FC<ReferralsProps> = ({ user, onLogin, lang }) => {
         {user && (
             <>
                 <div className="grid grid-cols-2 gap-4 mb-8">
-                    <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4">
-                        <span className="text-[10px] uppercase text-neutral-500 font-bold tracking-widest block mb-2">
+                    <div className="bg-zinc-900/30 border border-zinc-800 rounded-lg p-4">
+                        <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest block mb-2">
                             {lang === 'RU' ? 'Приглашено' : 'Invited'}
                         </span>
                         <span className="text-2xl font-mono text-white">{user.referrals || 0}</span>
                     </div>
-                    <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4">
-                        <span className="text-[10px] uppercase text-neutral-500 font-bold tracking-widest block mb-2">
+                    <div className="bg-zinc-900/30 border border-zinc-800 rounded-lg p-4">
+                        <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest block mb-2">
                             {lang === 'RU' ? 'Заработано' : 'Earned'}
                         </span>
                         <span className="text-2xl font-mono text-[#BEFF1D]">$0.00</span>
@@ -92,7 +91,7 @@ const Referrals: React.FC<ReferralsProps> = ({ user, onLogin, lang }) => {
 
                 {/* Friends List Section */}
                 <div className="text-left">
-                    <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4">
+                    <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4">
                         {lang === 'RU' ? 'Мои Друзья' : 'Following'}
                     </h3>
                     
@@ -103,12 +102,12 @@ const Referrals: React.FC<ReferralsProps> = ({ user, onLogin, lang }) => {
                             value={friendName}
                             onChange={(e) => setFriendName(e.target.value)}
                             placeholder={lang === 'RU' ? "Никнейм друга..." : "Friend's nickname..."}
-                            className="flex-1 bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-neutral-600 placeholder:text-neutral-700"
+                            className="flex h-10 w-full rounded-md border border-zinc-800 bg-transparent px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D]"
                         />
                         <button 
                             onClick={handleAddFriend}
                             disabled={!friendName}
-                            className="bg-[#BEFF1D] text-black rounded-lg px-3 py-2 hover:bg-[#a6e612] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="bg-[#BEFF1D] text-black rounded-md px-3 hover:bg-[#a6e612] disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-[#BEFF1D]"
                         >
                             <UserPlus size={18} />
                         </button>
@@ -117,21 +116,21 @@ const Referrals: React.FC<ReferralsProps> = ({ user, onLogin, lang }) => {
                     {/* List */}
                     <div className="space-y-2">
                         {friends.map((friend, idx) => (
-                            <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-neutral-900/30 border border-neutral-800">
+                            <div key={idx} className="flex items-center justify-between p-3 rounded-md bg-zinc-900/30 border border-zinc-800">
                                 <div className="flex items-center gap-3">
-                                    <img src={`https://ui-avatars.com/api/?name=${friend}&background=random`} className="w-8 h-8 rounded-full" alt={friend}/>
+                                    <img src={`https://ui-avatars.com/api/?name=${friend}&background=random`} className="w-8 h-8 rounded-full border border-zinc-700" alt={friend}/>
                                     <span className="text-sm font-medium text-white">{friend}</span>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <span className="text-[10px] text-[#BEFF1D] font-mono">+12% PnL</span>
-                                    <button onClick={() => removeFriend(friend)} className="text-neutral-600 hover:text-red-500">
+                                    <button onClick={() => removeFriend(friend)} className="text-zinc-600 hover:text-red-500">
                                         <X size={14} />
                                     </button>
                                 </div>
                             </div>
                         ))}
                         {friends.length === 0 && (
-                            <div className="text-center text-xs text-neutral-600 py-4">
+                            <div className="text-center text-xs text-zinc-600 py-4">
                                 {lang === 'RU' ? 'Список пуст' : 'No friends followed'}
                             </div>
                         )}

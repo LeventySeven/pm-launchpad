@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { X, Calendar, CheckCircle, Plus, Trash2, List, ToggleLeft } from 'lucide-react';
 import Button from './Button';
@@ -60,24 +59,24 @@ const SuggestMarketModal: React.FC<SuggestMarketModalProps> = ({ isOpen, onClose
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div 
-        className="absolute inset-0 bg-black/90 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
         onClick={onClose}
       ></div>
-      <div className="relative bg-black border border-neutral-800 w-full max-w-md rounded-2xl p-6 shadow-2xl animate-fade-in-up max-h-[90vh] overflow-y-auto custom-scrollbar">
+      <div className="relative bg-[#09090b] border border-zinc-800 w-full max-w-md rounded-xl p-6 shadow-lg animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto custom-scrollbar">
         <button 
           onClick={onClose}
-          className="absolute top-4 right-4 text-neutral-600 hover:text-white transition-colors"
+          className="absolute top-4 right-4 rounded-sm opacity-70 ring-offset-black transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-[#BEFF1D] focus:ring-offset-2 disabled:pointer-events-none"
         >
-          <X size={20} />
+          <X size={16} className="text-zinc-400" />
         </button>
 
         {isSuccess ? (
              <div className="flex flex-col items-center justify-center py-10">
                 <CheckCircle size={48} className="text-[#BEFF1D] mb-4 animate-bounce" />
-                <h3 className="text-xl font-bold text-white mb-2">
+                <h3 className="text-xl font-semibold tracking-tight text-white mb-2">
                     {lang === 'RU' ? 'Отправлено!' : 'Submitted!'}
                 </h3>
-                <p className="text-neutral-500 text-sm text-center">
+                <p className="text-zinc-500 text-sm text-center">
                     {lang === 'RU' 
                         ? 'Ваше событие отправлено на модерацию. Если оно будет одобрено, оно появится в списке с пометкой NEW.' 
                         : 'Your event has been sent for review. If approved, it will appear with a NEW badge.'}
@@ -85,33 +84,38 @@ const SuggestMarketModal: React.FC<SuggestMarketModalProps> = ({ isOpen, onClose
              </div>
         ) : (
             <>
-                <h2 className="text-xl font-bold text-white mb-6 tracking-wide uppercase">
-                {lang === 'RU' ? 'Предложить Событие' : 'Suggest Event'}
-                </h2>
+                <div className="mb-6">
+                    <h2 className="text-lg font-semibold tracking-tight text-white">
+                        {lang === 'RU' ? 'Предложить Событие' : 'Suggest Event'}
+                    </h2>
+                    <p className="text-sm text-zinc-500">
+                        {lang === 'RU' ? 'Создайте новый рынок для предсказаний.' : 'Create a new prediction market.'}
+                    </p>
+                </div>
 
-                <div className="space-y-5">
+                <div className="space-y-4">
                     {/* Creator Info */}
-                    <div className="flex items-center gap-2 text-xs text-neutral-500 bg-neutral-900/50 p-2 rounded-lg border border-neutral-800">
+                    <div className="flex items-center gap-2 text-xs text-zinc-500 bg-zinc-900/50 p-2 rounded-md border border-zinc-800">
                         <span>{lang === 'RU' ? 'Создатель:' : 'Creator:'}</span>
-                        <span className="text-white font-bold">{user ? user.name : (lang === 'RU' ? 'Аноним' : 'Anonymous')}</span>
+                        <span className="text-white font-medium">{user ? user.name : (lang === 'RU' ? 'Аноним' : 'Anonymous')}</span>
                     </div>
 
                     {/* Question/Title */}
-                    <div>
-                        <label className="block text-[10px] font-bold text-neutral-500 mb-2 uppercase tracking-widest">
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-zinc-300">
                             {lang === 'RU' ? 'Вопрос / Событие' : 'Question / Event'}
                         </label>
                         <input 
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             placeholder={lang === 'RU' ? "Например: Вырастет ли BTC до 100к?" : "E.g., Will BTC hit 100k?"}
-                            className="w-full bg-black border border-neutral-800 rounded-lg p-3 text-white text-sm focus:border-[#BEFF1D] focus:outline-none transition-colors placeholder:text-neutral-800"
+                            className="flex h-9 w-full rounded-md border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D] disabled:cursor-not-allowed disabled:opacity-50"
                         />
                     </div>
 
                     {/* Category */}
-                    <div>
-                        <label className="block text-[10px] font-bold text-neutral-500 mb-2 uppercase tracking-widest">
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-medium leading-none text-zinc-300">
                             {lang === 'RU' ? 'Категория' : 'Category'}
                         </label>
                         <div className="flex flex-wrap gap-2">
@@ -119,7 +123,7 @@ const SuggestMarketModal: React.FC<SuggestMarketModalProps> = ({ isOpen, onClose
                                 <button
                                     key={cat.id}
                                     onClick={() => setCategory(cat.id)}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase border transition-all ${category === cat.id ? 'bg-[#BEFF1D] text-black border-[#BEFF1D]' : 'bg-transparent text-neutral-500 border-neutral-800 hover:border-neutral-600'}`}
+                                    className={`px-3 py-1 rounded-md text-xs font-medium border transition-all ${category === cat.id ? 'bg-[#BEFF1D] text-black border-[#BEFF1D]' : 'bg-transparent text-zinc-500 border-zinc-800 hover:border-zinc-600 hover:text-zinc-300'}`}
                                 >
                                     {lang === 'RU' ? cat.labelRU : cat.labelEN}
                                 </button>
@@ -128,8 +132,8 @@ const SuggestMarketModal: React.FC<SuggestMarketModalProps> = ({ isOpen, onClose
                     </div>
 
                     {/* End Date */}
-                    <div>
-                        <label className="block text-[10px] font-bold text-neutral-500 mb-2 uppercase tracking-widest">
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-medium leading-none text-zinc-300">
                             {lang === 'RU' ? 'Дата завершения' : 'End Date'}
                         </label>
                         <div className="relative">
@@ -137,28 +141,28 @@ const SuggestMarketModal: React.FC<SuggestMarketModalProps> = ({ isOpen, onClose
                                 type="date"
                                 value={endDate}
                                 onChange={(e) => setEndDate(e.target.value)}
-                                className="w-full bg-black border border-neutral-800 rounded-lg p-3 pl-10 text-white text-sm focus:border-[#BEFF1D] focus:outline-none transition-colors [color-scheme:dark]"
+                                className="flex h-9 w-full rounded-md border border-zinc-800 bg-transparent pl-9 pr-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D] [color-scheme:dark]"
                             />
-                            <Calendar size={16} className="absolute left-3 top-3 text-neutral-500" />
+                            <Calendar size={14} className="absolute left-3 top-2.5 text-zinc-500" />
                         </div>
                     </div>
 
                     {/* Outcome Type Selection */}
-                    <div>
-                        <label className="block text-[10px] font-bold text-neutral-500 mb-2 uppercase tracking-widest">
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-medium leading-none text-zinc-300">
                             {lang === 'RU' ? 'Тип исхода' : 'Outcome Type'}
                         </label>
-                        <div className="flex bg-neutral-900 border border-neutral-800 rounded-lg p-1">
+                        <div className="flex bg-zinc-900 border border-zinc-800 rounded-md p-1">
                             <button 
                                 onClick={() => setOutcomeType('BINARY')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-xs font-bold uppercase transition-all ${outcomeType === 'BINARY' ? 'bg-neutral-800 text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-300'}`}
+                                className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-sm text-xs font-medium transition-all ${outcomeType === 'BINARY' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
                             >
                                 <ToggleLeft size={14} />
                                 {lang === 'RU' ? 'Да / Нет' : 'Yes / No'}
                             </button>
                             <button 
                                 onClick={() => setOutcomeType('CUSTOM')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-xs font-bold uppercase transition-all ${outcomeType === 'CUSTOM' ? 'bg-neutral-800 text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-300'}`}
+                                className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-sm text-xs font-medium transition-all ${outcomeType === 'CUSTOM' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
                             >
                                 <List size={14} />
                                 {lang === 'RU' ? 'Свой вариант' : 'Custom'}
@@ -168,36 +172,36 @@ const SuggestMarketModal: React.FC<SuggestMarketModalProps> = ({ isOpen, onClose
 
                     {/* Dynamic Outcome Inputs */}
                     {outcomeType === 'BINARY' ? (
-                        <div className="p-4 bg-neutral-900/30 rounded-lg border border-neutral-800 flex justify-between items-center animate-fade-in">
-                            <span className="text-xs text-neutral-500">{lang === 'RU' ? 'Стандартные исходы:' : 'Standard outcomes:'}</span>
+                        <div className="p-4 bg-zinc-900/30 rounded-md border border-zinc-800 flex justify-between items-center">
+                            <span className="text-xs text-zinc-500">{lang === 'RU' ? 'Стандартные исходы:' : 'Standard outcomes:'}</span>
                             <div className="flex gap-2">
-                                    <span className="bg-neutral-800 border border-neutral-700 text-[#BEFF1D] text-[10px] font-bold px-3 py-1.5 rounded">{lang === 'RU' ? 'ДА' : 'YES'}</span>
-                                    <span className="bg-neutral-800 border border-neutral-700 text-[#f544a6] text-[10px] font-bold px-3 py-1.5 rounded">{lang === 'RU' ? 'НЕТ' : 'NO'}</span>
+                                    <span className="bg-zinc-800 border border-zinc-700 text-[#BEFF1D] text-[10px] font-bold px-2 py-1 rounded-sm">{lang === 'RU' ? 'ДА' : 'YES'}</span>
+                                    <span className="bg-zinc-800 border border-zinc-700 text-[#f544a6] text-[10px] font-bold px-2 py-1 rounded-sm">{lang === 'RU' ? 'НЕТ' : 'NO'}</span>
                             </div>
                         </div>
                     ) : (
-                        <div className="space-y-3 animate-fade-in">
+                        <div className="space-y-3">
                             {customOutcomes.map((outcome, index) => (
                                 <div key={index} className="flex gap-2">
                                     <input 
                                         value={outcome}
                                         onChange={(e) => handleOutcomeChange(index, e.target.value)}
                                         placeholder={lang === 'RU' ? `Вариант ${index + 1}` : `Option ${index + 1}`}
-                                        className="flex-1 bg-black border border-neutral-800 rounded-lg p-3 text-white text-sm focus:border-[#BEFF1D] focus:outline-none transition-colors placeholder:text-neutral-800"
+                                        className="flex h-9 w-full rounded-md border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D]"
                                     />
                                     {customOutcomes.length > 2 && (
                                         <button 
                                             onClick={() => handleRemoveOutcome(index)}
-                                            className="p-3 text-neutral-600 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                                            className="px-3 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-500 hover:bg-red-900/20 hover:text-red-500 hover:border-red-900/50 transition-colors"
                                         >
-                                            <Trash2 size={18} />
+                                            <Trash2 size={16} />
                                         </button>
                                     )}
                                 </div>
                             ))}
                             <button 
                                 onClick={handleAddOutcome}
-                                className="w-full py-2 border border-dashed border-neutral-800 hover:border-neutral-600 rounded-lg text-neutral-500 hover:text-[#BEFF1D] text-xs uppercase font-bold transition-all flex items-center justify-center gap-2"
+                                className="w-full py-2 border border-dashed border-zinc-800 hover:border-zinc-600 rounded-md text-zinc-500 hover:text-[#BEFF1D] text-xs uppercase font-bold transition-all flex items-center justify-center gap-2"
                             >
                                 <Plus size={14} />
                                 {lang === 'RU' ? 'Добавить вариант' : 'Add Option'}
@@ -205,7 +209,7 @@ const SuggestMarketModal: React.FC<SuggestMarketModalProps> = ({ isOpen, onClose
                         </div>
                     )}
 
-                    <Button fullWidth onClick={handleSubmit} disabled={!title || !endDate || (outcomeType === 'CUSTOM' && customOutcomes.some(o => !o))}>
+                    <Button fullWidth onClick={handleSubmit} disabled={!title || !endDate || (outcomeType === 'CUSTOM' && customOutcomes.some(o => !o))} variant="primary">
                         {lang === 'RU' ? 'Отправить на проверку' : 'Submit for Review'}
                     </Button>
                 </div>

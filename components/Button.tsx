@@ -1,8 +1,8 @@
 import React from 'react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive';
+  size?: 'sm' | 'md' | 'lg' | 'icon';
   fullWidth?: boolean;
 }
 
@@ -14,29 +14,41 @@ const Button: React.FC<ButtonProps> = ({
   className = '',
   ...props 
 }) => {
-  const baseStyles = "inline-flex items-center justify-center rounded-lg font-medium transition-all focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed tracking-tight";
+  // shadcn/ui inspired base styles
+  const baseStyles = "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BEFF1D] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
   
   const variants = {
-    // Primary is now Active Gray on Black
-    primary: "bg-neutral-800 text-white hover:bg-neutral-700 border border-neutral-700 hover:border-neutral-600",
-    // Secondary is Darker
-    secondary: "bg-black text-white border border-neutral-800 hover:border-neutral-600",
-    // Outline matches the minimalist border look
-    outline: "bg-transparent border border-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-600",
-    ghost: "text-neutral-500 hover:text-white hover:bg-neutral-900"
+    // Primary matches shadcn 'default' but with our green accent logic or neutral inverse
+    primary: "bg-[#f4f4f5] text-black hover:bg-[#f4f4f5]/90", 
+    // We can also treat 'primary' as our brand green if preferred, but usually shadcn primary is foreground color. 
+    // Let's stick to the previous active gray/white feel for main actions or use Brand Green for emphasis.
+    // Actually, let's map 'primary' to a solid white/gray interaction to stand out on dark bg.
+    
+    // For specific "Brand" buttons we might use inline styles or specific classes in parent. 
+    // Let's keep primary as the high-contrast option.
+    
+    secondary: "bg-zinc-800 text-zinc-50 hover:bg-zinc-800/80",
+    outline: "border border-zinc-800 bg-black hover:bg-zinc-800 hover:text-zinc-50",
+    ghost: "hover:bg-zinc-800 hover:text-zinc-50",
+    destructive: "bg-red-900 text-red-50 hover:bg-red-900/90",
   };
 
   const sizes = {
-    sm: "px-3 py-1.5 text-xs",
-    md: "px-4 py-2 text-sm",
-    lg: "px-6 py-3 text-base"
+    sm: "h-9 rounded-md px-3",
+    md: "h-10 px-4 py-2",
+    lg: "h-11 rounded-md px-8",
+    icon: "h-10 w-10",
   };
 
   const widthStyle = fullWidth ? "w-full" : "";
 
+  // Override mapping for legacy props to new look
+  const variantClass = variants[variant];
+  const sizeClass = sizes[size];
+
   return (
     <button 
-      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${widthStyle} ${className}`}
+      className={`${baseStyles} ${variantClass} ${sizeClass} ${widthStyle} ${className}`}
       {...props}
     >
       {children}

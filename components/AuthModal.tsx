@@ -25,70 +25,72 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div 
-        className="absolute inset-0 bg-black/90 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
         onClick={onClose}
       ></div>
-      <div className="relative bg-black border border-neutral-800 w-full max-w-md rounded-2xl p-8 shadow-2xl animate-fade-in-up">
+      <div className="relative bg-[#09090b] border border-zinc-800 w-full max-w-sm rounded-xl p-6 shadow-lg animate-in zoom-in-95 duration-200">
         <button 
           onClick={onClose}
-          className="absolute top-6 right-6 text-neutral-600 hover:text-white transition-colors"
+          className="absolute top-4 right-4 rounded-sm opacity-70 ring-offset-black transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-[#BEFF1D] focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-zinc-800 data-[state=open]:text-zinc-500"
         >
-          <X size={20} />
+          <X size={16} className="text-zinc-400" />
         </button>
 
-        <h2 className="text-xl font-bold text-white mb-2 tracking-wide">
-          {step === 'SELECT' ? 'Enter Nothing' : 'Email Login'}
-        </h2>
-        <p className="text-neutral-500 mb-8 text-xs uppercase tracking-wider">
-           {step === 'SELECT' ? 'Connect to start trading.' : 'We will send a magic link.'}
-        </p>
+        <div className="flex flex-col space-y-1.5 text-center sm:text-left mb-6">
+            <h2 className="text-lg font-semibold leading-none tracking-tight text-white">
+                {step === 'SELECT' ? 'Enter Normis' : 'Email Login'}
+            </h2>
+            <p className="text-sm text-zinc-400">
+                {step === 'SELECT' ? 'Connect to start trading.' : 'We will send a magic link.'}
+            </p>
+        </div>
 
         {step === 'SELECT' ? (
             <div className="space-y-3">
             <button 
                 onClick={handleLogin}
-                className="w-full flex items-center justify-between p-4 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-600 transition-all group"
+                className="w-full flex items-center justify-between p-3 rounded-md bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BEFF1D]"
             >
-                <div className="flex items-center gap-4">
-                <div className="bg-white/5 p-2 rounded-lg text-white">
-                    <Wallet size={18} />
+                <div className="flex items-center gap-3">
+                <div className="bg-zinc-800 p-2 rounded-md text-white">
+                    <Wallet size={16} />
                 </div>
-                <span className="font-medium text-sm text-neutral-300 group-hover:text-white transition-colors">Crypto Wallet</span>
+                <span className="font-medium text-sm text-zinc-300 group-hover:text-white transition-colors">Crypto Wallet</span>
                 </div>
-                <ArrowRight size={16} className="text-neutral-600 group-hover:text-white group-hover:translate-x-1 transition-all" />
+                <ArrowRight size={16} className="text-zinc-600 group-hover:text-white group-hover:translate-x-1 transition-all" />
             </button>
 
             <button 
                 onClick={() => setStep('EMAIL')}
-                className="w-full flex items-center justify-between p-4 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-600 transition-all group"
+                className="w-full flex items-center justify-between p-3 rounded-md bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BEFF1D]"
             >
-                <div className="flex items-center gap-4">
-                <div className="bg-white/5 p-2 rounded-lg text-white">
-                    <Mail size={18} />
+                <div className="flex items-center gap-3">
+                <div className="bg-zinc-800 p-2 rounded-md text-white">
+                    <Mail size={16} />
                 </div>
-                <span className="font-medium text-sm text-neutral-300 group-hover:text-white transition-colors">Email Address</span>
+                <span className="font-medium text-sm text-zinc-300 group-hover:text-white transition-colors">Email Address</span>
                 </div>
-                <ArrowRight size={16} className="text-neutral-600 group-hover:text-white group-hover:translate-x-1 transition-all" />
+                <ArrowRight size={16} className="text-zinc-600 group-hover:text-white group-hover:translate-x-1 transition-all" />
             </button>
             </div>
         ) : (
-            <div className="space-y-6">
-                <div>
-                    <label className="block text-[10px] font-bold text-neutral-500 mb-2 uppercase tracking-widest">Email</label>
+            <div className="space-y-4">
+                <div className="space-y-2">
+                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-zinc-300">Email</label>
                     <input 
                         type="email" 
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="name@example.com"
-                        className="w-full bg-black border border-neutral-800 rounded-lg p-3 text-white focus:border-neutral-600 focus:outline-none transition-colors placeholder:text-neutral-800"
+                        className="flex h-9 w-full rounded-md border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D] disabled:cursor-not-allowed disabled:opacity-50"
                     />
                 </div>
-                <Button fullWidth onClick={handleLogin}>
+                <Button fullWidth onClick={handleLogin} variant="primary">
                     Continue
                 </Button>
                 <button 
                     onClick={() => setStep('SELECT')}
-                    className="w-full text-center text-xs text-neutral-600 hover:text-white uppercase tracking-wider"
+                    className="w-full text-center text-sm text-zinc-500 hover:text-white hover:underline underline-offset-4"
                 >
                     Back
                 </button>

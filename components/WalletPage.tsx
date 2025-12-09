@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { User } from '../types';
 import { Wallet, ArrowDownLeft, ArrowUpRight, History } from 'lucide-react';
@@ -27,43 +26,43 @@ const MOCK_TRANSACTIONS: Transaction[] = [
 const WalletPage: React.FC<WalletPageProps> = ({ user, onLogin, lang }) => {
   if (!user) {
       return (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center animate-fade-in">
-            <div className="w-16 h-16 bg-neutral-900 rounded-full flex items-center justify-center mb-6">
-                <Wallet size={32} className="text-neutral-500" />
+        <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center animate-in fade-in zoom-in-95 duration-300">
+            <div className="w-16 h-16 bg-zinc-900 rounded-full flex items-center justify-center mb-6 border border-zinc-800">
+                <Wallet size={32} className="text-zinc-500" />
             </div>
-            <h2 className="text-xl font-bold text-white mb-2">
+            <h2 className="text-xl font-semibold tracking-tight text-white mb-2">
                 {lang === 'RU' ? 'Кошелек недоступен' : 'Wallet Locked'}
             </h2>
-            <p className="text-neutral-500 text-sm mb-8">
+            <p className="text-zinc-500 text-sm mb-8">
                 {lang === 'RU' ? 'Войдите, чтобы управлять средствами' : 'Please log in to manage your funds'}
             </p>
-            <Button onClick={onLogin}>{lang === 'RU' ? 'Войти' : 'Log In'}</Button>
+            <Button onClick={onLogin} variant="primary">{lang === 'RU' ? 'Войти' : 'Log In'}</Button>
         </div>
       );
   }
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-8 pb-24 animate-fade-in">
+    <div className="max-w-xl mx-auto px-4 py-8 pb-24 animate-in fade-in duration-500">
       
       {/* Balance Card */}
-      <div className="bg-gradient-to-br from-neutral-900 to-black border border-neutral-800 rounded-2xl p-8 mb-8 relative overflow-hidden">
+      <div className="bg-gradient-to-br from-zinc-900 to-black border border-zinc-800 rounded-xl p-8 mb-8 relative overflow-hidden shadow-sm">
         <div className="absolute top-0 right-0 p-32 bg-[#BEFF1D] opacity-[0.03] rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
         
         <div className="text-center relative z-10">
-            <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2 block">
+            <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 block">
                 {lang === 'RU' ? 'Текущий баланс' : 'Current Balance'}
             </span>
-            <h1 className="text-4xl sm:text-5xl font-mono font-bold text-white mb-8">
+            <h1 className="text-4xl sm:text-5xl font-mono font-bold text-white mb-8 tracking-tighter">
                 ${user.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </h1>
 
             <div className="flex gap-4 justify-center">
-                <button className="flex-1 bg-[#BEFF1D] hover:bg-[#a6e612] text-black font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors">
-                    <ArrowDownLeft size={18} />
+                <button className="flex-1 bg-[#BEFF1D] hover:bg-[#a6e612] text-black font-semibold py-2.5 px-4 rounded-md flex items-center justify-center gap-2 transition-colors text-sm shadow-sm">
+                    <ArrowDownLeft size={16} />
                     {lang === 'RU' ? 'Пополнить' : 'Deposit'}
                 </button>
-                <button className="flex-1 bg-neutral-800 hover:bg-neutral-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors">
-                    <ArrowUpRight size={18} />
+                <button className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold py-2.5 px-4 rounded-md flex items-center justify-center gap-2 transition-colors border border-zinc-700 text-sm shadow-sm">
+                    <ArrowUpRight size={16} />
                     {lang === 'RU' ? 'Вывести' : 'Withdraw'}
                 </button>
             </div>
@@ -72,32 +71,32 @@ const WalletPage: React.FC<WalletPageProps> = ({ user, onLogin, lang }) => {
 
       {/* Transactions */}
       <div>
-        <h3 className="flex items-center gap-2 text-xs font-bold text-neutral-500 uppercase tracking-widest mb-6 px-1">
+        <h3 className="flex items-center gap-2 text-xs font-bold text-zinc-500 uppercase tracking-widest mb-6 px-1">
             <History size={14} />
             {lang === 'RU' ? 'История транзакций' : 'Transaction History'}
         </h3>
         
         <div className="space-y-3">
             {MOCK_TRANSACTIONS.map((tx) => (
-                <div key={tx.id} className="flex items-center justify-between p-4 bg-neutral-900/30 border border-neutral-800 rounded-xl">
+                <div key={tx.id} className="flex items-center justify-between p-4 bg-zinc-900/30 border border-zinc-800 rounded-lg transition-colors hover:bg-zinc-900/50">
                     <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.amount > 0 ? 'bg-[#BEFF1D]/10 text-[#BEFF1D]' : 'bg-neutral-800 text-neutral-400'}`}>
-                            {tx.type === 'DEPOSIT' && <ArrowDownLeft size={18} />}
-                            {tx.type === 'WITHDRAW' && <ArrowUpRight size={18} />}
-                            {tx.type === 'WIN' && <Wallet size={18} />}
-                            {tx.type === 'BET' && <ArrowUpRight size={18} className="rotate-45"/>}
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center border ${tx.amount > 0 ? 'bg-[#BEFF1D]/10 text-[#BEFF1D] border-[#BEFF1D]/20' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}>
+                            {tx.type === 'DEPOSIT' && <ArrowDownLeft size={16} />}
+                            {tx.type === 'WITHDRAW' && <ArrowUpRight size={16} />}
+                            {tx.type === 'WIN' && <Wallet size={16} />}
+                            {tx.type === 'BET' && <ArrowUpRight size={16} className="rotate-45"/>}
                         </div>
                         <div>
-                            <div className="text-sm font-bold text-white">
+                            <div className="text-sm font-semibold text-zinc-200">
                                 {tx.type === 'DEPOSIT' && (lang === 'RU' ? 'Пополнение' : 'Deposit')}
                                 {tx.type === 'WITHDRAW' && (lang === 'RU' ? 'Вывод' : 'Withdrawal')}
                                 {tx.type === 'WIN' && (lang === 'RU' ? 'Выигрыш' : 'Market Win')}
                                 {tx.type === 'BET' && (lang === 'RU' ? 'Ставка' : 'Bet Placed')}
                             </div>
-                            <div className="text-[10px] text-neutral-600 uppercase tracking-wider">{tx.date}</div>
+                            <div className="text-[10px] text-zinc-500 uppercase tracking-wider">{tx.date}</div>
                         </div>
                     </div>
-                    <div className={`font-mono font-bold text-sm ${tx.amount > 0 ? 'text-[#BEFF1D]' : 'text-white'}`}>
+                    <div className={`font-mono font-bold text-sm ${tx.amount > 0 ? 'text-[#BEFF1D]' : 'text-zinc-200'}`}>
                         {tx.amount > 0 ? '+' : ''}{tx.amount.toFixed(2)}
                     </div>
                 </div>

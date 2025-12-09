@@ -24,38 +24,38 @@ const NormisIcon = ({ size = 24, className = "" }: { size?: number, className?: 
 
 const Header: React.FC<HeaderProps> = ({ lang, onToggleLang, onHelpClick }) => {
   return (
-    <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-md border-b border-white/5">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
+    <header className="sticky top-0 z-40 w-full border-b border-zinc-800 bg-[#09090b]/80 backdrop-blur supports-[backdrop-filter]:bg-[#09090b]/60">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
         
         {/* Logo */}
-        <div className="flex items-center gap-2.5 cursor-pointer group">
+        <div className="flex items-center gap-2 cursor-pointer group">
           <div className="transition-transform group-hover:rotate-90 duration-500">
-            <NormisIcon size={26} />
+            <NormisIcon size={24} />
           </div>
           <div>
-            <h1 className="text-sm font-bold tracking-widest text-white leading-none uppercase group-hover:text-[#BEFF1D] transition-colors">
+            <h1 className="text-sm font-bold tracking-tight text-white leading-none uppercase group-hover:text-[#BEFF1D] transition-colors">
               NORMIS MARKET
             </h1>
           </div>
         </div>
 
         {/* Search (Desktop) */}
-        <div className="hidden md:flex flex-1 max-w-lg mx-8 relative">
+        <div className="hidden md:flex flex-1 max-w-sm mx-8 relative">
           <input 
             type="text" 
             placeholder={lang === 'RU' ? "Поиск..." : "Search..."}
-            className="w-full bg-black border border-neutral-800 rounded-lg py-2 pl-10 pr-4 text-sm text-white focus:border-neutral-600 focus:outline-none transition-all placeholder:text-neutral-700"
+            className="flex h-9 w-full rounded-md border border-zinc-800 bg-transparent px-3 py-1 pl-9 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D] disabled:cursor-not-allowed disabled:opacity-50"
           />
-          <Search size={16} className="absolute left-3.5 top-2.5 text-neutral-700" />
+          <Search size={14} className="absolute left-3 top-2.5 text-zinc-500" />
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           
           {/* Help Button */}
           <button
             onClick={onHelpClick}
-            className="flex items-center justify-center p-2 rounded-lg border border-neutral-800 hover:border-neutral-600 text-neutral-400 hover:text-white transition-colors"
+            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BEFF1D] hover:bg-zinc-800 hover:text-zinc-50 h-9 w-9"
             title={lang === 'RU' ? 'Помощь' : 'Help'}
           >
             <HelpCircle size={16} />
@@ -64,7 +64,7 @@ const Header: React.FC<HeaderProps> = ({ lang, onToggleLang, onHelpClick }) => {
           {/* Lang Toggle */}
           <button 
             onClick={onToggleLang}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-800 hover:border-neutral-600 text-xs font-bold text-neutral-400 hover:text-white transition-colors"
+            className="inline-flex items-center justify-center rounded-md text-xs font-bold ring-offset-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BEFF1D] border border-zinc-800 bg-transparent hover:bg-zinc-800 text-zinc-400 hover:text-white h-9 px-3 gap-2"
           >
             <Globe size={12} />
             {lang}

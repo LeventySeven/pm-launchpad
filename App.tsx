@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import MarketCard from './components/MarketCard';
@@ -190,49 +187,53 @@ const App: React.FC = () => {
           case 'EVENTS':
           default:
               return (
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 animate-fade-in pb-24">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-10 animate-in fade-in duration-500 pb-24">
                     
-                    {/* Top Controls: Suggest & Category */}
+                    {/* Mobile Search - Moved to top for better UX */}
+                    <div className="relative w-full md:hidden mb-6">
+                        <input 
+                            type="text" 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder={lang === 'RU' ? "Поиск событий..." : "Search events..."}
+                            className="flex h-10 w-full rounded-md border border-zinc-800 bg-transparent px-3 py-2 pl-10 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D] placeholder:text-zinc-600"
+                        />
+                        <Search size={16} className="absolute left-3.5 top-3 text-zinc-500" />
+                    </div>
+
+                    {/* Top Controls: Category & Suggest */}
                     <div className="flex flex-col-reverse md:flex-row items-start md:items-end justify-between gap-6 mb-8">
-                        {/* Categories Bar */}
-                        <div className="flex overflow-x-auto pb-2 md:pb-0 gap-2 w-full md:w-auto scrollbar-hide">
-                            {CATEGORIES.map((cat) => (
-                            <button
-                                key={cat.id}
-                                onClick={() => setActiveCategory(cat.id)}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs uppercase tracking-widest font-bold transition-all whitespace-nowrap border
-                                ${activeCategory === cat.id 
-                                    ? 'bg-white text-black border-white' 
-                                    : 'bg-transparent text-neutral-600 border-transparent hover:bg-neutral-900 hover:text-white'
-                                }`}
-                            >
-                                {lang === 'RU' ? cat.labelRU : cat.labelEN}
-                            </button>
-                            ))}
+                        
+                        {/* Categories Bar - Edge-to-Edge on Mobile */}
+                        <div className="w-full md:w-auto -mx-4 px-4 md:mx-0 md:px-0">
+                            <div className="flex overflow-x-auto gap-2 pb-2 md:pb-0 scrollbar-hide">
+                                {CATEGORIES.map((cat) => (
+                                <button
+                                    key={cat.id}
+                                    onClick={() => setActiveCategory(cat.id)}
+                                    className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap border group shrink-0
+                                    ${activeCategory === cat.id 
+                                        ? 'text-white border-transparent' 
+                                        : 'text-zinc-500 hover:text-zinc-300 border-transparent'
+                                    }`}
+                                >
+                                    <span className={`${activeCategory === cat.id ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'} text-sm`}>{cat.icon}</span>
+                                    <span>{lang === 'RU' ? cat.labelRU : cat.labelEN}</span>
+                                </button>
+                                ))}
+                            </div>
                         </div>
 
                         {/* Suggest Button */}
                         <div className="w-full md:w-auto flex justify-end">
                             <button 
                                 onClick={user ? () => setShowSuggestModal(true) : () => setShowAuth(true)}
-                                className="flex items-center gap-2 px-4 py-2 bg-[#BEFF1D]/10 text-[#BEFF1D] border border-[#BEFF1D] hover:bg-[#BEFF1D] hover:text-black rounded-full text-xs font-bold uppercase tracking-widest transition-all"
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-[#BEFF1D]/10 text-[#BEFF1D] border border-[#BEFF1D]/50 hover:bg-[#BEFF1D] hover:text-black rounded-md text-xs font-bold uppercase tracking-widest transition-all"
                             >
                                 <Plus size={14} />
-                                {lang === 'RU' ? 'Предложить событие' : 'Suggest Event'}
+                                {lang === 'RU' ? 'Предложить' : 'Suggest'}
                             </button>
                         </div>
-                    </div>
-                    
-                    {/* Mobile Search */}
-                    <div className="relative w-full md:hidden mb-8">
-                        <input 
-                            type="text" 
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder={lang === 'RU' ? "Поиск..." : "Search..."}
-                            className="w-full bg-neutral-900 border border-neutral-800 rounded-lg py-2 pl-10 pr-4 text-sm text-white focus:border-white focus:outline-none"
-                        />
-                        <Search size={16} className="absolute left-3.5 top-2.5 text-neutral-500" />
                     </div>
 
                     {/* Markets Grid */}
@@ -247,7 +248,7 @@ const App: React.FC = () => {
                         />
                         ))
                     ) : (
-                        <div className="col-span-full text-center py-32 text-neutral-700">
+                        <div className="col-span-full text-center py-32 text-zinc-700">
                             <p className="text-xl mb-2 font-light">
                                 {lang === 'RU' ? 'НИЧЕГО НЕ НАЙДЕНО' : 'NOTHING HERE'}
                             </p>
@@ -260,7 +261,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans selection:bg-white selection:text-black">
+    <div className="min-h-screen bg-[#09090b] text-white font-sans selection:bg-[#BEFF1D] selection:text-black">
       <Header 
         lang={lang}
         onToggleLang={handleToggleLang}
