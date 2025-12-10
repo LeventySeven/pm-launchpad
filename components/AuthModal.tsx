@@ -1,168 +1,101 @@
-import React, { useMemo, useState } from "react";
-import { X } from "lucide-react";
-import Button from "./Button";
+import React, { useState } from 'react';
+import { X, Mail, Wallet, ArrowRight } from 'lucide-react';
+import Button from './Button';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSignUp: (payload: {
-    email: string;
-    username: string;
-    password: string;
-    displayName?: string;
-  }) => Promise<void>;
-  onLogin: (payload: { emailOrUsername: string; password: string }) => Promise<void>;
+  onLogin: () => void;
 }
 
-const AuthModal: React.FC<AuthModalProps> = ({
-  isOpen,
-  onClose,
-  onSignUp,
-  onLogin,
-}) => {
-  const [mode, setMode] = useState<"signup" | "login">("signup");
-  const [email, setEmail] = useState("");
-  const [username, setUsername] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const isValid = useMemo(() => {
-    if (mode === "signup") {
-      return (
-        email.trim().length > 3 &&
-        username.trim().length > 2 &&
-        password.trim().length >= 8
-      );
-    }
-    return password.trim().length >= 8 && (email.trim().length > 0 || username.trim().length > 0);
-  }, [mode, email, username, password]);
+const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin }) => {
+  const [email, setEmail] = useState('');
+  const [step, setStep] = useState<'SELECT' | 'EMAIL'>('SELECT');
 
   if (!isOpen) return null;
 
-  const handleSubmit = () => {
-    if (!isValid || loading) return;
-    setError(null);
-    setLoading(true);
-    const action =
-      mode === "signup"
-        ? onSignUp({
-            email: email.trim(),
-            username: username.trim(),
-            password: password.trim(),
-            displayName: displayName.trim() || undefined,
-          })
-        : onLogin({
-            emailOrUsername: email.trim() || username.trim(),
-            password: password.trim(),
-          });
-
-    Promise.resolve(action)
-      .then(() => {
-        setEmail("");
-        setUsername("");
-        setDisplayName("");
-        setPassword("");
+  const handleLogin = () => {
+    // Simulate login
+    setTimeout(() => {
+        onLogin();
         onClose();
-      })
-      .catch((err) => setError(err?.message || "Не удалось выполнить действие"))
-      .finally(() => setLoading(false));
+    }, 500);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+      <div 
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
         onClick={onClose}
       ></div>
-      <div className="relative bg-neutral-900 border border-neutral-700 w-full max-w-md rounded-2xl p-6 shadow-2xl animate-fade-in-up">
-        <button
+      <div className="relative bg-[#09090b] border border-zinc-800 w-full max-w-sm rounded-xl p-6 shadow-lg animate-in zoom-in-95 duration-200">
+        <button 
           onClick={onClose}
-          className="absolute top-4 right-4 text-neutral-400 hover:text-white"
+          className="absolute top-4 right-4 rounded-sm opacity-70 ring-offset-black transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-[#BEFF1D] focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-zinc-800 data-[state=open]:text-zinc-500"
         >
-          <X size={24} />
+          <X size={16} className="text-zinc-400" />
         </button>
 
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-white">
-            {mode === "signup" ? "Регистрация" : "Вход"}
-          </h2>
-          <button
-            onClick={() => setMode(mode === "signup" ? "login" : "signup")}
-            className="text-xs text-[#BEFF1D] hover:underline"
-          >
-            {mode === "signup" ? "У меня уже есть аккаунт" : "Создать аккаунт"}
-          </button>
+        <div className="flex flex-col space-y-1.5 text-center sm:text-left mb-6">
+            <h2 className="text-lg font-semibold leading-none tracking-tight text-white">
+                {step === 'SELECT' ? 'Enter Normis' : 'Email Login'}
+            </h2>
+            <p className="text-sm text-zinc-400">
+                {step === 'SELECT' ? 'Connect to start trading.' : 'We will send a magic link.'}
+            </p>
         </div>
-        <p className="text-neutral-400 mb-6 text-sm">
-          {mode === "signup"
-            ? "Введите email, имя пользователя и пароль."
-            : "Войдите по email или username и паролю."}
-        </p>
 
-        <div className="space-y-4">
-          {mode === "signup" && (
-            <div>
-              <label className="block text-xs font-medium text-neutral-400 mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="w-full bg-black border border-neutral-700 rounded-lg p-3 text-white focus:border-[#BEFF1D] focus:outline-none transition-colors"
-              />
+        {step === 'SELECT' ? (
+            <div className="space-y-3">
+            <button 
+                onClick={handleLogin}
+                className="w-full flex items-center justify-between p-3 rounded-md bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BEFF1D]"
+            >
+                <div className="flex items-center gap-3">
+                <div className="bg-zinc-800 p-2 rounded-md text-white">
+                    <Wallet size={16} />
+                </div>
+                <span className="font-medium text-sm text-zinc-300 group-hover:text-white transition-colors">Crypto Wallet</span>
+                </div>
+                <ArrowRight size={16} className="text-zinc-600 group-hover:text-white group-hover:translate-x-1 transition-all" />
+            </button>
+
+            <button 
+                onClick={() => setStep('EMAIL')}
+                className="w-full flex items-center justify-between p-3 rounded-md bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BEFF1D]"
+            >
+                <div className="flex items-center gap-3">
+                <div className="bg-zinc-800 p-2 rounded-md text-white">
+                    <Mail size={16} />
+                </div>
+                <span className="font-medium text-sm text-zinc-300 group-hover:text-white transition-colors">Email Address</span>
+                </div>
+                <ArrowRight size={16} className="text-zinc-600 group-hover:text-white group-hover:translate-x-1 transition-all" />
+            </button>
             </div>
-          )}
-          <div>
-            <label className="block text-xs font-medium text-neutral-400 mb-1">
-              {mode === "signup" ? "Username" : "Email или Username"}
-            </label>
-            <input
-              value={mode === "signup" ? username : email || username}
-              onChange={(e) =>
-                mode === "signup"
-                  ? setUsername(e.target.value)
-                  : (setEmail(e.target.value), setUsername(e.target.value))
-              }
-              placeholder={mode === "signup" ? "your_username" : "you@example.com или username"}
-              className="w-full bg-black border border-neutral-700 rounded-lg p-3 text-white focus:border-[#BEFF1D] focus:outline-none transition-colors"
-            />
-          </div>
-          {mode === "signup" && (
-            <div>
-              <label className="block text-xs font-medium text-neutral-400 mb-1">
-                Отображаемое имя (опц.)
-              </label>
-              <input
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Имя Фамилия"
-                className="w-full bg-black border border-neutral-700 rounded-lg p-3 text-white focus:border-[#BEFF1D] focus:outline-none transition-colors"
-              />
+        ) : (
+            <div className="space-y-4">
+                <div className="space-y-2">
+                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-zinc-300">Email</label>
+                    <input 
+                        type="email" 
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="name@example.com"
+                        className="flex h-9 w-full rounded-md border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D] disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                </div>
+                <Button fullWidth onClick={handleLogin} variant="primary">
+                    Continue
+                </Button>
+                <button 
+                    onClick={() => setStep('SELECT')}
+                    className="w-full text-center text-sm text-zinc-500 hover:text-white hover:underline underline-offset-4"
+                >
+                    Back
+                </button>
             </div>
-          )}
-          <div>
-            <label className="block text-xs font-medium text-neutral-400 mb-1">
-              Пароль
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Минимум 8 символов"
-              className="w-full bg-black border border-neutral-700 rounded-lg p-3 text-white focus:border-[#BEFF1D] focus:outline-none transition-colors"
-            />
-          </div>
-          <Button fullWidth onClick={handleSubmit} disabled={!isValid || loading}>
-            {loading ? "Сохранение..." : mode === "signup" ? "Создать аккаунт" : "Войти"}
-          </Button>
-          {error && (
-            <p className="text-xs text-red-400 text-center">{error}</p>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
