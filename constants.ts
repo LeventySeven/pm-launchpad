@@ -20,7 +20,7 @@ export const CATEGORIES: { id: Category; labelRU: string; labelEN: string; icon:
 ];
 
 // Helper to generate fake history graph data
-const generateHistory = (startChance: number, endChance: number): HistoryPoint[] => {
+export const generateHistory = (startChance: number, endChance: number): HistoryPoint[] => {
   const points: HistoryPoint[] = [];
   const days = 30;
   let current = startChance;
