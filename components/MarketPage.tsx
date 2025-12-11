@@ -156,7 +156,8 @@ const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin, 
                             dataKey="date" 
                             axisLine={false} 
                             tickLine={false} 
-                            tick={{fill: '#52525b', fontSize: 10, textTransform: 'uppercase'}} 
+                            tick={{fill: '#52525b', fontSize: 10}} 
+                            tickFormatter={(value) => String(value).toUpperCase()}
                             minTickGap={40}
                             dy={10}
                         />

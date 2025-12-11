@@ -30,6 +30,7 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
+  const [lang, setLang] = useState<"RU" | "EN">("RU");
   const [user, setUser] = useState<User | null>(null);
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
   const [markets, setMarkets] = useState<Market[]>(MOCK_MARKETS);
@@ -92,6 +93,10 @@ export default function HomePage() {
   const handleCloseOnboarding = () => {
     setShowOnboarding(false);
     localStorage.setItem("hasSeenOnboarding", "true");
+  };
+
+  const handleToggleLang = () => {
+    setLang((prev) => (prev === "RU" ? "EN" : "RU"));
   };
 
   const handleLogin = () => {
@@ -291,6 +296,7 @@ export default function HomePage() {
             user={user}
             onBack={() => setSelectedMarketId(null)}
             onLogin={() => setShowAuth(true)}
+            lang={lang}
             onPlaceBet={async ({ amount, marketId, side, marketTitle }) => {
               try {
                 if (!user) {
@@ -389,12 +395,17 @@ export default function HomePage() {
         )}
       </main>
 
-      <OnboardingModal isOpen={showOnboarding} onClose={handleCloseOnboarding} />
+      <OnboardingModal
+        isOpen={showOnboarding}
+        onClose={handleCloseOnboarding}
+        lang={lang}
+        onToggleLang={handleToggleLang}
+      />
       <AuthModal
         isOpen={showAuth}
         onClose={() => setShowAuth(false)}
         onSignUp={handleSignUp}
-        onLogin={handleLoginSubmit}
+        onLogin={() => handleLoginSubmit({ emailOrUsername: "", password: "" })}
       />
       <ProfileModal
         isOpen={showProfile}
