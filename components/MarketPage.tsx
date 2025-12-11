@@ -9,16 +9,19 @@ interface MarketPageProps {
   user: User | null;
   onBack: () => void;
   onLogin: () => void;
-  lang: 'RU' | 'EN';
+  onPlaceBet: (params: { side: 'YES' | 'NO'; amount: number; marketId: string; marketTitle: string }) => Promise<void>;
+  lang?: 'RU' | 'EN';
 }
 
-const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin, lang }) => {
+const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin, onPlaceBet, lang = 'RU' }) => {
   const [activeTab, setActiveTab] = useState<'COMMENTS' | 'ACTIVITY'>('COMMENTS');
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState(market.comments);
   const [tradeType, setTradeType] = useState<'YES' | 'NO'>('YES');
   const [amount, setAmount] = useState('');
   const [timeLeft, setTimeLeft] = useState('');
+  const [placeError, setPlaceError] = useState<string | null>(null);
+  const [placing, setPlacing] = useState(false);
 
   // Countdown logic for the main page too
   useEffect(() => {
@@ -38,6 +41,12 @@ const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin, 
     return () => clearInterval(timer);
   }, [market.endDate, lang]);
 
+  const isExpired = (() => {
+    const now = Date.now();
+    const parsed = Date.parse(market.endDate);
+    return Number.isFinite(parsed) && parsed < now;
+  })();
+
   const handlePostComment = () => {
     if (!commentText.trim()) return;
     if (!user) {
@@ -56,9 +65,49 @@ const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin, 
     setCommentText('');
   };
 
-  const potentialReturn = amount ? (Number(amount) / (tradeType === 'YES' ? market.yesPrice : market.noPrice)).toFixed(2) : '0.00';
-  const potentialProfit = amount ? (Number(potentialReturn) - Number(amount)).toFixed(2) : '0.00';
+  const numericAmount = Number(amount || 0);
+  const potentialReturn = amount
+    ? (numericAmount / (tradeType === 'YES' ? market.yesPrice : market.noPrice)).toFixed(2)
+    : '0.00';
+  const potentialProfit = amount ? (Number(potentialReturn) - numericAmount).toFixed(2) : '0.00';
 
+  const handleAmountChange = (value: string) => {
+    const normalized = value.replace(',', '.');
+    if (/^\d*\.?\d*$/.test(normalized)) {
+      setAmount(normalized);
+    }
+  };
+
+  const handlePlaceBetClick = async () => {
+    if (isExpired) {
+      setPlaceError(lang === 'RU' ? 'Событие завершено, ставки закрыты.' : 'Event ended, betting closed.');
+      return;
+    }
+    if (!user) {
+      onLogin();
+      return;
+    }
+    const numeric = Number(amount);
+    if (!numeric || Number.isNaN(numeric) || numeric <= 0) {
+      setPlaceError(lang === 'RU' ? 'Введите сумму числом больше 0' : 'Enter a numeric amount greater than 0');
+      return;
+    }
+    setPlaceError(null);
+    setPlacing(true);
+    try {
+      await onPlaceBet({
+        side: tradeType,
+        amount: numeric,
+        marketId: market.id,
+        marketTitle: market.title,
+      });
+      setAmount('');
+    } catch (err: any) {
+      setPlaceError(err?.message || (lang === 'RU' ? 'Не удалось выполнить ставку' : 'Failed to place bet'));
+    } finally {
+      setPlacing(false);
+    }
+  };
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 animate-in fade-in duration-500">
       {/* Navigation */}
@@ -107,7 +156,8 @@ const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin, 
                             dataKey="date" 
                             axisLine={false} 
                             tickLine={false} 
-                            tick={{fill: '#52525b', fontSize: 10, textTransform: 'uppercase'}} 
+                            tick={{fill: '#52525b', fontSize: 10}} 
+                            tickFormatter={(value) => String(value).toUpperCase()}
                             minTickGap={40}
                             dy={10}
                         />
@@ -204,71 +254,106 @@ const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin, 
             
             {/* Trading Card */}
             <div className="rounded-xl border border-zinc-800 bg-[#09090b] p-6 sticky top-24 shadow-sm">
-                <div className="bg-zinc-900/50 rounded-lg p-1 flex mb-6 border border-zinc-800">
-                    <button 
-                        onClick={() => setTradeType('YES')}
-                        className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-md transition-all ${tradeType === 'YES' ? 'bg-[#BEFF1D] text-black shadow-sm' : 'text-zinc-500 hover:text-white'}`}
-                    >
-                        {lang === 'RU' ? 'ДА' : 'YES'} ${market.yesPrice}
-                    </button>
-                    <button 
-                        onClick={() => setTradeType('NO')}
-                        className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-md transition-all ${tradeType === 'NO' ? 'bg-[#f544a6] text-black shadow-sm' : 'text-zinc-500 hover:text-white'}`}
-                    >
-                        {lang === 'RU' ? 'НЕТ' : 'NO'} ${market.noPrice}
-                    </button>
+              {isExpired ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-neutral-300">
+                    {lang === 'RU'
+                      ? 'Торги завершены. Итог будет опубликован после разрешения.'
+                      : 'Trading closed. Outcome will be published after resolution.'}
+                  </p>
+                  <div className="bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-sm text-neutral-400">
+                    {lang === 'RU' ? 'Итог' : 'Summary'}: {market.chance}% Да • Vol: {market.volume}
+                  </div>
                 </div>
+              ) : (
+                <>
+                  <div className="bg-zinc-900/50 rounded-lg p-1 flex mb-6 border border-zinc-800">
+                    <button
+                      onClick={() => setTradeType('YES')}
+                      className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-md transition-all ${
+                        tradeType === 'YES' ? 'bg-[#BEFF1D] text-black shadow-sm' : 'text-zinc-500 hover:text-white'
+                      }`}
+                    >
+                      {lang === 'RU' ? 'ДА' : 'YES'} ${market.yesPrice}
+                    </button>
+                    <button
+                      onClick={() => setTradeType('NO')}
+                      className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-md transition-all ${
+                        tradeType === 'NO'
+                          ? 'bg-[rgba(250,73,159,1)] text-black shadow-sm'
+                          : 'text-[rgba(250,73,159,1)] hover:text-white'
+                      }`}
+                    >
+                      {lang === 'RU' ? 'НЕТ' : 'NO'} ${market.noPrice}
+                    </button>
+                  </div>
 
-                <div className="space-y-6">
+                  <div className="space-y-6">
                     <div className="relative">
-                        <label className="text-xs font-medium text-zinc-400 mb-2 block">
-                            {lang === 'RU' ? 'Сумма' : 'Amount'}
-                        </label>
-                        <div className="relative group">
-                            <span className="absolute left-3 top-2.5 text-zinc-500 transition-colors group-hover:text-white">$</span>
-                            <input 
-                                type="number" 
-                                value={amount}
-                                onChange={(e) => setAmount(e.target.value)}
-                                placeholder="0"
-                                className="flex h-11 w-full rounded-md border border-zinc-800 bg-transparent px-3 py-2 pl-7 text-lg font-medium shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D] placeholder:text-zinc-700"
-                            />
-                        </div>
+                      <label className="text-xs font-medium text-zinc-400 mb-2 block">
+                        {lang === 'RU' ? 'Сумма' : 'Amount'}
+                      </label>
+                      <div className="relative group">
+                        <span className="absolute left-3 top-2.5 text-zinc-500 transition-colors group-hover:text-white">$</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          pattern="[0-9]*[.,]?[0-9]*"
+                          value={amount}
+                          onChange={(e) => handleAmountChange(e.target.value)}
+                          placeholder="0"
+                          className="flex h-11 w-full rounded-md border border-zinc-800 bg-transparent px-3 py-2 pl-7 text-lg font-medium shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D] placeholder:text-zinc-700"
+                        />
+                      </div>
                     </div>
+
+                    {placeError && <p className="text-sm text-red-400">{placeError}</p>}
 
                     <div className="space-y-3 pt-4 border-t border-zinc-800/50">
-                        <div className="flex justify-between text-xs text-zinc-500 uppercase font-medium">
-                            <span>{lang === 'RU' ? 'Потенциальный выигрыш' : 'Return'}</span>
-                            <span className="text-white font-mono">${potentialReturn}</span>
-                        </div>
-                         <div className="flex justify-between text-xs text-zinc-500 uppercase font-medium">
-                            <span>{lang === 'RU' ? 'Прибыль' : 'Profit'}</span>
-                            <span className="text-[#BEFF1D] font-mono">+${potentialProfit}</span>
-                        </div>
+                      <div className="flex justify-between text-xs text-zinc-500 uppercase font-medium">
+                        <span>{lang === 'RU' ? 'Потенциальный выигрыш' : 'Return'}</span>
+                        <span className="text-white font-mono">${potentialReturn}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-zinc-500 uppercase font-medium">
+                        <span>{lang === 'RU' ? 'Прибыль' : 'Profit'}</span>
+                        <span className="text-[#BEFF1D] font-mono">+${potentialProfit}</span>
+                      </div>
                     </div>
 
-                    <Button 
-                        fullWidth 
-                        onClick={user ? () => {} : onLogin}
-                        disabled={!amount && !!user}
-                        className={tradeType === 'NO' && user ? '!bg-[#f544a6] hover:!bg-[#d1388c] !text-black !border-[#f544a6]' : (user ? '!bg-[#BEFF1D] hover:!bg-[#a6e612] !text-black !border-[#BEFF1D]' : '')}
-                        variant={!user ? 'outline' : 'primary'}
+                    <Button
+                      fullWidth
+                      onClick={handlePlaceBetClick}
+                      disabled={!user || placing}
+                      className={
+                        tradeType === 'NO' && user
+                          ? '!bg-[rgba(250,73,159,1)] hover:!opacity-90 !text-white'
+                          : ''
+                      }
                     >
-                        {!user ? (lang === 'RU' ? 'Войдите чтобы торговать' : 'Log In to Trade') : (lang === 'RU' ? `Купить ${tradeType === 'YES' ? 'ДА' : 'НЕТ'}` : `BUY ${tradeType}`)}
+                      {!user
+                        ? lang === 'RU'
+                          ? 'Войдите чтобы торговать'
+                          : 'Log In to Trade'
+                        : lang === 'RU'
+                        ? `Купить ${tradeType === 'YES' ? 'ДА' : 'НЕТ'}`
+                        : `BUY ${tradeType}`}
                     </Button>
-                     <p className="text-center text-[10px] uppercase text-zinc-600 tracking-wider">
-                        {lang === 'RU' ? '0% комиссии' : '0% Fees'}
-                     </p>
-                </div>
-
-                {/* Disclaimer Footnote */}
-                <div className="mt-6 pt-4 border-t border-zinc-800/50">
-                    <p className="text-[10px] leading-relaxed text-zinc-500 text-justify">
-                        <span className="text-[#f544a6] font-semibold">Disclaimer:</span> {lang === 'RU' 
-                            ? `Если ваш прогноз верен, каждая акция погашается по цене $1.00. Если неверен — акции сгорают. Рынки прогнозов сопряжены с высоким риском потери средств.` 
-                            : `If your prediction is correct, each share is redeemed for $1.00. If incorrect — shares expire worthless. Prediction markets involve a high risk of total loss.`}
+                    <p className="text-center text-[10px] uppercase text-zinc-600 tracking-wider">
+                      {lang === 'RU' ? '0% комиссии' : '0% Fees'}
                     </p>
-                </div>
+                  </div>
+                </>
+              )}
+
+              {/* Disclaimer Footnote */}
+              <div className="mt-6 pt-4 border-t border-zinc-800/50">
+                <p className="text-[10px] leading-relaxed text-zinc-500 text-justify">
+                  <span className="text-[#f544a6] font-semibold">Disclaimer:</span>{' '}
+                  {lang === 'RU'
+                    ? `Если ваш прогноз верен, каждая акция погашается по цене $1.00. Если неверен — акции сгорают. Рынки прогнозов сопряжены с высоким риском потери средств.`
+                    : `If your prediction is correct, each share is redeemed for $1.00. If incorrect — shares expire worthless. Prediction markets involve a high risk of total loss.`}
+                </p>
+              </div>
             </div>
 
             {/* Rules Card */}

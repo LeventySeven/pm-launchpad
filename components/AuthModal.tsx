@@ -5,7 +5,8 @@ import Button from './Button';
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLogin: () => void;
+  onLogin: () => void | Promise<void>;
+  onSignUp?: (payload?: { email?: string; username?: string; password?: string }) => void | Promise<void>;
 }
 
 const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin }) => {
@@ -14,12 +15,9 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin }) => {
 
   if (!isOpen) return null;
 
-  const handleLogin = () => {
-    // Simulate login
-    setTimeout(() => {
-        onLogin();
-        onClose();
-    }, 500);
+  const handleLogin = async () => {
+    await Promise.resolve(onLogin());
+    onClose();
   };
 
   return (

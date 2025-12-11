@@ -5,10 +5,10 @@ import { Clock } from 'lucide-react';
 interface MarketCardProps {
   market: Market;
   onClick?: () => void;
-  lang: 'RU' | 'EN';
+  lang?: 'RU' | 'EN';
 }
 
-const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, lang }) => {
+const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, lang = 'RU' }) => {
   const [timeLeft, setTimeLeft] = useState('');
 
   useEffect(() => {
@@ -79,18 +79,18 @@ const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, lang }) => {
           />
         </div>
 
-        {/* Buttons and Info */}
-        <div className="flex items-center justify-between gap-3" onClick={(e) => e.stopPropagation()}>
-            <div className="flex gap-2 w-full">
-                {/* YES Button */}
-                <button className="flex-1 h-9 rounded-md bg-zinc-900 hover:bg-[#BEFF1D]/10 hover:text-[#BEFF1D] hover:border-[#BEFF1D]/30 text-zinc-400 text-xs font-semibold px-3 text-center transition-colors border border-zinc-800 uppercase focus-visible:ring-2 focus-visible:ring-[#BEFF1D] focus-visible:outline-none">
-                    {lang === 'RU' ? 'Да' : 'Yes'} ${market.yesPrice}
-                </button>
-                {/* NO Button */}
-                <button className="flex-1 h-9 rounded-md bg-zinc-900 hover:bg-[#f544a6]/10 hover:text-[#f544a6] hover:border-[#f544a6]/30 text-zinc-400 text-xs font-semibold px-3 text-center transition-colors border border-zinc-800 uppercase focus-visible:ring-2 focus-visible:ring-[#f544a6] focus-visible:outline-none">
-                    {lang === 'RU' ? 'Нет' : 'No'} ${market.noPrice}
-                </button>
-            </div>
+        {/* Inline info instead of buttons */}
+        <div className="flex items-center justify-between gap-3 text-sm text-neutral-300">
+          <span className="flex items-center gap-1">
+            <span className="text-[#BEFF1D] font-semibold">Да</span>
+            <span>${market.yesPrice}</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="font-semibold" style={{ color: 'rgba(250, 73, 159, 1)' }}>
+              Нет
+            </span>
+            <span>${market.noPrice}</span>
+          </span>
         </div>
 
         {/* Footer Meta */}

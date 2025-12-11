@@ -30,6 +30,8 @@ export interface Market {
   history: HistoryPoint[];
   comments: Comment[];
   isNew?: boolean; // New flag for the badge
+  poolYes?: number;
+  poolNo?: number;
 }
 
 export interface PortfolioPosition {
@@ -46,15 +48,18 @@ export interface PortfolioPosition {
 export interface User {
   id: string;
   email?: string;
+  username?: string;
   walletAddress?: string;
   balance: number;
+  isAdmin?: boolean;
   pnl?: number; // Total Profit/Loss
   portfolio?: PortfolioPosition[];
   name?: string; // Display name
   referrals?: number;
+  avatar?: string;
 }
 
 export interface LeaderboardUser extends User {
-    rank: number;
-    avatar: string;
+  rank: number;
+  avatar: string;
 }
