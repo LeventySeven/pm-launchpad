@@ -393,7 +393,7 @@ export default function HomePage() {
         isOpen={showAuth}
         onClose={() => setShowAuth(false)}
         onSignUp={handleSignUp}
-        onLogin={() => handleLoginSubmit({ emailOrUsername: "", password: "" })}
+        onLogin={handleLoginSubmit}
       />
       <UserProfileModal
         isOpen={showProfile}
