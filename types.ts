@@ -45,8 +45,8 @@ export interface PortfolioPosition {
 }
 
 export interface Bet {
-  id: number;
-  marketId: number;
+  id: string;
+  marketId: string;
   marketTitle: string;
   side: "YES" | "NO";
   amount: number;

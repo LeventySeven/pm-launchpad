@@ -185,7 +185,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, us
                             key={bet.id} 
                             item={bet} 
                             lang={lang} 
-                            onClick={() => onMarketClick(String(bet.marketId || ''))}
+                            onClick={() => onMarketClick(bet.marketId)}
                         />
                     ))
                 ) : (

@@ -152,8 +152,8 @@ export default function HomePage() {
       const normalized: Bet[] = (bets || [])
         .filter((b): b is NonNullable<typeof b> => !!b && b.id !== undefined)
         .map((b) => ({
-          id: Number(b.id),
-          marketId: Number(b.marketId),
+          id: String(b.id),
+          marketId: String(b.marketId),
           marketTitle: b.marketTitle ?? "—",
           side: b.side,
           amount: Number(b.amount ?? 0),
@@ -302,7 +302,7 @@ export default function HomePage() {
 
                 const res = await trpcClient.market.placeBet.mutate({
                   amount,
-                  marketId: Number(marketId),
+                  marketId,
                   side,
                 });
 

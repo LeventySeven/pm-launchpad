@@ -4,8 +4,8 @@ import { publicProcedure, router } from "../trpc";
 import { calculatePayout, calculatePrices } from "../helpers/pricing";
 
 const betSummary = z.object({
-  id: z.number(),
-  marketId: z.number(),
+  id: z.string(),
+  marketId: z.string(),
   side: z.enum(["YES", "NO"]),
   amount: z.number(),
   status: z.string(),
@@ -19,7 +19,7 @@ const betSummary = z.object({
 });
 
 const marketOutput = z.object({
-  id: z.number(),
+  id: z.string(),
   title: z.string(),
   description: z.string().nullable(),
   poolYes: z.number(),
@@ -64,7 +64,7 @@ export const marketRouter = router({
             Number(m.pool_no)
           );
           return {
-            id: Number(m.id),
+            id: String(m.id),
             title: m.title,
             description: m.description,
             poolYes: Number(m.pool_yes),
@@ -81,15 +81,15 @@ export const marketRouter = router({
   placeBet: publicProcedure
     .input(
       z.object({
-        marketId: z.number(),
+        marketId: z.string().uuid(),
         side: z.enum(["YES", "NO"]),
         amount: z.number().positive(),
       })
     )
     .output(
       z.object({
-        betId: z.number(),
-        userId: z.number(),
+        betId: z.string(),
+        userId: z.string(),
         newBalance: z.number(),
       })
     )
@@ -165,13 +165,13 @@ export const marketRouter = router({
       }
 
       const raw = rpc.data as
-        | { bet_id: number; new_balance: number }
-        | Array<{ bet_id: number; new_balance: number }>
+        | { bet_id: string; new_balance: number }
+        | Array<{ bet_id: string; new_balance: number }>
         | null;
 
       const result = Array.isArray(raw) ? raw[0] : raw;
 
-      let betId = result?.bet_id ? Number(result.bet_id) : null;
+      let betId = result?.bet_id ? String(result.bet_id) : null;
       let newBalance = result?.new_balance ? Number(result.new_balance) : null;
 
       // Fallback: if RPC returned no row, fetch balance manually to avoid throwing after a successful tx.
@@ -187,8 +187,8 @@ export const marketRouter = router({
       }
 
       if (!betId) {
-        // We may not have the bet id; return 0 as placeholder rather than failing the call.
-        betId = 0;
+        // We may not have the bet id; return 'unknown' as placeholder rather than failing the call.
+        betId = "unknown";
       }
 
       return {
@@ -201,13 +201,13 @@ export const marketRouter = router({
   resolveMarket: publicProcedure
     .input(
       z.object({
-        marketId: z.number(),
+        marketId: z.string().uuid(),
         outcome: z.enum(["YES", "NO"]),
       })
     )
     .output(
       z.object({
-        marketId: z.number(),
+        marketId: z.string(),
         outcome: z.enum(["YES", "NO"]),
         totalPool: z.number(),
         winnerPool: z.number(),
@@ -236,7 +236,7 @@ export const marketRouter = router({
       }
 
       const result = rpc.data as {
-        market_id: number;
+        market_id: string;
         outcome: "YES" | "NO";
         total_pool: number;
         winner_pool: number;
@@ -251,7 +251,7 @@ export const marketRouter = router({
       }
 
       return {
-        marketId: Number(result.market_id),
+        marketId: String(result.market_id),
         outcome: result.outcome,
         totalPool: Number(result.total_pool),
         winnerPool: Number(result.winner_pool),
@@ -306,8 +306,8 @@ export const marketRouter = router({
           const priceNo = total === 0 ? 0.5 : poolYes / total;
 
           return {
-            id: Number(row.id),
-            marketId: Number(row.market_id),
+            id: String(row.id),
+            marketId: String(row.market_id),
             side: row.side as "YES" | "NO",
             amount: Number(row.amount),
             status: row.status,
@@ -337,7 +337,7 @@ export const marketRouter = router({
     )
     .output(
       z.object({
-        id: z.number(),
+        id: z.string(),
         title: z.string(),
       })
     )
@@ -372,7 +372,7 @@ export const marketRouter = router({
         });
       }
 
-      return { id: Number(data.id), title: data.title };
+      return { id: String(data.id), title: data.title };
     }),
 });
 

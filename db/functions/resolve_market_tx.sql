@@ -1,18 +1,18 @@
 -- Resolves a market and pays out winners in one transaction.
 -- Parameters:
---   p_market_id bigint
+--   p_market_id uuid
 --   p_outcome text ('YES' | 'NO')
 -- Returns:
---   market_id bigint
+--   market_id uuid
 --   outcome text
 --   total_pool numeric
 --   winner_pool numeric
 --   updated_bets_count int
 create or replace function resolve_market_tx(
-    p_market_id bigint,
+    p_market_id uuid,
     p_outcome text
 ) returns table (
-  market_id bigint,
+  market_id uuid,
   outcome text,
   total_pool numeric,
   winner_pool numeric,
