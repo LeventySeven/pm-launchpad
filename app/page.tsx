@@ -200,11 +200,7 @@ export default function HomePage() {
             m.title
           )}&background=random&color=fff&size=128`,
           volume: `$${(Number(m.poolYes) + Number(m.poolNo)).toFixed(2)}`,
-          endDate: new Date(m.expiresAt).toLocaleDateString("ru-RU", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          }),
+          endDate: new Date(m.expiresAt).toISOString(),
           yesPrice: Number(m.priceYes.toFixed(2)),
           noPrice: Number(m.priceNo.toFixed(2)),
           chance: Math.round(m.priceYes * 100),
