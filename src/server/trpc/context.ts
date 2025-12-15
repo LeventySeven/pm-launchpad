@@ -16,14 +16,14 @@ export const createContext = async (opts: { req: Request }) => {
   const supabase = supabaseServerClient();
   const responseHeaders: Record<string, string | string[]> = {};
   const cookies = parseCookies(opts.req);
-  let authUser: { id: number; email: string; username: string; isAdmin: boolean } | null = null;
+  let authUser: { id: string; email: string; username: string; isAdmin: boolean } | null = null;
 
   const token = cookies["auth_token"];
   if (token) {
     try {
       const payload = await verifyAuthToken(token);
       authUser = {
-        id: Number(payload.sub),
+        id: payload.sub,
         email: payload.email,
         username: payload.username,
         isAdmin: Boolean(payload.isAdmin),

@@ -1,24 +1,84 @@
-import React, { useState } from 'react';
-import { X, Mail, Wallet, ArrowRight } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { X, Mail, User, Lock } from 'lucide-react';
 import Button from './Button';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLogin: () => void | Promise<void>;
-  onSignUp?: (payload?: { email?: string; username?: string; password?: string }) => void | Promise<void>;
+  onLogin: (payload: { emailOrUsername: string; password: string }) => void | Promise<void>;
+  onSignUp: (payload: { email: string; username: string; password: string }) => void | Promise<void>;
 }
 
-const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin }) => {
+type AuthMode = 'SIGN_IN' | 'SIGN_UP';
+
+const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, onSignUp }) => {
+  const [mode, setMode] = useState<AuthMode>('SIGN_IN');
+  const [emailOrUsername, setEmailOrUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
-  const [step, setStep] = useState<'SELECT' | 'EMAIL'>('SELECT');
+  const [username, setUsername] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const modalTitle = useMemo(
+    () => (mode === 'SIGN_IN' ? 'Log in to Normis' : 'Create your Normis account'),
+    [mode]
+  );
+
+  const modalSubtitle = useMemo(
+    () =>
+      mode === 'SIGN_IN'
+        ? 'Use your email or username plus password.'
+        : 'All fields are required by Supabase.',
+    [mode]
+  );
+
+  const handleSubmit = async () => {
+    try {
+      setError(null);
+      setLoading(true);
+      if (mode === 'SIGN_IN') {
+        if (!emailOrUsername.trim() || !password.trim()) {
+          setError('Введите почту/username и пароль');
+          setLoading(false);
+          return;
+        }
+        await Promise.resolve(
+          onLogin({ emailOrUsername: emailOrUsername.trim(), password: password.trim() })
+        );
+      } else {
+        if (!email.trim() || !username.trim() || !password.trim()) {
+          setError('Заполните email, username и пароль');
+          setLoading(false);
+          return;
+        }
+        await Promise.resolve(
+          onSignUp({
+            email: email.trim(),
+            username: username.trim(),
+            password: password.trim(),
+          })
+        );
+      }
+      onClose();
+    } catch (err: any) {
+      setError(err?.message ?? 'Не удалось выполнить запрос');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetAndSwitch = (nextMode: AuthMode) => {
+    setMode(nextMode);
+    setError(null);
+    setLoading(false);
+    setEmailOrUsername('');
+    setEmail('');
+    setUsername('');
+    setPassword('');
+  };
 
   if (!isOpen) return null;
-
-  const handleLogin = async () => {
-    await Promise.resolve(onLogin());
-    onClose();
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -36,64 +96,114 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin }) => {
 
         <div className="flex flex-col space-y-1.5 text-center sm:text-left mb-6">
             <h2 className="text-lg font-semibold leading-none tracking-tight text-white">
-                {step === 'SELECT' ? 'Enter Normis' : 'Email Login'}
+                {modalTitle}
             </h2>
             <p className="text-sm text-zinc-400">
-                {step === 'SELECT' ? 'Connect to start trading.' : 'We will send a magic link.'}
+                {modalSubtitle}
             </p>
         </div>
 
-        {step === 'SELECT' ? (
-            <div className="space-y-3">
-            <button 
-                onClick={handleLogin}
-                className="w-full flex items-center justify-between p-3 rounded-md bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BEFF1D]"
-            >
-                <div className="flex items-center gap-3">
-                <div className="bg-zinc-800 p-2 rounded-md text-white">
-                    <Wallet size={16} />
-                </div>
-                <span className="font-medium text-sm text-zinc-300 group-hover:text-white transition-colors">Crypto Wallet</span>
-                </div>
-                <ArrowRight size={16} className="text-zinc-600 group-hover:text-white group-hover:translate-x-1 transition-all" />
-            </button>
+        <div className="flex items-center gap-2 mb-6">
+          <button
+            onClick={() => resetAndSwitch('SIGN_IN')}
+            className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${
+              mode === 'SIGN_IN'
+                ? 'bg-[#BEFF1D] text-black'
+                : 'bg-zinc-900 text-zinc-400 hover:text-white'
+            }`}
+          >
+            Log in
+          </button>
+          <button
+            onClick={() => resetAndSwitch('SIGN_UP')}
+            className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${
+              mode === 'SIGN_UP'
+                ? 'bg-[#BEFF1D] text-black'
+                : 'bg-zinc-900 text-zinc-400 hover:text-white'
+            }`}
+          >
+            Sign up
+          </button>
+        </div>
 
-            <button 
-                onClick={() => setStep('EMAIL')}
-                className="w-full flex items-center justify-between p-3 rounded-md bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BEFF1D]"
-            >
-                <div className="flex items-center gap-3">
-                <div className="bg-zinc-800 p-2 rounded-md text-white">
-                    <Mail size={16} />
-                </div>
-                <span className="font-medium text-sm text-zinc-300 group-hover:text-white transition-colors">Email Address</span>
-                </div>
-                <ArrowRight size={16} className="text-zinc-600 group-hover:text-white group-hover:translate-x-1 transition-all" />
-            </button>
-            </div>
-        ) : (
-            <div className="space-y-4">
-                <div className="space-y-2">
-                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-zinc-300">Email</label>
-                    <input 
-                        type="email" 
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="name@example.com"
-                        className="flex h-9 w-full rounded-md border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D] disabled:cursor-not-allowed disabled:opacity-50"
-                    />
-                </div>
-                <Button fullWidth onClick={handleLogin} variant="primary">
-                    Continue
-                </Button>
-                <button 
-                    onClick={() => setStep('SELECT')}
-                    className="w-full text-center text-sm text-zinc-500 hover:text-white hover:underline underline-offset-4"
-                >
-                    Back
-                </button>
-            </div>
-        )}
+        <div className="space-y-4">
+          {mode === 'SIGN_IN' ? (
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+                  <Mail size={14} /> Email or Username
+                </label>
+                <input
+                  value={emailOrUsername}
+                  onChange={(e) => setEmailOrUsername(e.target.value)}
+                  placeholder="you@example.com / normis_trader"
+                  className="flex h-10 w-full rounded-lg border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D]"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+                  <Lock size={14} /> Password
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="********"
+                  className="flex h-10 w-full rounded-lg border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D]"
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+                  <Mail size={14} /> Email
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com"
+                  className="flex h-10 w-full rounded-lg border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D]"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+                  <User size={14} /> Username
+                </label>
+                <input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="normis_trader"
+                  className="flex h-10 w-full rounded-lg border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D]"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+                  <Lock size={14} /> Password
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="********"
+                  className="flex h-10 w-full rounded-lg border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D]"
+                />
+              </div>
+            </>
+          )}
+
+          {error && <p className="text-xs text-red-500">{error}</p>}
+
+          <Button
+            fullWidth
+            onClick={handleSubmit}
+            variant="primary"
+            disabled={loading}
+          >
+            {loading ? 'Please wait...' : mode === 'SIGN_IN' ? 'Log in' : 'Create account'}
+          </Button>
+        </div>
       </div>
     </div>
   );

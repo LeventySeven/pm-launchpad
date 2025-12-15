@@ -3,7 +3,7 @@ import { z } from "zod";
 import { publicProcedure, router } from "../trpc";
 
 const userShape = {
-  id: z.number(),
+  id: z.string(),
   telegramId: z.number(),
   username: z.string().nullable(),
   displayName: z.string().nullable(),
@@ -36,7 +36,7 @@ export const userRouter = router({
       if (existing.data) {
         const u = existing.data;
         return {
-          id: Number(u.id),
+          id: String(u.id),
           telegramId: Number(u.telegram_id),
           username: u.username,
           displayName: u.display_name,
@@ -63,7 +63,7 @@ export const userRouter = router({
 
       const u = insert.data;
       return {
-        id: Number(u.id),
+        id: String(u.id),
         telegramId: Number(u.telegram_id),
         username: u.username,
         displayName: u.display_name,
@@ -93,7 +93,7 @@ export const userRouter = router({
 
       const u = user.data;
       return {
-        id: Number(u.id),
+        id: String(u.id),
         telegramId: Number(u.telegram_id),
         username: u.username,
         displayName: u.display_name,

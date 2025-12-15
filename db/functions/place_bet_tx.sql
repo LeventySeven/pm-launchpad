@@ -1,25 +1,25 @@
 -- Wraps bet placement in a single transaction.
 -- Parameters:
---   p_user_id bigint
---   p_market_id bigint
+--   p_user_id uuid
+--   p_market_id uuid
 --   p_side text ('YES' | 'NO')
 --   p_amount numeric
 -- Returns:
---   bet_id bigint
+--   bet_id uuid
 --   new_balance numeric
 create or replace function place_bet_tx(
-    p_user_id bigint,
-    p_market_id bigint,
+    p_user_id uuid,
+    p_market_id uuid,
     p_side text,
     p_amount numeric
-) returns table (bet_id bigint, new_balance numeric)
+) returns table (bet_id uuid, new_balance numeric)
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
   v_balance numeric;
-  v_bet_id bigint;
+  v_bet_id uuid;
   v_expires_at timestamptz;
   v_outcome text;
 begin
@@ -60,7 +60,7 @@ begin
   select balance into new_balance from users where id = p_user_id;
 
   return query
-    select v_bet_id::bigint as bet_id, new_balance::numeric as new_balance;
+    select v_bet_id::uuid as bet_id, new_balance::numeric as new_balance;
   return;
 end;
 $$;

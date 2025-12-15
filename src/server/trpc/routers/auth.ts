@@ -18,7 +18,7 @@ const publicColumns =
 const authColumns = `${publicColumns}, password_hash`;
 
 const toPublicUser = (row: any): PublicUser => ({
-  id: Number(row.id),
+  id: String(row.id),
   email: row.email,
   username: row.username,
   displayName: row.display_name,
@@ -141,7 +141,7 @@ export const authRouter = router({
       const { data, error } = await supabase
         .from("users")
         .select(publicColumns)
-        .eq("id", Number(payload.sub))
+        .eq("id", payload.sub)
         .maybeSingle();
       if (error || !data) return null;
       return toPublicUser(data);

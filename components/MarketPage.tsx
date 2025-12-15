@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Market, User } from '../types';
 import Button from './Button';
-import { ChevronLeft, Clock, ShieldCheck, User as UserIcon, Send, ThumbsUp } from 'lucide-react';
+import { ChevronLeft, Clock, ShieldCheck, User as UserIcon, Send, ThumbsUp, CalendarDays } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 interface MarketPageProps {
@@ -22,6 +22,17 @@ const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin, 
   const [timeLeft, setTimeLeft] = useState('');
   const [placeError, setPlaceError] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
+  const formattedEndDate = useMemo(() => {
+    const parsed = Date.parse(market.endDate);
+    if (!Number.isFinite(parsed)) return lang === 'RU' ? '—' : '—';
+    return new Date(parsed).toLocaleString(lang === 'RU' ? 'ru-RU' : 'en-US', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }, [market.endDate, lang]);
 
   // Countdown logic for the main page too
   useEffect(() => {
@@ -127,10 +138,14 @@ const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin, 
                 <img src={market.imageUrl} alt={market.title} className="w-16 h-16 rounded-full bg-zinc-900 object-cover grayscale opacity-90 border border-zinc-800" />
                 <div>
                     <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white leading-tight mb-3">{market.title}</h1>
-                    <div className="flex items-center gap-6 text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    <div className="flex flex-wrap items-center gap-4 text-xs font-medium uppercase tracking-wide text-zinc-500">
                         <span className="flex items-center gap-2 text-[#BEFF1D] font-mono"><Clock size={14}/> {timeLeft}</span>
                         <span className="flex items-center gap-2"><ShieldCheck size={14}/> 
                             {lang === 'RU' ? 'Объем' : 'Vol'}: {market.volume}
+                        </span>
+                        <span className="flex items-center gap-2 text-zinc-400">
+                            <CalendarDays size={14} />
+                            {lang === 'RU' ? `Окончание: ${formattedEndDate}` : `Ends: ${formattedEndDate}`}
                         </span>
                     </div>
                 </div>

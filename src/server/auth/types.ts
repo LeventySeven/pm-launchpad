@@ -1,5 +1,5 @@
 export type PublicUser = {
-  id: number;
+  id: string;
   email: string;
   username: string;
   displayName: string | null;
