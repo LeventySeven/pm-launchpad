@@ -151,27 +151,33 @@ export default function HomePage() {
       const bets = await trpcClient.market.myBets.query();
       const normalized: Bet[] = (bets || [])
         .filter((b): b is NonNullable<typeof b> => !!b && b.id !== undefined)
-        .map((b) => ({
-          id: String(b.id),
-          marketId: String(b.marketId),
-          marketTitle: b.marketTitle ?? "—",
-          side: b.side,
-          amount: Number(b.amount ?? 0),
-          status: b.status ?? "open",
-          payout: b.payout !== null && b.payout !== undefined ? Number(b.payout) : null,
-          createdAt: b.createdAt ?? new Date().toISOString(),
-          marketOutcome: b.marketOutcome ?? null,
-          expiresAt: b.expiresAt ?? null,
-          priceYes: b.priceYes ?? null,
-          priceNo: b.priceNo ?? null,
-        }));
+        .map((b) => {
+          const titleRu = b.marketTitleRu ?? "—";
+          const titleEn = b.marketTitleEn ?? titleRu;
+          return {
+            id: String(b.id),
+            marketId: String(b.marketId),
+            marketTitle: lang === "RU" ? titleRu : titleEn,
+            marketTitleRu: titleRu,
+            marketTitleEn: titleEn,
+            side: b.side,
+            amount: Number(b.amount ?? 0),
+            status: b.status ?? "open",
+            payout: b.payout !== null && b.payout !== undefined ? Number(b.payout) : null,
+            createdAt: b.createdAt ?? new Date().toISOString(),
+            marketOutcome: b.marketOutcome ?? null,
+            expiresAt: b.expiresAt ?? null,
+            priceYes: b.priceYes ?? null,
+            priceNo: b.priceNo ?? null,
+          };
+        });
       setMyBets(normalized);
     } catch (err) {
       console.error("Failed to load bets", err);
     } finally {
       setLoadingBets(false);
     }
-  }, [user]);
+  }, [user, lang]);
 
   // Fetch session user via auth.me
   useEffect(() => {
@@ -194,10 +200,12 @@ export default function HomePage() {
       if (response && response.length > 0) {
         const mapped: Market[] = response.map((m) => ({
           id: String(m.id),
-          title: m.title,
+          title: m.titleRu,
+          titleRu: m.titleRu,
+          titleEn: m.titleEn,
           category: "ALL",
           imageUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            m.title
+            m.titleRu
           )}&background=random&color=fff&size=128`,
           volume: `$${(Number(m.poolYes) + Number(m.poolNo)).toFixed(2)}`,
           endDate: new Date(m.expiresAt).toISOString(),
@@ -246,12 +254,14 @@ export default function HomePage() {
       markets.filter((market) => {
         const matchesCategory =
           activeCategory === "ALL" || market.category === activeCategory;
-        const matchesSearch = market.title
+        const targetTitle =
+          lang === "RU" ? market.titleRu : market.titleEn;
+        const matchesSearch = targetTitle
           .toLowerCase()
           .includes(searchQuery.toLowerCase());
         return matchesCategory && matchesSearch;
       }),
-    [activeCategory, searchQuery, markets]
+    [activeCategory, searchQuery, markets, lang]
   );
 
   const selectedMarket = useMemo(

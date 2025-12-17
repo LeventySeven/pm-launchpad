@@ -33,6 +33,10 @@ const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin, 
       minute: '2-digit',
     });
   }, [market.endDate, lang]);
+  const localizedTitle = useMemo(
+    () => (lang === 'RU' ? market.titleRu ?? market.titleEn ?? market.title : market.titleEn ?? market.titleRu ?? market.title),
+    [lang, market.title, market.titleEn, market.titleRu]
+  );
 
   // Countdown logic for the main page too
   useEffect(() => {
@@ -135,9 +139,9 @@ const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin, 
         {/* Left Column: Chart & Info */}
         <div className="lg:col-span-8 space-y-8">
             <div className="flex items-start gap-6">
-                <img src={market.imageUrl} alt={market.title} className="w-16 h-16 rounded-full bg-zinc-900 object-cover grayscale opacity-90 border border-zinc-800" />
+                <img src={market.imageUrl} alt={localizedTitle} className="w-16 h-16 rounded-full bg-zinc-900 object-cover grayscale opacity-90 border border-zinc-800" />
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white leading-tight mb-3">{market.title}</h1>
+                    <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white leading-tight mb-3">{localizedTitle}</h1>
                     <div className="flex flex-wrap items-center gap-4 text-xs font-medium uppercase tracking-wide text-zinc-500">
                         <span className="flex items-center gap-2 text-[#BEFF1D] font-mono"><Clock size={14}/> {timeLeft}</span>
                         <span className="flex items-center gap-2"><ShieldCheck size={14}/> 

@@ -10,6 +10,10 @@ interface MarketCardProps {
 
 const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, lang = 'RU' }) => {
   const [timeLeft, setTimeLeft] = useState('');
+  const localizedTitle =
+    lang === 'RU'
+      ? market.titleRu ?? market.titleEn ?? market.title
+      : market.titleEn ?? market.titleRu ?? market.title;
 
   useEffect(() => {
     const calculateTimeLeft = () => {
@@ -50,11 +54,11 @@ const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, lang = 'RU' })
       <div className="flex items-start gap-3 mb-6 mt-1">
         <img 
           src={market.imageUrl} 
-          alt={market.title} 
+          alt={localizedTitle} 
           className="w-10 h-10 rounded-full grayscale opacity-80 group-hover:opacity-100 transition-opacity bg-zinc-900 object-cover flex-shrink-0 border border-zinc-800"
         />
         <h3 className="text-[15px] font-medium tracking-tight text-zinc-100 leading-snug group-hover:text-white transition-colors line-clamp-3">
-          {market.title}
+          {localizedTitle}
         </h3>
       </div>
 

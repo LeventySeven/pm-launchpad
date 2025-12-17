@@ -11,7 +11,8 @@ const betSummary = z.object({
   status: z.string(),
   payout: z.number().nullable(),
   createdAt: z.string(),
-  marketTitle: z.string(),
+  marketTitleRu: z.string(),
+  marketTitleEn: z.string(),
   marketOutcome: z.enum(["YES", "NO"]).nullable(),
   expiresAt: z.string().nullable(),
   priceYes: z.number().nullable(),
@@ -20,7 +21,8 @@ const betSummary = z.object({
 
 const marketOutput = z.object({
   id: z.string(),
-  title: z.string(),
+  titleRu: z.string(),
+  titleEn: z.string(),
   description: z.string().nullable(),
   poolYes: z.number(),
   poolNo: z.number(),
@@ -41,7 +43,7 @@ export const marketRouter = router({
       const query = supabase
         .from("markets")
         .select(
-          "id, title, description, pool_yes, pool_no, expires_at, outcome"
+          "id, title_rus, title_eng, description, pool_yes, pool_no, expires_at, outcome"
         )
         .order("id", { ascending: true });
 
@@ -65,7 +67,8 @@ export const marketRouter = router({
           );
           return {
             id: String(m.id),
-            title: m.title,
+            titleRu: m.title_rus ?? null,
+            titleEn: m.title_eng ?? null,
             description: m.description,
             poolYes: Number(m.pool_yes),
             poolNo: Number(m.pool_no),
@@ -279,7 +282,8 @@ export const marketRouter = router({
             payout,
             created_at,
             markets:market_id (
-              title,
+              title_rus,
+              title_eng,
               outcome,
               pool_yes,
               pool_no,
@@ -313,7 +317,8 @@ export const marketRouter = router({
             status: row.status,
             payout: row.payout !== null ? Number(row.payout) : null,
             createdAt: new Date(row.created_at).toISOString(),
-            marketTitle: row.markets?.title ?? "—",
+            marketTitleRu: row.markets?.title_rus ?? null,
+            marketTitleEn: row.markets?.title_eng ?? null,
             marketOutcome: row.markets?.outcome ?? null,
             expiresAt: row.markets?.expires_at
               ? new Date(row.markets.expires_at).toISOString()
@@ -328,7 +333,8 @@ export const marketRouter = router({
   createMarket: publicProcedure
     .input(
       z.object({
-        title: z.string().min(3),
+        titleRu: z.string().min(3),
+        titleEn: z.string().min(3),
         description: z.string().optional().nullable(),
         expiresAt: z.string(),
         poolYes: z.number().optional().default(0),
@@ -338,7 +344,8 @@ export const marketRouter = router({
     .output(
       z.object({
         id: z.string(),
-        title: z.string(),
+        titleRu: z.string().nullable(),
+        titleEn: z.string().nullable(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -355,14 +362,15 @@ export const marketRouter = router({
       const { data, error } = await supabase
         .from("markets")
         .insert({
-          title: input.title.trim(),
+          title_rus: input.titleRu.trim(),
+          title_eng: input.titleEn.trim(),
           description: input.description ?? null,
           pool_yes: input.poolYes ?? 0,
           pool_no: input.poolNo ?? 0,
           expires_at: new Date(expiresAtMs).toISOString(),
           outcome: null,
         })
-        .select("id, title")
+        .select("id, title_rus, title_eng")
         .single();
 
       if (error || !data) {
@@ -372,7 +380,7 @@ export const marketRouter = router({
         });
       }
 
-      return { id: String(data.id), title: data.title };
+      return { id: String(data.id), titleRu: data.title_rus ?? null, titleEn: data.title_eng ?? null };
     }),
 });
 
