@@ -271,6 +271,9 @@ export default function HomePage() {
           void loadMyBets();
         }}
         onAdminClick={user?.isAdmin ? () => setShowAdminModal(true) : undefined}
+        onHelpClick={() => setShowOnboarding(true)}
+        lang={lang}
+        onToggleLang={handleToggleLang}
       />
 
       <main>
@@ -366,6 +369,7 @@ export default function HomePage() {
                     key={market.id}
                     market={market}
                     onClick={() => setSelectedMarketId(market.id)}
+                    lang={lang}
                   />
                 ))
               ) : (
