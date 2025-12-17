@@ -7,7 +7,7 @@
  *  - SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL)
  *  - SUPABASE_SERVICE_ROLE_KEY
  */
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type PostgrestError } from "@supabase/supabase-js";
 import type { Database } from "../src/types/database";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -18,12 +18,26 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   process.exit(1);
 }
 
-const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const supabase = createClient<Database, "public">(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 type IdRow = { id: string };
 type PlaceBetArgs = Database["public"]["Functions"]["place_bet_tx"]["Args"];
+type PlaceBetResult = Database["public"]["Functions"]["place_bet_tx"]["Returns"];
 type UserIdRow = Pick<Database["public"]["Tables"]["users"]["Row"], "id">;
 type MarketIdRow = Pick<Database["public"]["Tables"]["markets"]["Row"], "id">;
+
+type RpcResponse<T> = {
+  data: T | null;
+  error: PostgrestError | null;
+};
+
+const callPlaceBetTx = (params: PlaceBetArgs) => {
+  const rpc = supabase.rpc as unknown as (
+    fn: "place_bet_tx",
+    rpcParams: PlaceBetArgs
+  ) => Promise<RpcResponse<PlaceBetResult>>;
+  return rpc("place_bet_tx", params);
+};
 
 async function main() {
   const { data: rawUsers } = await supabase
@@ -59,7 +73,7 @@ async function main() {
   }
 
   for (const b of bets) {
-    const rpc = await supabase.rpc("place_bet_tx", b);
+    const rpc = await callPlaceBetTx(b);
     if (rpc.error) {
       console.error("Failed to place bet", b, rpc.error);
     } else {
