@@ -41,22 +41,22 @@ const selectUserByTelegramId = (
   client: UserDbClient,
   telegramId: number
 ): Promise<SelectUserResponse> => {
-  return client
+  return (client
     .from("users")
     .select("id, telegram_id, username, display_name, balance")
     .eq("telegram_id", telegramId)
-    .maybeSingle<UserRow>() as Promise<SelectUserResponse>;
+    .maybeSingle<UserRow>()) as unknown as Promise<SelectUserResponse>;
 };
 
 const insertTelegramUser = (
   client: UserDbClient,
   payload: UserInsert
 ): Promise<SelectUserResponse> => {
-  return client
+  return (client
     .from("users")
     .insert(payload)
     .select("id, telegram_id, username, display_name, balance")
-    .single<UserRow>() as Promise<SelectUserResponse>;
+    .single<UserRow>()) as unknown as Promise<SelectUserResponse>;
 };
 
 const userShape = {
