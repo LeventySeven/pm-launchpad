@@ -4,6 +4,7 @@ import { publicProcedure, router } from "../trpc";
 import { hashPassword, verifyPassword } from "../../auth/password";
 import { authCookie, signAuthToken, verifyAuthToken } from "../../auth/jwt";
 import type { PublicUser } from "../../auth/types";
+import type { Database } from "../../types/database";
 
 const emailSchema = z.string().email().max(255);
 const usernameSchema = z
@@ -26,6 +27,8 @@ type DbUserRow = {
   created_at: string;
   is_admin: boolean;
 };
+
+type UserInsert = Database["public"]["Tables"]["users"]["Insert"];
 
 const toPublicUser = (row: DbUserRow): PublicUser => ({
   id: String(row.id),
@@ -68,13 +71,17 @@ export const authRouter = router({
 
       const inserted = await supabase
         .from("users")
-        .insert({
-          email,
-          username,
-          display_name: username,
-          is_admin: false,
-          password_hash,
-        })
+        .insert(
+          [
+            {
+              email,
+              username,
+              display_name: username,
+              is_admin: false,
+              password_hash,
+            },
+          ] satisfies UserInsert[]
+        )
         .select(publicColumns)
         .single();
 
