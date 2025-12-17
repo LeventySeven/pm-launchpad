@@ -291,7 +291,7 @@ export const marketRouter = router({
       }
 
       const { data, error } = await supabase
-        .from("bets")
+        .from<BetRow>("bets")
         .select(
           `
             id,
