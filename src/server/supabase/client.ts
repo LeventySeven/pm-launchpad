@@ -18,7 +18,7 @@ export const supabaseServerClient = () => {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     throw new Error("Supabase environment variables are missing.");
   }
-  return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+  return createClient<Database, "public">(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

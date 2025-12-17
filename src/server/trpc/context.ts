@@ -15,7 +15,7 @@ function parseCookies(req: Request) {
 }
 
 export const createContext = async (opts: { req: Request }) => {
-  const supabase: SupabaseClient<Database> = supabaseServerClient();
+  const supabase: SupabaseClient<Database, "public"> = supabaseServerClient();
   const responseHeaders: Record<string, string | string[]> = {};
   const cookies = parseCookies(opts.req);
   let authUser: { id: string; email: string; username: string; isAdmin: boolean } | null = null;
