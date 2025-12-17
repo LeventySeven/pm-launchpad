@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { publicProcedure, router } from "../trpc";
 import { calculatePayout, calculatePrices } from "../helpers/pricing";
-import type { Database } from "../../types/database";
+import type { Database } from "../../../types/database";
 
 type MarketRow = Database["public"]["Tables"]["markets"]["Row"];
 type BetRow = Database["public"]["Tables"]["bets"]["Row"];
