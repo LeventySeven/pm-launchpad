@@ -123,6 +123,8 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, us
   
   if (!isOpen || !user) return null;
 
+  const isOwnProfile = Boolean(onLogout);
+
   // Calculate Total PnL (Realized only for now)
   const totalRealizedPnL = bets
     .filter(b => b.status === 'resolved' || b.payout !== null)
