@@ -1,14 +1,12 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { publicProcedure, router } from "../trpc";
+import type { Database } from "../../../types/database";
 
-type TelegramUserRow = {
-  id: string;
-  telegram_id: number;
-  username: string | null;
-  display_name: string | null;
-  balance: number;
-};
+type TelegramUserRow = Pick<
+  Database["public"]["Tables"]["users"]["Row"],
+  "id" | "username" | "display_name" | "balance"
+> & { telegram_id: number };
 
 const userShape = {
   id: z.string(),
