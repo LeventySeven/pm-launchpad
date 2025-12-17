@@ -5,6 +5,22 @@ import { ChevronLeft, Clock, ShieldCheck, User as UserIcon, Send, ThumbsUp, Cale
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { formatTimeRemaining } from '../lib/time';
 
+const getErrorMessage = (error: unknown, fallbackRu: string, fallbackEn: string, lang: 'RU' | 'EN') => {
+  if (typeof error === 'string') {
+    return error;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const possible = (error as { message?: unknown }).message;
+    if (typeof possible === 'string') {
+      return possible;
+    }
+  }
+  return lang === 'RU' ? fallbackRu : fallbackEn;
+};
+
 interface MarketPageProps {
   market: Market;
   user: User | null;
@@ -109,8 +125,15 @@ const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin, 
         marketTitle: market.title,
       });
       setAmount('');
-    } catch (err: any) {
-      setPlaceError(err?.message || (lang === 'RU' ? 'Не удалось выполнить ставку' : 'Failed to place bet'));
+    } catch (error: unknown) {
+      setPlaceError(
+        getErrorMessage(
+          error,
+          'Не удалось выполнить ставку',
+          'Failed to place bet',
+          lang
+        )
+      );
     } finally {
       setPlacing(false);
     }

@@ -3,6 +3,24 @@ import { z } from "zod";
 import { publicProcedure, router } from "../trpc";
 import { calculatePayout, calculatePrices } from "../helpers/pricing";
 
+type BetRow = {
+  id: number | string;
+  market_id: number | string;
+  side: "YES" | "NO";
+  amount: number;
+  status: string;
+  payout: number | null;
+  created_at: string;
+  markets?: {
+    title_rus: string | null;
+    title_eng: string | null;
+    outcome: "YES" | "NO" | null;
+    pool_yes: number | null;
+    pool_no: number | null;
+    expires_at: string | null;
+  } | null;
+};
+
 const betSummary = z.object({
   id: z.string(),
   marketId: z.string(),
@@ -121,7 +139,9 @@ export const marketRouter = router({
         });
       }
 
-      const expiresAt = Date.parse(marketRes.data.expires_at as any);
+      const expiresAtValue = marketRes.data.expires_at;
+      const expiresAt =
+        typeof expiresAtValue === "string" ? Date.parse(expiresAtValue) : NaN;
       const graceMs = 5 * 60 * 1000;
       if (Number.isFinite(expiresAt) && expiresAt + graceMs < Date.now()) {
         throw new TRPCError({
@@ -271,7 +291,7 @@ export const marketRouter = router({
       }
 
       const { data, error } = await supabase
-        .from("bets")
+        .from<BetRow>("bets")
         .select(
           `
             id,
@@ -301,33 +321,31 @@ export const marketRouter = router({
         });
       }
 
-      return (
-        data?.map((row: any) => {
-          const poolYes = Number(row.markets?.pool_yes ?? 0);
-          const poolNo = Number(row.markets?.pool_no ?? 0);
-          const total = poolYes + poolNo;
-          const priceYes = total === 0 ? 0.5 : poolNo / total;
-          const priceNo = total === 0 ? 0.5 : poolYes / total;
+      return (data ?? []).map((row) => {
+        const poolYes = Number(row.markets?.pool_yes ?? 0);
+        const poolNo = Number(row.markets?.pool_no ?? 0);
+        const total = poolYes + poolNo;
+        const priceYes = total === 0 ? 0.5 : poolNo / total;
+        const priceNo = total === 0 ? 0.5 : poolYes / total;
 
-          return {
-            id: String(row.id),
-            marketId: String(row.market_id),
-            side: row.side as "YES" | "NO",
-            amount: Number(row.amount),
-            status: row.status,
-            payout: row.payout !== null ? Number(row.payout) : null,
-            createdAt: new Date(row.created_at).toISOString(),
-            marketTitleRu: row.markets?.title_rus ?? null,
-            marketTitleEn: row.markets?.title_eng ?? null,
-            marketOutcome: row.markets?.outcome ?? null,
-            expiresAt: row.markets?.expires_at
-              ? new Date(row.markets.expires_at).toISOString()
-              : null,
-            priceYes,
-            priceNo,
-          };
-        }) ?? []
-      );
+        return {
+          id: String(row.id),
+          marketId: String(row.market_id),
+          side: row.side,
+          amount: Number(row.amount),
+          status: row.status,
+          payout: row.payout !== null ? Number(row.payout) : null,
+          createdAt: new Date(row.created_at).toISOString(),
+          marketTitleRu: row.markets?.title_rus ?? null,
+          marketTitleEn: row.markets?.title_eng ?? null,
+          marketOutcome: row.markets?.outcome ?? null,
+          expiresAt: row.markets?.expires_at
+            ? new Date(row.markets.expires_at).toISOString()
+            : null,
+          priceYes,
+          priceNo,
+        };
+      });
     }),
 
   createMarket: publicProcedure

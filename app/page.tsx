@@ -54,7 +54,25 @@ export default function HomePage() {
   }>({ open: false, marketTitle: "", side: "YES", amount: 0, newBalance: undefined, errorMessage: null });
   const [showAdminModal, setShowAdminModal] = useState(false);
 
-  const formatBetError = (msg?: string) => {
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const getUnknownErrorMessage = (error: unknown): string | undefined => {
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message;
+  if (isRecord(error)) {
+    if (typeof error.message === "string") {
+      return error.message;
+    }
+    const data = error.data;
+    if (isRecord(data) && typeof data.message === "string") {
+      return data.message;
+    }
+  }
+  return undefined;
+};
+
+const formatBetError = (msg?: string) => {
     if (!msg) return "Не удалось поставить ставку";
     if (msg.includes("MARKET_EXPIRED") || msg.toLowerCase().includes("expired")) {
       return "Событие завершено, ставки закрыты.";
@@ -139,7 +157,7 @@ export default function HomePage() {
           isAdmin: me.isAdmin,
         });
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to refresh session user", err);
     }
   }, []);
@@ -172,7 +190,7 @@ export default function HomePage() {
           };
         });
       setMyBets(normalized);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to load bets", err);
     } finally {
       setLoadingBets(false);
@@ -222,7 +240,7 @@ export default function HomePage() {
       if (user) {
         await loadMyBets();
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to load markets", err);
       setMarketsLoadingMessage("Не удалось загрузить рынки, попробуйте позже.");
       setMarkets([]);
@@ -330,9 +348,9 @@ export default function HomePage() {
                   newBalance: res.newBalance,
                   errorMessage: null,
                 });
-              } catch (err: any) {
+              } catch (err: unknown) {
                 console.error("placeBet failed", err);
-                const friendly = formatBetError(err?.message || err?.data?.message);
+                const friendly = formatBetError(getUnknownErrorMessage(err));
                 await loadMarkets();
                 await refreshUser();
                 await loadMyBets();
@@ -416,7 +434,7 @@ export default function HomePage() {
         onLogout={async () => {
           try {
             await trpcClient.auth.logout.mutate();
-          } catch (err) {
+          } catch (err: unknown) {
             console.error("logout failed", err);
           } finally {
             setUser(null);
@@ -442,7 +460,7 @@ export default function HomePage() {
             await trpcClient.market.createMarket.mutate(payload);
             await loadMarkets();
             setShowAdminModal(false);
-          } catch (err) {
+          } catch (err: unknown) {
             console.error("Failed to create market", err);
             throw err;
           }

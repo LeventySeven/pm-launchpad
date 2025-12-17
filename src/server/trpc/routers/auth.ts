@@ -17,7 +17,17 @@ const publicColumns =
   "id, email, username, display_name, balance, created_at, is_admin";
 const authColumns = `${publicColumns}, password_hash`;
 
-const toPublicUser = (row: any): PublicUser => ({
+type DbUserRow = {
+  id: number | string;
+  email: string;
+  username: string;
+  display_name: string | null;
+  balance: number;
+  created_at: string;
+  is_admin: boolean;
+};
+
+const toPublicUser = (row: DbUserRow): PublicUser => ({
   id: String(row.id),
   email: row.email,
   username: row.username,

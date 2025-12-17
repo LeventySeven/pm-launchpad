@@ -82,10 +82,45 @@ const translateFieldError = (
   return opts.message ?? friendlyMessages[lang].genericError;
 };
 
-const formatErrorMessage = (err: any, lang: 'RU' | 'EN'): string => {
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === 'string');
+
+const getZodFieldErrors = (
+  error: unknown
+): Record<string, string[] | undefined> | undefined => {
+  if (!isRecord(error)) return undefined;
+  const data = error.data;
+  if (!isRecord(data)) return undefined;
+  const zodError = data.zodError;
+  if (!isRecord(zodError)) return undefined;
+  const fieldErrors = zodError.fieldErrors;
+  if (!isRecord(fieldErrors)) return undefined;
+  const result: Record<string, string[] | undefined> = {};
+  Object.entries(fieldErrors).forEach(([key, value]) => {
+    if (value === undefined) {
+      result[key] = undefined;
+    } else if (isStringArray(value)) {
+      result[key] = value;
+    }
+  });
+  return result;
+};
+
+const getMessageString = (error: unknown): string | undefined => {
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message;
+  if (isRecord(error) && typeof error.message === 'string') {
+    return error.message;
+  }
+  return undefined;
+};
+
+const formatErrorMessage = (err: unknown, lang: 'RU' | 'EN'): string => {
   const t = friendlyMessages[lang];
-  const zodErrors: Record<string, string[] | undefined> | undefined =
-    err?.data?.zodError?.fieldErrors;
+  const zodErrors = getZodFieldErrors(err);
   if (zodErrors) {
     const messages = Object.entries(zodErrors)
       .flatMap(([field, list]) =>
@@ -97,7 +132,7 @@ const formatErrorMessage = (err: any, lang: 'RU' | 'EN'): string => {
     }
   }
 
-  const messageString = typeof err?.message === 'string' ? err.message : undefined;
+  const messageString = getMessageString(err);
   if (messageString) {
     try {
       const parsed = JSON.parse(messageString);
@@ -123,10 +158,6 @@ const formatErrorMessage = (err: any, lang: 'RU' | 'EN'): string => {
       // messageString was not JSON; fall through
     }
     return translateFieldError(lang, { message: messageString });
-  }
-
-  if (typeof err === 'string') {
-    return translateFieldError(lang, { message: err });
   }
 
   return t.genericError;
@@ -173,7 +204,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, onSignU
         );
       }
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(formatErrorMessage(err, lang));
     } finally {
       setLoading(false);
