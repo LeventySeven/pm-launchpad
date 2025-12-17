@@ -71,6 +71,33 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["users"]["Insert"]>;
       };
     };
+    Functions: {
+      place_bet_tx: {
+        Args: {
+          p_user_id: string;
+          p_market_id: string;
+          p_side: "YES" | "NO";
+          p_amount: number;
+        };
+        Returns: {
+          bet_id: string;
+          new_balance: number;
+        };
+      };
+      resolve_market_tx: {
+        Args: {
+          p_market_id: string;
+          p_outcome: "YES" | "NO";
+        };
+        Returns: {
+          market_id: string;
+          outcome: "YES" | "NO";
+          total_pool: number;
+          winner_pool: number;
+          updated_bets_count: number;
+        };
+      };
+    };
   };
 }
 

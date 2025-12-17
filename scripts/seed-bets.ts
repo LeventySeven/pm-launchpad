@@ -21,12 +21,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 type IdRow = { id: string };
-type PlaceBetArgs = {
-  p_user_id: string;
-  p_market_id: string;
-  p_side: "YES" | "NO";
-  p_amount: number;
-};
+type PlaceBetArgs = Database["public"]["Functions"]["place_bet_tx"]["Args"];
 type UserIdRow = Pick<Database["public"]["Tables"]["users"]["Row"], "id">;
 type MarketIdRow = Pick<Database["public"]["Tables"]["markets"]["Row"], "id">;
 

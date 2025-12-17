@@ -12,6 +12,12 @@ type BetWithMarket = BetRow & {
     "title_rus" | "title_eng" | "outcome" | "pool_yes" | "pool_no" | "expires_at"
   > | null;
 };
+type PlaceBetTxArgs = Database["public"]["Functions"]["place_bet_tx"]["Args"];
+type PlaceBetTxResult = Database["public"]["Functions"]["place_bet_tx"]["Returns"];
+type ResolveMarketArgs =
+  Database["public"]["Functions"]["resolve_market_tx"]["Args"];
+type ResolveMarketResult =
+  Database["public"]["Functions"]["resolve_market_tx"]["Returns"];
 
 const mapMarketRow = (row: MarketRow) => {
   const { priceYes, priceNo } = calculatePrices(
@@ -198,7 +204,7 @@ export const marketRouter = router({
         p_market_id: marketId,
         p_side: side,
         p_amount: amount,
-      });
+      } satisfies PlaceBetTxArgs);
 
       if (rpc.error) {
         throw new TRPCError({
@@ -207,10 +213,7 @@ export const marketRouter = router({
         });
       }
 
-      const raw = rpc.data as
-        | { bet_id: string; new_balance: number }
-        | Array<{ bet_id: string; new_balance: number }>
-        | null;
+      const raw = rpc.data as PlaceBetTxResult | PlaceBetTxResult[] | null;
 
       const result = Array.isArray(raw) ? raw[0] : raw;
 
@@ -269,7 +272,7 @@ export const marketRouter = router({
       const rpc = await supabase.rpc("resolve_market_tx", {
         p_market_id: marketId,
         p_outcome: outcome,
-      });
+      } satisfies ResolveMarketArgs);
 
       if (rpc.error) {
         throw new TRPCError({
@@ -278,13 +281,7 @@ export const marketRouter = router({
         });
       }
 
-      const result = rpc.data as {
-        market_id: string;
-        outcome: "YES" | "NO";
-        total_pool: number;
-        winner_pool: number;
-        updated_bets_count: number;
-      } | null;
+      const result = rpc.data as ResolveMarketResult | null;
 
       if (!result) {
         throw new TRPCError({
