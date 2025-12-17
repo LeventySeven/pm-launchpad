@@ -2,23 +2,61 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { publicProcedure, router } from "../trpc";
 import { calculatePayout, calculatePrices } from "../helpers/pricing";
+import type { Database } from "../../types/database";
 
-type BetRow = {
-  id: number | string;
-  market_id: number | string;
-  side: "YES" | "NO";
-  amount: number;
-  status: string;
-  payout: number | null;
-  created_at: string;
-  markets?: {
-    title_rus: string | null;
-    title_eng: string | null;
-    outcome: "YES" | "NO" | null;
-    pool_yes: number | null;
-    pool_no: number | null;
-    expires_at: string | null;
-  } | null;
+type MarketRow = Database["public"]["Tables"]["markets"]["Row"];
+type BetRow = Database["public"]["Tables"]["bets"]["Row"];
+type BetWithMarket = BetRow & {
+  markets: Pick<
+    MarketRow,
+    "title_rus" | "title_eng" | "outcome" | "pool_yes" | "pool_no" | "expires_at"
+  > | null;
+};
+
+const mapMarketRow = (row: MarketRow) => {
+  const { priceYes, priceNo } = calculatePrices(
+    Number(row.pool_yes),
+    Number(row.pool_no)
+  );
+
+  return {
+    id: row.id,
+    titleRu: row.title_rus,
+    titleEn: row.title_eng,
+    description: row.description,
+    poolYes: Number(row.pool_yes),
+    poolNo: Number(row.pool_no),
+    expiresAt: new Date(row.expires_at).toISOString(),
+    outcome: row.outcome,
+    priceYes,
+    priceNo,
+  };
+};
+
+const mapBetRow = (row: BetWithMarket) => {
+  const poolYes = Number(row.markets?.pool_yes ?? 0);
+  const poolNo = Number(row.markets?.pool_no ?? 0);
+  const total = poolYes + poolNo || 1;
+  const priceYes = poolYes / total;
+  const priceNo = poolNo / total;
+
+  return {
+    id: row.id,
+    marketId: row.market_id,
+    side: row.side,
+    amount: Number(row.amount),
+    status: row.status,
+    payout: row.payout,
+    createdAt: new Date(row.created_at).toISOString(),
+    marketTitleRu: row.markets?.title_rus ?? "",
+    marketTitleEn: row.markets?.title_eng ?? "",
+    marketOutcome: row.markets?.outcome ?? null,
+    expiresAt: row.markets?.expires_at
+      ? new Date(row.markets.expires_at).toISOString()
+      : null,
+    priceYes,
+    priceNo,
+  };
 };
 
 const betSummary = z.object({
@@ -77,26 +115,8 @@ export const marketRouter = router({
         });
       }
 
-      return (
-        data?.map((m) => {
-          const { priceYes, priceNo } = calculatePrices(
-            Number(m.pool_yes),
-            Number(m.pool_no)
-          );
-          return {
-            id: String(m.id),
-            titleRu: m.title_rus ?? null,
-            titleEn: m.title_eng ?? null,
-            description: m.description,
-            poolYes: Number(m.pool_yes),
-            poolNo: Number(m.pool_no),
-            expiresAt: new Date(m.expires_at).toISOString(),
-            outcome: m.outcome as "YES" | "NO" | null,
-            priceYes,
-            priceNo,
-          };
-        }) ?? []
-      );
+      const rows = (data ?? []) as MarketRow[];
+      return rows.map(mapMarketRow);
     }),
 
   placeBet: publicProcedure
@@ -128,20 +148,20 @@ export const marketRouter = router({
         .eq("id", marketId)
         .maybeSingle();
 
-      if (!marketRes.data) {
+      const market = marketRes.data as MarketRow | null;
+
+      if (!market) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Market not found" });
       }
 
-      if (marketRes.data.outcome) {
+      if (market.outcome) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Market already resolved",
         });
       }
 
-      const expiresAtValue = marketRes.data.expires_at;
-      const expiresAt =
-        typeof expiresAtValue === "string" ? Date.parse(expiresAtValue) : NaN;
+      const expiresAt = Date.parse(market.expires_at);
       const graceMs = 5 * 60 * 1000;
       if (Number.isFinite(expiresAt) && expiresAt + graceMs < Date.now()) {
         throw new TRPCError({
@@ -321,33 +341,8 @@ export const marketRouter = router({
         });
       }
 
-      const rows = (data ?? []) as BetRow[];
-
-      return rows.map((row) => {
-        const poolYes = Number(row.markets?.pool_yes ?? 0);
-        const poolNo = Number(row.markets?.pool_no ?? 0);
-        const total = poolYes + poolNo;
-        const priceYes = total === 0 ? 0.5 : poolNo / total;
-        const priceNo = total === 0 ? 0.5 : poolYes / total;
-
-        return {
-          id: String(row.id),
-          marketId: String(row.market_id),
-          side: row.side,
-          amount: Number(row.amount),
-          status: row.status,
-          payout: row.payout !== null ? Number(row.payout) : null,
-          createdAt: new Date(row.created_at).toISOString(),
-          marketTitleRu: row.markets?.title_rus ?? null,
-          marketTitleEn: row.markets?.title_eng ?? null,
-          marketOutcome: row.markets?.outcome ?? null,
-          expiresAt: row.markets?.expires_at
-            ? new Date(row.markets.expires_at).toISOString()
-            : null,
-          priceYes,
-          priceNo,
-        };
-      });
+      const rows = (data ?? []) as BetWithMarket[];
+      return rows.map(mapBetRow);
     }),
 
   createMarket: publicProcedure
@@ -400,7 +395,7 @@ export const marketRouter = router({
         });
       }
 
-      return { id: String(data.id), titleRu: data.title_rus ?? null, titleEn: data.title_eng ?? null };
+      return { id: data.id, titleRu: data.title_rus, titleEn: data.title_eng };
     }),
 });
 

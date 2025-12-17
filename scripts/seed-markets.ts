@@ -8,9 +8,11 @@
  *  - SUPABASE_SERVICE_ROLE_KEY
  */
 import { createClient } from "@supabase/supabase-js";
+import type { Database } from "../src/types/database";
 
 type SeedMarket = {
-  title: string;
+  title_rus: string;
+  title_eng: string;
   description: string | null;
   pool_yes: number;
   pool_no: number;
@@ -26,12 +28,13 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   process.exit(1);
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // Simplified seed data derived from the frontend mock markets.
 const seeds: SeedMarket[] = [
   {
-    title: "Разблокируют ли YouTube в РФ до Января 2026?",
+    title_rus: "Разблокируют ли YouTube в РФ до Января 2026?",
+    title_eng: "Will YouTube be unblocked in Russia by Jan 2026?",
     description:
       "Рынок разрешается положительно, если YouTube станет полностью доступен без VPN через основных провайдеров РФ до 1 января 2026 года.",
     pool_yes: 15,
@@ -40,7 +43,8 @@ const seeds: SeedMarket[] = [
     outcome: null,
   },
   {
-    title: "Привлекут ли Долину к ответственности за схему с квартирой?",
+    title_rus: "Привлекут ли Долину к ответственности за схему с квартирой?",
+    title_eng: "Will Dolina face charges over the apartment scheme?",
     description:
       "Официальное обвинение до конца 2024 года в связи с недавней сделкой с недвижимостью.",
     pool_yes: 42,
@@ -49,7 +53,8 @@ const seeds: SeedMarket[] = [
     outcome: null,
   },
   {
-    title: 'Займет ли песня "Баобаб" (Ivan Zolo) топ-1 в Яндекс Музыке?',
+    title_rus: 'Займет ли песня "Баобаб" (Ivan Zolo) топ-1 в Яндекс Музыке?',
+    title_eng: 'Will "Baobab" reach #1 on Yandex Music?',
     description:
       "Если трек достигнет 1 места в официальном чарте Яндекс Музыки до указанной даты.",
     pool_yes: 8,
@@ -58,7 +63,8 @@ const seeds: SeedMarket[] = [
     outcome: null,
   },
   {
-    title: "Будет ли Bitcoin стоить выше $125,000 к концу 2025?",
+    title_rus: "Будет ли Bitcoin стоить выше $125,000 к концу 2025?",
+    title_eng: "Will Bitcoin trade above $125k by end of 2025?",
     description:
       "Цена BTC должна быть выше $125,000.00 на бирже Binance в 23:59 UTC 31 декабря 2025 года.",
     pool_yes: 33,
@@ -67,7 +73,8 @@ const seeds: SeedMarket[] = [
     outcome: null,
   },
   {
-    title: "Курс доллара выше 110₽ на конец 2025 года?",
+    title_rus: "Курс доллара выше 110₽ на конец 2025 года?",
+    title_eng: "Will USD/RUB exceed 110 by end of 2025?",
     description:
       "Официальный курс ЦБ РФ на 31 декабря 2025 года должен быть строго выше 110 рублей.",
     pool_yes: 65,
@@ -76,7 +83,8 @@ const seeds: SeedMarket[] = [
     outcome: null,
   },
   {
-    title: "Станет ли ChatGPT приложением №1 в RuStore/AppStore в 2025?",
+    title_rus: "Станет ли ChatGPT приложением №1 в RuStore/AppStore в 2025?",
+    title_eng: "Will ChatGPT become #1 app in RuStore/AppStore in 2025?",
     description:
       "Если приложение ChatGPT займет 1 место в категории 'Бесплатные' в российском регионе хотя бы на 24 часа.",
     pool_yes: 55,
@@ -85,7 +93,8 @@ const seeds: SeedMarket[] = [
     outcome: null,
   },
   {
-    title: "Превысит ли выручка Wildberries 4 трлн руб в 2025?",
+    title_rus: "Превысит ли выручка Wildberries 4 трлн руб в 2025?",
+    title_eng: "Will Wildberries revenue exceed 4T RUB in 2025?",
     description:
       "GMV должен превысить 4 трлн рублей по официальному отчету за 2025 год.",
     pool_yes: 70,
@@ -94,7 +103,8 @@ const seeds: SeedMarket[] = [
     outcome: null,
   },
   {
-    title: "Состояние Олега Тинькова >$900M в конце 2025?",
+    title_rus: "Состояние Олега Тинькова >$900M в конце 2025?",
+    title_eng: "Will Oleg Tinkov's net worth exceed $900M in 2025?",
     description:
       "На основе данных Forbes/Bloomberg на конец 2025 года.",
     pool_yes: 25,
