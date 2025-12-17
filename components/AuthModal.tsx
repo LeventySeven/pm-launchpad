@@ -11,6 +11,47 @@ interface AuthModalProps {
 
 type AuthMode = 'SIGN_IN' | 'SIGN_UP';
 
+const formatErrorMessage = (err: any): string => {
+  const zodErrors: Record<string, string[] | undefined> | undefined =
+    err?.data?.zodError?.fieldErrors;
+  if (zodErrors) {
+    const messages = Object.values(zodErrors)
+      .flat()
+      .filter((msg): msg is string => Boolean(msg));
+    if (messages.length) {
+      return messages.join(' ');
+    }
+  }
+
+  const messageString = typeof err?.message === 'string' ? err.message : undefined;
+  if (messageString) {
+    try {
+      const parsed = JSON.parse(messageString);
+      if (Array.isArray(parsed)) {
+        const parsedMessages = parsed
+          .map((item) =>
+            typeof item === 'object' && item !== null && 'message' in item
+              ? String(item.message)
+              : JSON.stringify(item)
+          )
+          .filter(Boolean);
+        if (parsedMessages.length) {
+          return parsedMessages.join(' ');
+        }
+      }
+    } catch {
+      // messageString was not JSON; fall through
+    }
+    return messageString;
+  }
+
+  if (typeof err === 'string') {
+    return err;
+  }
+
+  return 'Не удалось выполнить запрос';
+};
+
 const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, onSignUp }) => {
   const [mode, setMode] = useState<AuthMode>('SIGN_IN');
   const [emailOrUsername, setEmailOrUsername] = useState('');
@@ -62,7 +103,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, onSignU
       }
       onClose();
     } catch (err: any) {
-      setError(err?.message ?? 'Не удалось выполнить запрос');
+      setError(formatErrorMessage(err));
     } finally {
       setLoading(false);
     }

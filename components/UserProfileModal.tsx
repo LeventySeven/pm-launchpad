@@ -196,8 +196,18 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, us
             </div>
         </div>
 
-        {/* Footer actions? Maybe Logout if needed, but picture doesn't show it explicitly. Keeping generic close or nothing. */}
-        {/* We keep the footer empty or just padding if needed. The modal height is handled. */}
+        {isOwnProfile && onLogout && (
+            <div className="mt-auto pt-4 border-t border-zinc-800">
+                <Button
+                  variant="ghost"
+                  fullWidth
+                  onClick={onLogout}
+                  className="text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                >
+                    {lang === 'RU' ? 'Выйти' : 'Log Out'}
+                </Button>
+            </div>
+        )}
       </div>
     </div>
   );
