@@ -197,15 +197,15 @@ export default function HomePage() {
       const response = await trpcClient.market.listMarkets.query({
         onlyOpen: false,
       });
-      if (response && response.length > 0) {
-        const mapped: Market[] = response.map((m) => ({
+      const mapped: Market[] =
+        response?.map((m) => ({
           id: String(m.id),
-          title: m.titleRu,
+          title: lang === "RU" ? m.titleRu : m.titleEn,
           titleRu: m.titleRu,
           titleEn: m.titleEn,
           category: "ALL",
           imageUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            m.titleRu
+            lang === "RU" ? m.titleRu : m.titleEn
           )}&background=random&color=fff&size=128`,
           volume: `$${(Number(m.poolYes) + Number(m.poolNo)).toFixed(2)}`,
           endDate: new Date(m.expiresAt).toISOString(),
@@ -217,23 +217,20 @@ export default function HomePage() {
           poolNo: Number(m.poolNo),
           history: buildHistoryFromPools(Number(m.poolYes), Number(m.poolNo)),
           comments: [],
-        }));
-        setMarkets(mapped);
-      } else {
-        setMarkets(MOCK_MARKETS);
-      }
+        })) ?? [];
+      setMarkets(mapped);
       if (user) {
         await loadMyBets();
       }
     } catch (err) {
-      console.error("Failed to load markets; fallback to mocks", err);
-      setMarketsLoadingMessage("Не удалось загрузить рынки, показаны демо данные.");
-      setMarkets(MOCK_MARKETS);
+      console.error("Failed to load markets", err);
+      setMarketsLoadingMessage("Не удалось загрузить рынки, попробуйте позже.");
+      setMarkets([]);
     } finally {
       setLoadingMarkets(false);
       setMarketsLoadingMessage(null);
     }
-  }, [user, loadMyBets]);
+  }, [user, loadMyBets, lang]);
 
   useEffect(() => {
     void loadMarkets();
