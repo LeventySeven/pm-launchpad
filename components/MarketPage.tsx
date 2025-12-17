@@ -3,6 +3,7 @@ import { Market, User } from '../types';
 import Button from './Button';
 import { ChevronLeft, Clock, ShieldCheck, User as UserIcon, Send, ThumbsUp, CalendarDays } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { formatTimeRemaining } from '../lib/time';
 
 interface MarketPageProps {
   market: Market;
@@ -38,21 +39,12 @@ const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin, 
     [lang, market.title, market.titleEn, market.titleRu]
   );
 
-  // Countdown logic for the main page too
   useEffect(() => {
-    const calculateTimeLeft = () => {
-      const difference = +new Date(market.endDate) - +new Date();
-      if (difference > 0) {
-        const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
-        const minutes = Math.floor((difference / 1000 / 60) % 60);
-        const seconds = Math.floor((difference / 1000) % 60);
-        return `${days}d ${hours}h ${minutes}m ${seconds}s`;
-      }
-      return lang === 'RU' ? 'Завершено' : 'Ended';
+    const update = () => {
+      setTimeLeft(formatTimeRemaining(market.endDate, 'minutes', lang));
     };
-    const timer = setInterval(() => setTimeLeft(calculateTimeLeft()), 1000);
-    setTimeLeft(calculateTimeLeft());
+    update();
+    const timer = setInterval(update, 60000);
     return () => clearInterval(timer);
   }, [market.endDate, lang]);
 

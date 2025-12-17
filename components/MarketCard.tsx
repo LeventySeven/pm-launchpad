@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Market } from '../types';
 import { Clock } from 'lucide-react';
+import { formatTimeRemaining } from '../lib/time';
 
 interface MarketCardProps {
   market: Market;
@@ -16,24 +17,11 @@ const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, lang = 'RU' })
       : market.titleEn ?? market.titleRu ?? market.title;
 
   useEffect(() => {
-    const calculateTimeLeft = () => {
-      const difference = +new Date(market.endDate) - +new Date();
-      if (difference > 0) {
-        const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
-        const minutes = Math.floor((difference / 1000 / 60) % 60);
-        const seconds = Math.floor((difference / 1000) % 60);
-        return `${days}d ${hours}h ${minutes}m ${seconds}s`;
-      }
-      return lang === 'RU' ? 'Завершено' : 'Ended';
+    const update = () => {
+      setTimeLeft(formatTimeRemaining(market.endDate, 'hours', lang));
     };
-
-    const timer = setInterval(() => {
-      setTimeLeft(calculateTimeLeft());
-    }, 1000);
-    
-    setTimeLeft(calculateTimeLeft());
-
+    update();
+    const timer = setInterval(update, 60000);
     return () => clearInterval(timer);
   }, [market.endDate, lang]);
 
