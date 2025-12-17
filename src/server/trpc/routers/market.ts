@@ -291,7 +291,7 @@ export const marketRouter = router({
       }
 
       const { data, error } = await supabase
-        .from<BetRow>("bets")
+        .from("bets")
         .select(
           `
             id,
@@ -321,7 +321,9 @@ export const marketRouter = router({
         });
       }
 
-      return (data ?? []).map((row) => {
+      const rows = (data ?? []) as BetRow[];
+
+      return rows.map((row) => {
         const poolYes = Number(row.markets?.pool_yes ?? 0);
         const poolNo = Number(row.markets?.pool_no ?? 0);
         const total = poolYes + poolNo;
