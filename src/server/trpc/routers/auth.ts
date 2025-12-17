@@ -69,17 +69,17 @@ export const authRouter = router({
 
       const password_hash = await hashPassword(input.password);
 
+      const payload: UserInsert = {
+        email,
+        username,
+        display_name: username,
+        is_admin: false,
+        password_hash,
+      };
+
       const inserted = await supabase
         .from("users")
-        .insert([
-          {
-            email,
-            username,
-            display_name: username,
-            is_admin: false,
-            password_hash,
-          } satisfies UserInsert,
-        ])
+        .insert(payload)
         .select(publicColumns)
         .single();
 
