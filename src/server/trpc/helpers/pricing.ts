@@ -1,21 +1,11 @@
 export function calculatePrices(poolYes: number, poolNo: number) {
-  const total = Number(poolYes) + Number(poolNo);
+  const yes = Number(poolYes) || 0;
+  const no = Number(poolNo) || 0;
+  const total = yes + no;
   if (total === 0) {
     return { priceYes: 0.5, priceNo: 0.5 };
   }
-  const priceYes = Number(poolNo) / total;
-  const priceNo = Number(poolYes) / total;
+  const priceYes = yes / total;
+  const priceNo = no / total;
   return { priceYes, priceNo };
 }
-
-export function calculatePayout(
-  totalPool: number,
-  winnerPool: number,
-  amount: number
-): number {
-  if (winnerPool <= 0) {
-    return 0;
-  }
-  return Number(amount) * (Number(totalPool) / Number(winnerPool));
-}
-

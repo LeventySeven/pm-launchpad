@@ -54,13 +54,15 @@ export interface Bet {
   marketTitleEn: string;
   side: "YES" | "NO";
   amount: number;
-  status: string;
+  status: "open" | "won" | "lost";
   payout: number | null;
   createdAt: string;
   marketOutcome: "YES" | "NO" | null;
   expiresAt: string | null;
   priceYes: number | null;
   priceNo: number | null;
+  priceAtBet: number | null;
+  shares: number | null;
 }
 
 export interface User {
