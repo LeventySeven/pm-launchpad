@@ -45,13 +45,31 @@ begin
     return;
   end if;
 
-  with updated as (
-    update bets
-      set status = case when side = p_outcome then 'won' else 'lost' end,
-          payout = case when side = p_outcome then coalesce(shares, 0) else 0 end
+  with bet_rows as (
+    select
+      id,
+      user_id,
+      side,
+      coalesce(
+        shares,
+        case
+          when price_at_bet is not null and price_at_bet > 0 then amount / price_at_bet
+          else amount
+        end
+      ) as computed_shares
+    from bets
     where market_id = p_market_id
       and status = 'open'
-    returning user_id, payout, status
+    for update
+  ),
+  updated as (
+    update bets b
+      set status = case when br.side = p_outcome then 'won' else 'lost' end,
+          shares = br.computed_shares,
+          payout = case when br.side = p_outcome then br.computed_shares else 0 end
+    from bet_rows br
+    where b.id = br.id
+    returning br.user_id, b.payout, b.status
   ),
   winners as (
     select user_id, sum(payout) as total_payout
