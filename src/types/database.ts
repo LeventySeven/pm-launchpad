@@ -39,31 +39,37 @@ export interface Database {
           id: string;
           side: "YES" | "NO";
           amount: number;
-          status: string;
+          status: "open" | "won" | "lost";
           payout: number | null;
           created_at: string;
           user_id: string;
           market_id: string;
+          price_at_bet: number | null;
+          shares: number | null;
         };
         Insert: {
           id?: string;
           side: "YES" | "NO";
           amount: number;
-          status?: string;
+          status?: "open" | "won" | "lost";
           payout?: number | null;
           created_at?: string;
           user_id: string;
           market_id: string;
+          price_at_bet?: number | null;
+          shares?: number | null;
         };
         Update: {
           id?: string;
           side?: "YES" | "NO";
           amount?: number;
-          status?: string;
+          status?: "open" | "won" | "lost";
           payout?: number | null;
           created_at?: string;
           user_id?: string;
           market_id?: string;
+          price_at_bet?: number | null;
+          shares?: number | null;
         };
         Relationships: [
           {

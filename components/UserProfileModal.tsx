@@ -21,6 +21,30 @@ interface PortfolioItemProps {
 
 const PortfolioItem: React.FC<PortfolioItemProps> = ({ item, lang, onClick }) => {
     const [timer, setTimer] = useState('');
+    const isSettled = item.status === 'won' || item.status === 'lost';
+    const shares =
+      typeof item.shares === 'number'
+        ? item.shares
+        : item.priceAtBet && item.priceAtBet > 0
+        ? item.amount / item.priceAtBet
+        : null;
+    const entryPrice =
+      typeof item.priceAtBet === 'number'
+        ? item.priceAtBet
+        : shares
+        ? item.amount / shares
+        : null;
+    const currentSidePrice =
+      item.side === 'YES'
+        ? item.priceYes ?? null
+        : item.priceNo ?? null;
+    const markValue =
+      shares !== null && currentSidePrice !== null ? shares * currentSidePrice : null;
+    const realizedPnL = (item.payout ?? 0) - item.amount;
+    const unrealizedPnL = markValue !== null ? markValue - item.amount : null;
+    const displayPnL = isSettled ? realizedPnL : unrealizedPnL ?? 0;
+    const displayPercent = item.amount > 0 ? (displayPnL / item.amount) * 100 : 0;
+    const isProfit = displayPnL >= 0;
 
     useEffect(() => {
         const tick = () => {
@@ -28,7 +52,7 @@ const PortfolioItem: React.FC<PortfolioItemProps> = ({ item, lang, onClick }) =>
                  setTimer('—');
                  return;
             }
-            if (item.status === 'resolved' || item.marketOutcome) {
+            if (isSettled || item.marketOutcome) {
                 setTimer(lang === 'RU' ? 'ЗАВЕРШЕНО' : 'ENDED');
                 return;
             }
@@ -47,35 +71,8 @@ const PortfolioItem: React.FC<PortfolioItemProps> = ({ item, lang, onClick }) =>
         const t = setInterval(tick, 1000);
         tick();
         return () => clearInterval(t);
-    }, [item.expiresAt, item.status, item.marketOutcome, lang]);
+    }, [item.expiresAt, item.status, item.marketOutcome, lang, isSettled]);
 
-    // Calculate PnL if possible.
-    // For resolved bets: Payout - Amount.
-    // For open bets: We don't have entry price, so we can't calculate accurate PnL.
-    // We will show "Amount" and "Current Chance".
-    
-    const isResolved = item.status === 'resolved' || !!item.payout;
-    const realizedPnL = isResolved ? (item.payout || 0) - item.amount : 0;
-    const realizedPnLPercent = item.amount > 0 ? (realizedPnL / item.amount) * 100 : 0;
-
-    // For open bets, we'll try to estimate if we have price data (assuming entry at 50% for lack of better data? No that's bad).
-    // Let's just show Amount and Current Price.
-    
-    // Actually the picture shows PnL for active bets.
-    // We'll mimic the UI structure but if we can't calc PnL, we'll show "Amount".
-    // Or we just show 0.00% for open bets.
-    
-    const displayPnL = isResolved ? realizedPnL : 0; // Placeholder for open
-    const displayPercent = isResolved ? realizedPnLPercent : 0;
-    
-    const isProfit = displayPnL >= 0;
-    
-    const typeLabel = lang === 'RU' ? (item.side === 'YES' ? 'YES' : 'NO') : item.side; // Picture has "YES" / "NO" even in RU interface maybe? Or localized.
-    // The picture shows "YES" in green box. "NO" in pink box.
-
-    // If open, show "Amount" instead of PnL in the main view?
-    // The picture shows PnL.
-    
     return (
         <div 
             onClick={onClick}
@@ -91,28 +88,37 @@ const PortfolioItem: React.FC<PortfolioItemProps> = ({ item, lang, onClick }) =>
                      </span>
                 </div>
                 <div className="flex items-center gap-2 text-[10px] text-zinc-500 uppercase tracking-wider font-mono">
-                    <span className={`flex items-center gap-1 ${item.status === 'resolved' ? 'text-zinc-500' : 'text-[#f544a6]'}`}>
+                    <span className={`flex items-center gap-1 ${isSettled ? 'text-zinc-500' : 'text-[#f544a6]'}`}>
                         <Clock size={10} /> {timer}
                     </span>
                 </div>
             </div>
             <div className="text-right">
-                {isResolved ? (
+                {isSettled ? (
                     <div className={`font-mono text-sm font-bold ${isProfit ? 'text-[#BEFF1D]' : 'text-[#f544a6]'}`}>
                         {isProfit ? '+' : ''}${Math.abs(displayPnL).toFixed(2)} ({Math.abs(displayPercent).toFixed(1)}%)
                     </div>
                 ) : (
                     <div className="font-mono text-sm font-bold text-white">
-                        ${item.amount.toFixed(2)}
+                        {unrealizedPnL !== null
+                          ? `${isProfit ? '+' : ''}$${Math.abs(unrealizedPnL).toFixed(2)}`
+                          : `$${item.amount.toFixed(2)}`
+                        }
                     </div>
                 )}
-                <div className="text-[10px] text-zinc-500 mt-1">
-                    {/* Placeholder for shares info since we don't have it */}
-                    {isResolved ? (
-                        <span>{lang === 'RU' ? 'Завершено' : 'Resolved'}</span>
-                    ) : (
-                       <span>Invested</span>
+                <div className="text-[10px] text-zinc-500 mt-1 flex flex-col items-end">
+                    {shares !== null && entryPrice !== null && (
+                      <span>
+                        {shares.toFixed(2)} sh @ ${entryPrice.toFixed(2)}
+                      </span>
                     )}
+                    <span className="uppercase tracking-wider">
+                      {isSettled
+                        ? item.status === 'won'
+                          ? (lang === 'RU' ? 'ВЫИГРЫШ' : 'WON')
+                          : (lang === 'RU' ? 'ПОТЕРЯ' : 'LOST')
+                        : (lang === 'RU' ? 'ОТКРЫТА' : 'OPEN')}
+                    </span>
                 </div>
             </div>
         </div>
@@ -126,8 +132,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, us
   const isOwnProfile = Boolean(onLogout);
 
   // Calculate Total PnL (Realized only for now)
+  const settledStatuses = new Set<Bet["status"]>(['won', 'lost']);
   const totalRealizedPnL = bets
-    .filter(b => b.status === 'resolved' || b.payout !== null)
+    .filter((b) => settledStatuses.has(b.status))
     .reduce((acc, b) => acc + ((b.payout || 0) - b.amount), 0);
     
   const isPositivePnL = totalRealizedPnL >= 0;

@@ -45,22 +45,24 @@ begin
     return;
   end if;
 
-  -- Update bets and payouts
-  update bets
-    set status = case when side = p_outcome then 'won' else 'lost' end,
-        payout = case when side = p_outcome and winner_pool > 0
-                      then amount * (total_pool / winner_pool)
-                      else 0 end
-  where market_id = p_market_id
-    and status = 'open';
-
-  -- Pay winners
+  with updated as (
+    update bets
+      set status = case when side = p_outcome then 'won' else 'lost' end,
+          payout = case when side = p_outcome then coalesce(shares, 0) else 0 end
+    where market_id = p_market_id
+      and status = 'open'
+    returning user_id, payout, status
+  ),
+  winners as (
+    select user_id, sum(payout) as total_payout
+    from updated
+    where status = 'won'
+    group by user_id
+  )
   update users u
-    set balance = balance + b.payout
-  from bets b
-  where b.market_id = p_market_id
-    and b.status = 'won'
-    and b.user_id = u.id;
+    set balance = balance + w.total_payout
+  from winners w
+  where w.user_id = u.id;
 
   updated_bets_count := (select count(*) from bets where market_id = p_market_id and status in ('won','lost'));
 

@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { publicProcedure, router } from "../trpc";
-import { calculatePayout, calculatePrices } from "../helpers/pricing";
+import { calculatePrices } from "../helpers/pricing";
 import type { Database } from "../../../types/database";
 
 type MarketRow = Database["public"]["Tables"]["markets"]["Row"];
@@ -42,9 +42,7 @@ const mapMarketRow = (row: MarketRow) => {
 const mapBetRow = (row: BetWithMarket) => {
   const poolYes = Number(row.markets?.pool_yes ?? 0);
   const poolNo = Number(row.markets?.pool_no ?? 0);
-  const total = poolYes + poolNo || 1;
-  const priceYes = poolYes / total;
-  const priceNo = poolNo / total;
+  const { priceYes, priceNo } = calculatePrices(poolYes, poolNo);
 
   return {
     id: row.id,
@@ -54,6 +52,8 @@ const mapBetRow = (row: BetWithMarket) => {
     status: row.status,
     payout: row.payout,
     createdAt: new Date(row.created_at).toISOString(),
+    priceAtBet: row.price_at_bet ? Number(row.price_at_bet) : null,
+    shares: row.shares ? Number(row.shares) : null,
     marketTitleRu: row.markets?.title_rus ?? "",
     marketTitleEn: row.markets?.title_eng ?? "",
     marketOutcome: row.markets?.outcome ?? null,
@@ -73,6 +73,8 @@ const betSummary = z.object({
   status: z.string(),
   payout: z.number().nullable(),
   createdAt: z.string(),
+  priceAtBet: z.number().nullable(),
+  shares: z.number().nullable(),
   marketTitleRu: z.string(),
   marketTitleEn: z.string(),
   marketOutcome: z.enum(["YES", "NO"]).nullable(),
@@ -317,6 +319,8 @@ export const marketRouter = router({
             amount,
             status,
             payout,
+            price_at_bet,
+            shares,
             created_at,
             markets:market_id (
               title_rus,
