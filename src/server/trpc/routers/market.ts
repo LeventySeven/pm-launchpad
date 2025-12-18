@@ -263,7 +263,10 @@ export const marketRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { supabase } = ctx;
+      const { supabase, authUser } = ctx;
+      if (!authUser || !authUser.isAdmin) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Admin only" });
+      }
       const { marketId, outcome } = input;
 
       /**

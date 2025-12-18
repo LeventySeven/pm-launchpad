@@ -24,9 +24,11 @@ as $$
 declare
   v_pool_yes numeric;
   v_pool_no numeric;
+  v_existing_outcome text;
+  v_open_bets int;
 begin
   select pool_yes, pool_no, outcome
-    into v_pool_yes, v_pool_no, outcome
+    into v_pool_yes, v_pool_no, v_existing_outcome
   from markets
   where id = p_market_id
   for update;
@@ -35,11 +37,17 @@ begin
     raise exception 'MARKET_NOT_FOUND';
   end if;
 
+  select count(*)
+    into v_open_bets
+  from bets
+  where market_id = p_market_id
+    and status = 'open';
+
   total_pool := coalesce(v_pool_yes, 0) + coalesce(v_pool_no, 0);
   winner_pool := case when p_outcome = 'YES' then coalesce(v_pool_yes, 0) else coalesce(v_pool_no, 0) end;
 
   -- Idempotent: if already resolved with same outcome, just return summary
-  if outcome is not null and outcome = p_outcome then
+  if v_existing_outcome is not null and v_existing_outcome = p_outcome and v_open_bets = 0 then
     updated_bets_count := (select count(*) from bets where market_id = p_market_id and status in ('won','lost'));
     return query select p_market_id, p_outcome, total_pool, winner_pool, updated_bets_count;
     return;

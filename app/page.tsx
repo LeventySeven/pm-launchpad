@@ -230,6 +230,7 @@ const formatBetError = (msg?: string) => {
           title: lang === "RU" ? m.titleRu : m.titleEn,
           titleRu: m.titleRu,
           titleEn: m.titleEn,
+          outcome: m.outcome ?? null,
           category: "ALL",
           imageUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(
             lang === "RU" ? m.titleRu : m.titleEn
@@ -262,6 +263,19 @@ const formatBetError = (msg?: string) => {
   useEffect(() => {
     void loadMarkets();
   }, [loadMarkets]);
+
+  const resolveMarketOutcome = useCallback(
+    async ({ marketId, outcome }: { marketId: string; outcome: "YES" | "NO" }) => {
+      if (!user || !user.isAdmin) {
+        throw new Error("UNAUTHORIZED");
+      }
+      await trpcClient.market.resolveMarket.mutate({ marketId, outcome });
+      await loadMarkets();
+      await loadMyBets();
+      await refreshUser();
+    },
+    [user, loadMarkets, loadMyBets, refreshUser]
+  );
 
   // Refresh bets periodically while profile is open
   useEffect(() => {
@@ -318,6 +332,7 @@ const formatBetError = (msg?: string) => {
             onBack={() => setSelectedMarketId(null)}
             onLogin={() => setShowAuth(true)}
             lang={lang}
+            onResolveOutcome={user?.isAdmin ? resolveMarketOutcome : undefined}
             onPlaceBet={async ({ amount, marketId, side, marketTitle }) => {
               try {
                 if (!user) {

@@ -20,6 +20,7 @@ export interface Market {
   title: string;
   titleRu: string;
   titleEn: string;
+  outcome: "YES" | "NO" | null;
   category: Category;
   imageUrl: string;
   volume: string;
