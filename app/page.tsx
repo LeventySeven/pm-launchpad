@@ -16,7 +16,7 @@ import { Search } from "lucide-react";
 
 const buildHistoryFromPools = (poolYes: number, poolNo: number) => {
   const total = poolYes + poolNo;
-  const priceYes = total === 0 ? 0.5 : poolNo / total;
+  const priceYes = total === 0 ? 0.5 : poolYes / total;
   const chance = Math.round(priceYes * 100);
   // Simple two-point history to reflect current price; can be extended when real history is available.
   return [
@@ -172,6 +172,7 @@ const formatBetError = (msg?: string) => {
         .map((b) => {
           const titleRu = b.marketTitleRu ?? "—";
           const titleEn = b.marketTitleEn ?? titleRu;
+          const normalizedStatus = (b.status ?? "open") as Bet["status"];
           return {
             id: String(b.id),
             marketId: String(b.marketId),
@@ -180,13 +181,21 @@ const formatBetError = (msg?: string) => {
             marketTitleEn: titleEn,
             side: b.side,
             amount: Number(b.amount ?? 0),
-            status: b.status ?? "open",
+            status: normalizedStatus,
             payout: b.payout !== null && b.payout !== undefined ? Number(b.payout) : null,
             createdAt: b.createdAt ?? new Date().toISOString(),
             marketOutcome: b.marketOutcome ?? null,
             expiresAt: b.expiresAt ?? null,
             priceYes: b.priceYes ?? null,
             priceNo: b.priceNo ?? null,
+            priceAtBet:
+              b.priceAtBet !== null && b.priceAtBet !== undefined
+                ? Number(b.priceAtBet)
+                : null,
+            shares:
+              b.shares !== null && b.shares !== undefined
+                ? Number(b.shares)
+                : null,
           };
         });
       setMyBets(normalized);
@@ -221,6 +230,7 @@ const formatBetError = (msg?: string) => {
           title: lang === "RU" ? m.titleRu : m.titleEn,
           titleRu: m.titleRu,
           titleEn: m.titleEn,
+          outcome: m.outcome ?? null,
           category: "ALL",
           imageUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(
             lang === "RU" ? m.titleRu : m.titleEn
@@ -253,6 +263,19 @@ const formatBetError = (msg?: string) => {
   useEffect(() => {
     void loadMarkets();
   }, [loadMarkets]);
+
+  const resolveMarketOutcome = useCallback(
+    async ({ marketId, outcome }: { marketId: string; outcome: "YES" | "NO" }) => {
+      if (!user || !user.isAdmin) {
+        throw new Error("UNAUTHORIZED");
+      }
+      await trpcClient.market.resolveMarket.mutate({ marketId, outcome });
+      await loadMarkets();
+      await loadMyBets();
+      await refreshUser();
+    },
+    [user, loadMarkets, loadMyBets, refreshUser]
+  );
 
   // Refresh bets periodically while profile is open
   useEffect(() => {
@@ -309,6 +332,7 @@ const formatBetError = (msg?: string) => {
             onBack={() => setSelectedMarketId(null)}
             onLogin={() => setShowAuth(true)}
             lang={lang}
+            onResolveOutcome={user?.isAdmin ? resolveMarketOutcome : undefined}
             onPlaceBet={async ({ amount, marketId, side, marketTitle }) => {
               try {
                 if (!user) {

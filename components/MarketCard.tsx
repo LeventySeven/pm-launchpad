@@ -15,21 +15,27 @@ const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, lang = 'RU' })
     lang === 'RU'
       ? market.titleRu ?? market.titleEn ?? market.title
       : market.titleEn ?? market.titleRu ?? market.title;
-
-  useEffect(() => {
-    const update = () => {
-      setTimeLeft(formatTimeRemaining(market.endDate, 'hours', lang));
-    };
-    update();
-    const timer = setInterval(update, 60000);
-    return () => clearInterval(timer);
-  }, [market.endDate, lang]);
-
+  const isResolved = Boolean(market.outcome);
+  const winningYes = market.outcome === 'YES';
+  const displayChance = isResolved ? (winningYes ? 100 : 0) : market.chance;
   const yesLabel = lang === 'RU' ? 'Да' : 'Yes';
   const noLabel = lang === 'RU' ? 'Нет' : 'No';
   const chanceLabel = lang === 'RU' ? 'Вероятность' : 'Chance';
   const investedLabel = lang === 'RU' ? 'Инвестировано' : 'Invested';
   const volLabel = lang === 'RU' ? 'Объем' : 'Vol';
+
+  useEffect(() => {
+    const update = () => {
+      if (isResolved) {
+        setTimeLeft(lang === 'RU' ? 'Завершено' : 'Resolved');
+        return;
+      }
+      setTimeLeft(formatTimeRemaining(market.endDate, 'hours', lang));
+    };
+    update();
+    const timer = setInterval(update, 60000);
+    return () => clearInterval(timer);
+  }, [market.endDate, lang, isResolved]);
 
   return (
     <div 
@@ -41,6 +47,11 @@ const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, lang = 'RU' })
       {market.isNew && (
           <div className="absolute top-3 left-3 border border-[#BEFF1D]/30 text-[#BEFF1D] text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider z-10">
               NEW
+          </div>
+      )}
+      {isResolved && (
+          <div className="absolute top-3 right-3 border border-zinc-700 text-xs font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider text-white bg-zinc-900/80">
+              {lang === 'RU' ? `Исход: ${winningYes ? 'ДА' : 'НЕТ'}` : `Outcome: ${winningYes ? 'YES' : 'NO'}`}
           </div>
       )}
 
@@ -59,7 +70,7 @@ const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, lang = 'RU' })
       {/* Main Stats: Chance Bar */}
       <div className="mt-auto">
         <div className="flex items-end justify-between mb-2">
-            <span className="text-2xl font-bold text-[#BEFF1D] leading-none tracking-tight">{market.chance}%</span>
+            <span className="text-2xl font-bold text-[#BEFF1D] leading-none tracking-tight">{displayChance}%</span>
             <span className="text-xs text-zinc-500 font-medium uppercase tracking-wide">
                 {chanceLabel}
             </span>
@@ -69,11 +80,11 @@ const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, lang = 'RU' })
         <div className="w-full h-1.5 bg-zinc-900 rounded-full mb-6 overflow-hidden flex">
           <div 
             className="h-full bg-[#BEFF1D]" 
-            style={{ width: `${market.chance}%` }}
+            style={{ width: `${displayChance}%` }}
           />
           <div 
             className="h-full bg-[#f544a6]" 
-            style={{ width: `${100 - market.chance}%` }}
+            style={{ width: `${100 - displayChance}%` }}
           />
         </div>
 

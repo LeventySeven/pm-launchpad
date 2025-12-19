@@ -27,10 +27,19 @@ interface MarketPageProps {
   onBack: () => void;
   onLogin: () => void;
   onPlaceBet: (params: { side: 'YES' | 'NO'; amount: number; marketId: string; marketTitle: string }) => Promise<void>;
+  onResolveOutcome?: (params: { marketId: string; outcome: 'YES' | 'NO' }) => Promise<void>;
   lang?: 'RU' | 'EN';
 }
 
-const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin, onPlaceBet, lang = 'RU' }) => {
+const MarketPage: React.FC<MarketPageProps> = ({
+  market,
+  user,
+  onBack,
+  onLogin,
+  onPlaceBet,
+  onResolveOutcome,
+  lang = 'RU',
+}) => {
   const [activeTab, setActiveTab] = useState<'COMMENTS' | 'ACTIVITY'>('COMMENTS');
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState(market.comments);
@@ -39,6 +48,8 @@ const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin, 
   const [timeLeft, setTimeLeft] = useState('');
   const [placeError, setPlaceError] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
+  const [resolvingOutcome, setResolvingOutcome] = useState<'YES' | 'NO' | null>(null);
+  const [resolveError, setResolveError] = useState<string | null>(null);
   const formattedEndDate = useMemo(() => {
     const parsed = Date.parse(market.endDate);
     if (!Number.isFinite(parsed)) return lang === 'RU' ? '—' : '—';
@@ -54,21 +65,29 @@ const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin, 
     () => (lang === 'RU' ? market.titleRu ?? market.titleEn ?? market.title : market.titleEn ?? market.titleRu ?? market.title),
     [lang, market.title, market.titleEn, market.titleRu]
   );
+  const isResolved = Boolean(market.outcome);
+  const winningSide = market.outcome;
+  const adminControlsEnabled = Boolean(user?.isAdmin && onResolveOutcome);
 
   useEffect(() => {
     const update = () => {
+      if (isResolved) {
+        setTimeLeft(lang === 'RU' ? 'Завершено' : 'Resolved');
+        return;
+      }
       setTimeLeft(formatTimeRemaining(market.endDate, 'minutes', lang));
     };
     update();
     const timer = setInterval(update, 60000);
     return () => clearInterval(timer);
-  }, [market.endDate, lang]);
+  }, [market.endDate, lang, isResolved]);
 
-  const isExpired = (() => {
+  const eventEnded = (() => {
     const now = Date.now();
     const parsed = Date.parse(market.endDate);
     return Number.isFinite(parsed) && parsed < now;
   })();
+  const isExpired = isResolved || eventEnded;
 
   const handlePostComment = () => {
     if (!commentText.trim()) return;
@@ -138,6 +157,40 @@ const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin, 
       setPlacing(false);
     }
   };
+
+  const handleResolveOutcomeClick = async (side: 'YES' | 'NO') => {
+    if (!adminControlsEnabled || !onResolveOutcome) return;
+    setResolveError(null);
+    setResolvingOutcome(side);
+    try {
+      await onResolveOutcome({ marketId: market.id, outcome: side });
+    } catch (error: unknown) {
+      setResolveError(
+        getErrorMessage(
+          error,
+          'Не удалось завершить рынок',
+          'Failed to resolve market',
+          lang
+        ) ?? (lang === 'RU' ? 'Не удалось завершить рынок' : 'Failed to resolve market')
+      );
+    } finally {
+      setResolvingOutcome(null);
+    }
+  };
+
+  const renderOutcomeBadge = () => {
+    if (!winningSide) return null;
+    const yes = winningSide === 'YES';
+    return (
+      <span
+        className={`flex items-center gap-2 text-xs font-semibold uppercase tracking-wider px-2 py-1 rounded-full ${
+          yes ? 'bg-[#BEFF1D]/20 text-[#BEFF1D]' : 'bg-[rgba(250,73,159,0.2)] text-[rgba(250,73,159,1)]'
+        }`}
+      >
+        {lang === 'RU' ? `Исход: ${yes ? 'ДА' : 'НЕТ'}` : `Outcome: ${yes ? 'YES' : 'NO'}`}
+      </span>
+    );
+  };
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 animate-in fade-in duration-500">
       {/* Navigation */}
@@ -166,6 +219,7 @@ const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin, 
                             <CalendarDays size={14} />
                             {lang === 'RU' ? `Окончание: ${formattedEndDate}` : `Ends: ${formattedEndDate}`}
                         </span>
+                        {renderOutcomeBadge()}
                     </div>
                 </div>
             </div>
@@ -291,12 +345,23 @@ const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin, 
               {isExpired ? (
                 <div className="space-y-3">
                   <p className="text-sm text-neutral-300">
-                    {lang === 'RU'
+                    {isResolved
+                      ? lang === 'RU'
+                        ? `Рынок завершен. Итог: ${winningSide === 'YES' ? 'ДА' : 'НЕТ'}.`
+                        : `Market resolved. Outcome: ${winningSide === 'YES' ? 'YES' : 'NO'}.`
+                      : lang === 'RU'
                       ? 'Торги завершены. Итог будет опубликован после разрешения.'
                       : 'Trading closed. Outcome will be published after resolution.'}
                   </p>
                   <div className="bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-sm text-neutral-400">
-                    {lang === 'RU' ? 'Итог' : 'Summary'}: {market.chance}% Да • Vol: {market.volume}
+                    {lang === 'RU' ? 'Итог' : 'Summary'}: {market.chance}% {lang === 'RU' ? 'Да' : 'Yes'} • Vol: {market.volume}
+                    {isResolved && (
+                      <div className="text-xs text-neutral-500 mt-2">
+                        {lang === 'RU'
+                          ? 'Исход подтвержден администратором. Победители получают $1 за акцию.'
+                          : 'Outcome confirmed by admin. Winning shares redeem for $1 each.'}
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -377,6 +442,45 @@ const MarketPage: React.FC<MarketPageProps> = ({ market, user, onBack, onLogin, 
                     </p>
                   </div>
                 </>
+              )}
+              {adminControlsEnabled && (
+                <div className="mt-6 pt-4 border-t border-zinc-800/50 space-y-3">
+                  <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+                    <ShieldCheck size={12} />
+                    {lang === 'RU' ? 'Админ: исход события' : 'Admin: Resolve Outcome'}
+                  </p>
+                  {isResolved ? (
+                    <p className="text-sm text-neutral-300">
+                      {lang === 'RU'
+                        ? `Исход установлен: ${winningSide === 'YES' ? 'ДА' : 'НЕТ'}.`
+                        : `Outcome already set to ${winningSide === 'YES' ? 'YES' : 'NO'}.`}
+                    </p>
+                  ) : (
+                    <>
+                      <div className="flex gap-3">
+                        <Button
+                          fullWidth
+                          onClick={() => handleResolveOutcomeClick('YES')}
+                          disabled={Boolean(resolvingOutcome)}
+                          className="!bg-[#BEFF1D] !text-black hover:!opacity-90"
+                        >
+                          {lang === 'RU' ? 'Завершить как ДА' : 'Resolve as YES'}
+                        </Button>
+                        <Button
+                          fullWidth
+                          onClick={() => handleResolveOutcomeClick('NO')}
+                          disabled={Boolean(resolvingOutcome)}
+                          className="!bg-[rgba(250,73,159,1)] !text-black hover:!opacity-90"
+                        >
+                          {lang === 'RU' ? 'Завершить как НЕТ' : 'Resolve as NO'}
+                        </Button>
+                      </div>
+                      {resolveError && (
+                        <p className="text-sm text-red-400">{resolveError}</p>
+                      )}
+                    </>
+                  )}
+                </div>
               )}
 
               {/* Disclaimer Footnote */}
