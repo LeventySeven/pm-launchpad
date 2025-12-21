@@ -32,8 +32,6 @@ export default function HomePage() {
 
   const [myPositions, setMyPositions] = useState<Position[]>([]);
   const [myTrades, setMyTrades] = useState<Trade[]>([]);
-  const [myBets, setMyBets] = useState<Bet[]>([]); // Derived from positions for legacy component
-  const [loadingBets, setLoadingBets] = useState(false);
   const [marketsLoadingMessage, setMarketsLoadingMessage] = useState<string | null>(null);
   const [betConfirm, setBetConfirm] = useState<{
     open: boolean;
@@ -149,40 +147,21 @@ export default function HomePage() {
     }
   }, []);
 
-  /**
-   * Load user positions and trades, then derive legacy Bet[] for components
-   */
-  const loadMyBets = useCallback(async () => {
-    if (!user) return;
-    setLoadingBets(true);
-    try {
-      const [positions, trades] = await Promise.all([
-        trpcClient.market.myPositions.query(),
-        trpcClient.market.myTrades.query(),
-      ]);
-
-      setMyPositions(positions as Position[]);
-      setMyTrades(trades as Trade[]);
-
-      // Derive legacy Bet[] from positions for UserProfileModal compatibility
-      const derivedBets: Bet[] = positions.map((p, idx) => {
-        // Find the market in our loaded markets to get current prices
-        const mkt = markets.find((m) => m.id === p.marketId);
-        const priceYes = mkt?.yesPrice ?? 0.5;
-        const priceNo = mkt?.noPrice ?? 0.5;
+  const deriveLegacyBets = useCallback(
+    (positions: Position[]): Bet[] =>
+      positions.map((p, idx) => {
+        const market = markets.find((m) => m.id === p.marketId);
+        const priceYes = market?.yesPrice ?? 0.5;
+        const priceNo = market?.noPrice ?? 0.5;
         const currentPrice = p.outcome === "YES" ? priceYes : priceNo;
 
-        // Determine status based on market state
         let status: Bet["status"] = "open";
         if (p.marketState === "resolved") {
           status = p.marketOutcome === p.outcome ? "won" : "lost";
         }
 
-        // Calculate implied amount from shares * avgEntryPrice
         const avgPrice = p.avgEntryPrice ?? currentPrice;
         const amount = p.shares * avgPrice;
-
-        // Payout: if won, shares * 1 (full value); if lost, 0
         const payout = status === "won" ? p.shares : status === "lost" ? 0 : null;
 
         return {
@@ -195,7 +174,7 @@ export default function HomePage() {
           amount,
           status,
           payout,
-          createdAt: new Date().toISOString(), // Positions don't track creation time
+          createdAt: new Date().toISOString(),
           marketOutcome: p.marketOutcome,
           expiresAt: p.expiresAt,
           priceYes,
@@ -203,15 +182,27 @@ export default function HomePage() {
           priceAtBet: avgPrice,
           shares: p.shares,
         };
-      });
+      }),
+    [markets, lang]
+  );
 
-      setMyBets(derivedBets);
+  /**
+   * Load user positions and trades
+   */
+  const loadMyBets = useCallback(async () => {
+    if (!user) return;
+    try {
+      const [positions, trades] = await Promise.all([
+        trpcClient.market.myPositions.query(),
+        trpcClient.market.myTrades.query(),
+      ]);
+
+      setMyPositions(positions as Position[]);
+      setMyTrades(trades as Trade[]);
     } catch (err: unknown) {
       console.error("Failed to load positions/trades", err);
-    } finally {
-      setLoadingBets(false);
     }
-  }, [user, lang, markets]);
+  }, [user]);
 
   // Fetch session user via auth.me
   useEffect(() => {
@@ -265,12 +256,7 @@ export default function HomePage() {
           settlementAsset: m.settlementAsset,
         };
       }) ?? [];
-
       setMarkets(mapped);
-
-      if (user) {
-        await loadMyBets();
-      }
     } catch (err: unknown) {
       console.error("Failed to load markets", err);
       setMarketsLoadingMessage(lang === "RU" ? "Не удалось загрузить рынки, попробуйте позже." : "Failed to load markets.");
@@ -279,11 +265,24 @@ export default function HomePage() {
       setLoadingMarkets(false);
       setMarketsLoadingMessage(null);
     }
-  }, [user, loadMyBets, lang]);
+  }, [lang]);
+  useEffect(() => {
+    if (!user) {
+      setMyPositions([]);
+      setMyTrades([]);
+      return;
+    }
+    void loadMyBets();
+  }, [user, loadMyBets]);
 
   useEffect(() => {
     void loadMarkets();
   }, [loadMarkets]);
+
+  const legacyBets = useMemo(
+    () => deriveLegacyBets(myPositions),
+    [deriveLegacyBets, myPositions]
+  );
 
   const resolveMarketOutcome = useCallback(
     async ({ marketId, outcome }: { marketId: string; outcome: "YES" | "NO" }) => {
@@ -524,7 +523,7 @@ export default function HomePage() {
         isOpen={showProfile}
         onClose={() => setShowProfile(false)}
         user={user}
-        bets={myBets}
+        bets={legacyBets}
         lang={lang}
         onMarketClick={(id) => {
           setSelectedMarketId(id);
@@ -537,7 +536,6 @@ export default function HomePage() {
             console.error("logout failed", err);
           } finally {
             setUser(null);
-            setMyBets([]);
             setMyPositions([]);
             setMyTrades([]);
             setShowProfile(false);
