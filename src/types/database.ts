@@ -294,30 +294,30 @@ export interface Database {
         Row: {
           market_id: string;
           bucket: string;
-          open_price: number;
-          high_price: number;
-          low_price: number;
-          close_price: number;
+          open: number;
+          high: number;
+          low: number;
+          close: number;
           volume_minor: number;
           trades_count: number;
         };
         Insert: {
           market_id: string;
           bucket: string;
-          open_price: number;
-          high_price: number;
-          low_price: number;
-          close_price: number;
+          open: number;
+          high: number;
+          low: number;
+          close: number;
           volume_minor?: number;
           trades_count?: number;
         };
         Update: {
           market_id?: string;
           bucket?: string;
-          open_price?: number;
-          high_price?: number;
-          low_price?: number;
-          close_price?: number;
+          open?: number;
+          high?: number;
+          low?: number;
+          close?: number;
           volume_minor?: number;
           trades_count?: number;
         };

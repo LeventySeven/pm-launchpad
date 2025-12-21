@@ -530,7 +530,7 @@ export const marketRouter = router({
 
       const { data, error } = await supabase
         .from("market_price_candles")
-        .select("market_id, bucket, open_price, high_price, low_price, close_price, volume_minor, trades_count")
+        .select("market_id, bucket, open, high, low, close, volume_minor, trades_count")
         .eq("market_id", input.marketId)
         .order("bucket", { ascending: true })
         .limit(input.limit);
@@ -547,10 +547,10 @@ export const marketRouter = router({
         const candle = c as CandleRow;
         return {
           bucket: candle.bucket,
-          open: Number(candle.open_price),
-          high: Number(candle.high_price),
-          low: Number(candle.low_price),
-          close: Number(candle.close_price),
+          open: Number(candle.open),
+          high: Number(candle.high),
+          low: Number(candle.low),
+          close: Number(candle.close),
           volume: toMajorUnits(Number(candle.volume_minor), VCOIN_DECIMALS),
           tradesCount: candle.trades_count,
         };
