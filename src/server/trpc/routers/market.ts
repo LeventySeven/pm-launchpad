@@ -356,7 +356,7 @@ export const marketRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { supabase, authUser } = ctx;
+      const { supabase, supabaseService, authUser } = ctx;
       if (!authUser || !authUser.isAdmin) {
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Admin only" });
       }
@@ -364,7 +364,7 @@ export const marketRouter = router({
 
       // This RPC should be called with service_role for production
       // For now we call it as admin user - the DB function should check admin status
-      const { data, error } = await (supabase as SupabaseAnyClient).rpc("resolve_market_service_tx", {
+      const { data, error } = await (supabaseService as SupabaseAnyClient).rpc("resolve_market_service_tx", {
         p_market_id: marketId,
         p_outcome: outcome,
       });
@@ -399,7 +399,7 @@ export const marketRouter = router({
   myPositions: publicProcedure
     .output(z.array(positionSummary))
     .query(async ({ ctx }) => {
-      const { supabase, authUser } = ctx;
+      const { supabase, supabaseService, authUser } = ctx;
       if (!authUser) {
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
       }
@@ -656,7 +656,7 @@ export const marketRouter = router({
       }
 
       // Insert market
-      const { data: market, error: marketError } = await (supabase as SupabaseAnyClient)
+      const { data: market, error: marketError } = await (supabaseService as SupabaseAnyClient)
         .from("markets")
         .insert({
           title_rus: input.titleRu.trim(),
@@ -681,7 +681,7 @@ export const marketRouter = router({
       }
 
       // Insert AMM state
-      const { error: ammError } = await (supabase as SupabaseAnyClient)
+      const { error: ammError } = await (supabaseService as SupabaseAnyClient)
         .from("market_amm_state")
         .insert({
           market_id: market.id,
@@ -694,7 +694,7 @@ export const marketRouter = router({
 
       if (ammError) {
         // Rollback by deleting market (not ideal, but simple)
-        await supabase.from("markets").delete().eq("id", market.id);
+        await supabaseService.from("markets").delete().eq("id", market.id);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: ammError.message,
