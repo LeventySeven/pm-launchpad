@@ -71,7 +71,8 @@ declare
   v_market markets%rowtype;
   v_asset assets%rowtype;
   v_balance wallet_balances%rowtype;
-  v_side text := upper(coalesce(p_side, ''));
+  v_side_text text := upper(coalesce(p_side, ''));
+  v_side outcome_side;
   v_amount_minor numeric;
   v_fee_minor numeric;
   v_net_minor numeric;
@@ -106,9 +107,11 @@ begin
     raise exception 'NOT_AUTHENTICATED';
   end if;
 
-  if v_side not in ('YES', 'NO') then
+  if v_side_text not in ('YES', 'NO') then
     raise exception 'INVALID_SIDE';
   end if;
+
+  v_side := v_side_text::outcome_side;
 
   if p_amount is null or p_amount <= 0 then
     raise exception 'INVALID_AMOUNT';
@@ -205,8 +208,8 @@ begin
 
   loop
     v_cost_mid := lmsr_cost_safe(
-      v_state.q_yes + case when v_side = 'YES' then v_shares_high else 0 end,
-      v_state.q_no + case when v_side = 'NO' then v_shares_high else 0 end,
+      v_state.q_yes + case when v_side = 'YES'::outcome_side then v_shares_high else 0 end,
+      v_state.q_no + case when v_side = 'NO'::outcome_side then v_shares_high else 0 end,
       v_state.b
     ) - v_cost_before;
     exit when v_cost_mid >= v_target_cost;
@@ -216,8 +219,8 @@ begin
   for v_iterations in 1..60 loop
     v_shares_mid := (v_shares_low + v_shares_high) / 2;
     v_cost_mid := lmsr_cost_safe(
-      v_state.q_yes + case when v_side = 'YES' then v_shares_mid else 0 end,
-      v_state.q_no + case when v_side = 'NO' then v_shares_mid else 0 end,
+      v_state.q_yes + case when v_side = 'YES'::outcome_side then v_shares_mid else 0 end,
+      v_state.q_no + case when v_side = 'NO'::outcome_side then v_shares_mid else 0 end,
       v_state.b
     ) - v_cost_before;
 
@@ -237,7 +240,7 @@ begin
     raise exception 'AMOUNT_TOO_SMALL';
   end if;
 
-  if v_side = 'YES' then
+  if v_side = 'YES'::outcome_side then
     v_state.q_yes := v_state.q_yes + v_shares;
   else
     v_state.q_no := v_state.q_no + v_shares;
