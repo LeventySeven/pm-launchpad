@@ -66,7 +66,7 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
-  MAX_BET_MINOR constant bigint := 1000000000000000; -- 1e15 minor units (~1B VCOIN at 6 decimals)
+  MAX_BET_MAJOR constant numeric := 10000; -- temporary MVP cap in human units (~10k VCOIN)
   v_user_id uuid := auth.uid();
   v_market markets%rowtype;
   v_asset assets%rowtype;
@@ -114,6 +114,10 @@ begin
     raise exception 'INVALID_AMOUNT';
   end if;
 
+  if p_amount > MAX_BET_MAJOR then
+    raise exception 'BET_TOO_LARGE';
+  end if;
+
   select *
   into v_market
   from markets
@@ -152,10 +156,6 @@ begin
 
   if v_amount_minor <= 0 then
     raise exception 'AMOUNT_TOO_SMALL';
-  end if;
-
-  if v_amount_minor > MAX_BET_MINOR then
-    raise exception 'BET_TOO_LARGE';
   end if;
 
   select *
@@ -209,13 +209,9 @@ begin
       v_state.q_no + case when v_side = 'NO' then v_shares_high else 0 end,
       v_state.b
     ) - v_cost_before;
-    exit when v_cost_mid >= v_target_cost or v_shares_high > 1e12;
+    exit when v_cost_mid >= v_target_cost;
     v_shares_high := v_shares_high * 2;
   end loop;
-
-  if v_cost_mid < v_target_cost then
-    raise exception 'AMOUNT_TOO_LARGE';
-  end if;
 
   for v_iterations in 1..60 loop
     v_shares_mid := (v_shares_low + v_shares_high) / 2;
