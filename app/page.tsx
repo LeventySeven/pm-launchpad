@@ -303,6 +303,11 @@ export default function HomePage() {
     [deriveLegacyBets, myPositions]
   );
 
+  const soldTrades = useMemo(
+    () => myTrades.filter((trade) => trade.action === "sell"),
+    [myTrades]
+  );
+
   const resolveMarketOutcome = useCallback(
     async ({ marketId, outcome }: { marketId: string; outcome: "YES" | "NO" }) => {
       if (!user || !user.isAdmin) {
@@ -509,6 +514,10 @@ export default function HomePage() {
         }}
         onAdminClick={user?.isAdmin ? () => setShowAdminModal(true) : undefined}
         onHelpClick={() => setShowOnboarding(true)}
+        onLogoClick={() => {
+          setSelectedMarketId(null);
+          setShowProfile(false);
+        }}
         lang={lang}
         onToggleLang={handleToggleLang}
       />
@@ -590,6 +599,7 @@ export default function HomePage() {
         onClose={() => setShowProfile(false)}
         user={user}
         bets={legacyBets}
+        soldTrades={soldTrades}
         lang={lang}
         onMarketClick={(id) => {
           setSelectedMarketId(id);
