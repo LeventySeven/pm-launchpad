@@ -82,6 +82,9 @@ export default function HomePage() {
     if (upper.includes("AMOUNT_TOO_LARGE") || upper.includes("VALUE OUT OF RANGE")) {
       return lang === "RU" ? "Слишком большая ставка, попробуйте меньше." : "Bet amount is too large, try a smaller size.";
     }
+    if (upper.includes("BET_TOO_LARGE")) {
+      return lang === "RU" ? "Достигнут лимит максимальной ставки." : "Maximum bet limit reached.";
+    }
     if (upper.includes("INVALID_LIQUIDITY")) {
       return lang === "RU" ? "У рынка нет ликвидности для торговли." : "Market liquidity is invalid.";
     }

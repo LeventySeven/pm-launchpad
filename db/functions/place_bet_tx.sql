@@ -56,7 +56,7 @@ create or replace function place_bet_tx(
   p_amount numeric
 ) returns table (
   trade_id uuid,
-  new_balance_minor numeric,
+  new_balance_minor bigint,
   shares_bought numeric,
   price_before numeric,
   price_after numeric
@@ -66,6 +66,7 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
+  MAX_BET_MINOR constant bigint := 1000000000000000; -- 1e15 minor units (~1B VCOIN at 6 decimals)
   v_user_id uuid := auth.uid();
   v_market markets%rowtype;
   v_asset assets%rowtype;
@@ -96,7 +97,10 @@ declare
   v_avg_price numeric;
   v_now timestamptz := now();
   v_fee_bps numeric;
-  v_new_balance_minor numeric;
+  v_amount_minor_big bigint;
+  v_fee_minor_big bigint;
+  v_net_minor_big bigint;
+  v_new_balance_minor bigint;
 begin
   if v_user_id is null then
     raise exception 'NOT_AUTHENTICATED';
@@ -148,6 +152,10 @@ begin
 
   if v_amount_minor <= 0 then
     raise exception 'AMOUNT_TOO_SMALL';
+  end if;
+
+  if v_amount_minor > MAX_BET_MINOR then
+    raise exception 'BET_TOO_LARGE';
   end if;
 
   select *
@@ -241,27 +249,31 @@ begin
 
   v_price_after := lmsr_price_yes_safe(v_state.q_yes, v_state.q_no, v_state.b);
 
+  v_amount_minor_big := v_amount_minor::bigint;
+  v_fee_minor_big := v_fee_minor::bigint;
+  v_net_minor_big := v_net_minor::bigint;
+
   update market_amm_state
      set q_yes = v_state.q_yes,
          q_no = v_state.q_no,
          last_price_yes = v_price_after,
-         fee_accumulated_minor = fee_accumulated_minor + v_fee_minor,
+         fee_accumulated_minor = fee_accumulated_minor + v_fee_minor_big,
          updated_at = v_now
    where market_id = p_market_id;
 
   update wallet_balances
-     set balance_minor = balance_minor - v_amount_minor,
+     set balance_minor = balance_minor - v_amount_minor_big,
          updated_at = v_now
    where user_id = v_user_id
      and asset_code = v_asset.code
    returning balance_minor into v_new_balance_minor;
 
   insert into wallet_transactions (id, user_id, asset_code, amount_minor, kind, market_id, trade_id, created_at)
-  values (gen_random_uuid(), v_user_id, v_asset.code, -v_net_minor, 'trade', p_market_id, v_trade_id, v_now);
+  values (gen_random_uuid(), v_user_id, v_asset.code, -v_net_minor_big, 'trade', p_market_id, v_trade_id, v_now);
 
-  if v_fee_minor > 0 then
+  if v_fee_minor_big > 0 then
     insert into wallet_transactions (id, user_id, asset_code, amount_minor, kind, market_id, trade_id, created_at)
-    values (gen_random_uuid(), v_user_id, v_asset.code, -v_fee_minor, 'fee', p_market_id, v_trade_id, v_now);
+    values (gen_random_uuid(), v_user_id, v_asset.code, -v_fee_minor_big, 'fee', p_market_id, v_trade_id, v_now);
   end if;
 
   select *
@@ -313,9 +325,9 @@ begin
     'buy',
     v_side,
     v_asset.code,
-    v_amount_minor,
-    v_fee_minor,
-    -v_net_minor,
+    v_amount_minor_big,
+    v_fee_minor_big,
+    -v_net_minor_big,
     v_shares,
     v_price_before,
     v_price_after,
