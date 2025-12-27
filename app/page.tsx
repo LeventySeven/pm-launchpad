@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AuthModal from "@/components/AuthModal";
 import Header from "@/components/Header";
-import MarketFeedItem from "@/components/MarketFeedItem";
+import MarketCard from "@/components/MarketCard";
 import MarketPage from "@/components/MarketPage";
 import OnboardingModal from "@/components/OnboardingModal";
 import UserProfileModal from "@/components/UserProfileModal";
@@ -643,10 +643,11 @@ export default function HomePage() {
             onToggleLang={handleToggleLang}
           />
 
-          <main className="mx-auto w-full max-w-xl pb-24">
+          <main className="mx-auto w-full max-w-7xl pb-24">
             {currentView === "EVENTS" && (
               <>
-                <div className="px-4 pt-4 pb-3">
+                {/* Mobile search (desktop search is in Header) */}
+                <div className="px-4 pt-4 pb-3 md:hidden">
                   <div className="relative">
                     <input
                       type="text"
@@ -659,20 +660,22 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                <div className="border-t border-zinc-900">
+                <div className="border-t border-zinc-900 px-4 pt-4">
                   {loadingMarkets ? (
                     <div className="text-center py-10 text-zinc-500">
                       {marketsLoadingMessage || (lang === "RU" ? "Загрузка рынков..." : "Loading markets...")}
                     </div>
                   ) : filteredMarkets.length > 0 ? (
-                    filteredMarkets.map((market) => (
-                      <MarketFeedItem
-                        key={market.id}
-                        market={market}
-                        onClick={() => setSelectedMarketId(market.id)}
-                        lang={lang}
-                      />
-                    ))
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-4">
+                      {filteredMarkets.map((market) => (
+                        <MarketCard
+                          key={market.id}
+                          market={market}
+                          onClick={() => setSelectedMarketId(market.id)}
+                          lang={lang}
+                        />
+                      ))}
+                    </div>
                   ) : (
                     <div className="text-center py-20 text-zinc-500 px-4">
                       <p className="text-lg mb-2">{lang === "RU" ? "Ничего не найдено" : "Nothing found"}</p>

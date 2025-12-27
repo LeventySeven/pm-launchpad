@@ -254,14 +254,13 @@ const MarketPage: React.FC<MarketPageProps> = ({
 
   const renderOutcomeBadge = () => {
     if (!winningSide) return null;
-    const yes = winningSide === 'YES';
     return (
       <span
-        className={`flex items-center gap-2 text-xs font-semibold uppercase tracking-wider px-2 py-1 rounded-full ${
-          yes ? 'bg-[#BEFF1D]/20 text-[#BEFF1D]' : 'bg-[rgba(250,73,159,0.2)] text-[rgba(250,73,159,1)]'
-        }`}
+        className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider px-2 py-1 rounded-full border border-zinc-900 bg-black/50 text-zinc-200"
       >
-        {lang === 'RU' ? `Исход: ${yes ? 'ДА' : 'НЕТ'}` : `Outcome: ${yes ? 'YES' : 'NO'}`}
+        {lang === 'RU'
+          ? `Исход: ${winningSide === 'YES' ? 'ДА' : 'НЕТ'}`
+          : `Outcome: ${winningSide === 'YES' ? 'YES' : 'NO'}`}
       </span>
     );
   };
@@ -270,11 +269,11 @@ const MarketPage: React.FC<MarketPageProps> = ({
   const feePercent = market.feeBps ? (market.feeBps / 100).toFixed(1) : '2.0';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 animate-in fade-in duration-500">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 animate-in fade-in duration-500">
       {/* Navigation */}
       <button 
         onClick={onBack}
-        className="inline-flex items-center gap-2 text-zinc-500 hover:text-white mb-8 transition-colors text-sm font-medium"
+        className="inline-flex items-center gap-2 text-zinc-500 hover:text-zinc-100 mb-6 transition-colors text-sm font-medium"
       >
         <ChevronLeft size={16} />
         <span>{lang === 'RU' ? 'Назад' : 'Back'}</span>
@@ -285,11 +284,11 @@ const MarketPage: React.FC<MarketPageProps> = ({
         {/* Left Column: Chart & Info */}
         <div className="lg:col-span-8 space-y-8">
           <div className="flex items-start gap-6">
-            <img src={market.imageUrl} alt={localizedTitle} className="w-16 h-16 rounded-full bg-zinc-900 object-cover grayscale opacity-90 border border-zinc-800" />
+            <img src={market.imageUrl} alt={localizedTitle} className="w-16 h-16 rounded-full bg-zinc-950 object-cover grayscale opacity-90 border border-zinc-900" />
             <div>
-              <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white leading-tight mb-3">{localizedTitle}</h1>
+              <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-100 leading-tight mb-3">{localizedTitle}</h1>
               <div className="flex flex-wrap items-center gap-4 text-xs font-medium uppercase tracking-wide text-zinc-500">
-                <span className="flex items-center gap-2 text-[#BEFF1D] font-mono"><Clock size={14}/> {timeLeft}</span>
+                <span className="flex items-center gap-2 text-zinc-200 font-mono"><Clock size={14}/> {timeLeft}</span>
                 <span className="flex items-center gap-2"><ShieldCheck size={14}/> 
                   {lang === 'RU' ? 'Объем' : 'Vol'}: {market.volume}
                 </span>
@@ -303,9 +302,9 @@ const MarketPage: React.FC<MarketPageProps> = ({
           </div>
 
           {/* Chart */}
-          <div className="rounded-xl border border-zinc-800 bg-[#09090b] p-6 h-[450px] relative">
+          <div className="rounded-2xl border border-zinc-900 bg-black p-6 h-[420px] relative">
             <div className="flex items-baseline gap-4 mb-8">
-              <span className="text-4xl font-bold tracking-tight text-[#BEFF1D]">{displayedChance}%</span>
+              <span className="text-4xl font-bold tracking-tight text-zinc-100">{displayedChance}%</span>
               <span className="text-zinc-500 text-sm font-medium uppercase tracking-wide">
                 {lang === 'RU' ? 'Вероятность (Да)' : 'Yes Probability'}
               </span>
@@ -320,8 +319,8 @@ const MarketPage: React.FC<MarketPageProps> = ({
                 <AreaChart data={chartSeries}>
                   <defs>
                     <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#BEFF1D" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#BEFF1D" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#e5e7eb" stopOpacity={0.12}/>
+                      <stop offset="95%" stopColor="#e5e7eb" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
                   <XAxis 
@@ -338,15 +337,15 @@ const MarketPage: React.FC<MarketPageProps> = ({
                   />
                   <CartesianGrid vertical={false} stroke="#18181b" strokeDasharray="3 3" />
                   <Tooltip 
-                    contentStyle={{backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '6px'}}
-                    itemStyle={{color: '#BEFF1D', fontSize: '12px'}}
+                    contentStyle={{backgroundColor: '#000000', borderColor: '#27272a', borderRadius: '10px'}}
+                    itemStyle={{color: '#e5e7eb', fontSize: '12px'}}
                     labelStyle={{color: '#71717a', fontSize: '10px', textTransform: 'uppercase'}}
                     formatter={(value: number) => [`${value}%`, lang === 'RU' ? 'Вероятность' : 'Chance']}
                   />
                   <Area 
                     type="monotone" 
                     dataKey="value" 
-                    stroke="#BEFF1D" 
+                    stroke="#e5e7eb" 
                     strokeWidth={2}
                     fillOpacity={1} 
                     fill="url(#colorValue)" 
@@ -362,7 +361,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
 
           {/* Tabs */}
           <div>
-            <div className="flex border-b border-zinc-800 mb-8">
+            <div className="flex border-b border-zinc-900 mb-8">
               <button 
                 onClick={() => setActiveTab('COMMENTS')}
                 className={`px-4 py-3 font-medium text-sm transition-colors border-b-2 ${activeTab === 'COMMENTS' ? 'border-white text-white' : 'border-transparent text-zinc-500 hover:text-white'}`}
@@ -392,7 +391,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                       onChange={(e) => setCommentText(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handlePostComment()}
                       placeholder={lang === 'RU' ? "Написать комментарий..." : "Write something..."}
-                      className="flex h-10 w-full rounded-md border border-zinc-800 bg-transparent px-3 py-2 pr-10 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D] placeholder:text-zinc-600"
+                      className="flex h-10 w-full rounded-md border border-zinc-900 bg-transparent px-3 py-2 pr-10 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 placeholder:text-zinc-600"
                     />
                     <button 
                       onClick={handlePostComment}
@@ -458,7 +457,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                   return (
                     <div
                       key={trade.id}
-                      className="flex items-center justify-between border border-zinc-800 rounded-lg p-3 text-sm text-neutral-300"
+                      className="flex items-center justify-between border border-zinc-900 rounded-2xl p-3 text-sm text-neutral-300"
                     >
                       <div>
                         <p className="font-semibold text-white">
@@ -469,7 +468,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                         </p>
                       </div>
                       <div className="text-right font-mono">
-                        <p className={isBuy ? 'text-[#BEFF1D]' : 'text-[rgba(250,73,159,1)]'}>
+                        <p className="text-zinc-100">
                           ${trade.collateralGross.toFixed(2)}
                         </p>
                         <p className="text-[11px] text-neutral-500">
@@ -488,7 +487,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
         <div className="lg:col-span-4">
           <div className="space-y-6 lg:sticky lg:top-24 lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:pr-1 custom-scrollbar">
             {/* Trading Card */}
-            <div className="rounded-xl border border-zinc-800 bg-[#09090b] p-6 shadow-sm">
+            <div className="rounded-2xl border border-zinc-900 bg-black p-6 shadow-sm">
             {isExpired ? (
               <div className="space-y-3">
                 <p className="text-sm text-neutral-300">
@@ -513,21 +512,19 @@ const MarketPage: React.FC<MarketPageProps> = ({
               </div>
             ) : (
               <>
-                <div className="bg-zinc-900/50 rounded-lg p-1 flex mb-6 border border-zinc-800">
+                <div className="bg-zinc-950 rounded-full p-1 flex mb-6 border border-zinc-900">
                   <button
                     onClick={() => setTradeType('YES')}
-                    className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-md transition-all ${
-                      tradeType === 'YES' ? 'bg-[#BEFF1D] text-black shadow-sm' : 'text-zinc-500 hover:text-white'
+                    className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-full transition-all ${
+                      tradeType === 'YES' ? 'bg-zinc-100 text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-200'
                     }`}
                   >
                     {lang === 'RU' ? 'ДА' : 'YES'} ${market.yesPrice.toFixed(2)}
                   </button>
                   <button
                     onClick={() => setTradeType('NO')}
-                    className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-md transition-all ${
-                      tradeType === 'NO'
-                        ? 'bg-[rgba(250,73,159,1)] text-black shadow-sm'
-                        : 'text-[rgba(250,73,159,1)] hover:text-white'
+                    className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-full transition-all ${
+                      tradeType === 'NO' ? 'bg-zinc-100 text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-200'
                     }`}
                   >
                     {lang === 'RU' ? 'НЕТ' : 'NO'} ${market.noPrice.toFixed(2)}
@@ -548,14 +545,14 @@ const MarketPage: React.FC<MarketPageProps> = ({
                         value={amount}
                         onChange={(e) => handleAmountChange(e.target.value)}
                         placeholder="0"
-                        className="flex h-11 w-full rounded-md border border-zinc-800 bg-transparent px-3 py-2 pl-7 text-lg font-medium shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D] placeholder:text-zinc-700"
+                        className="flex h-11 w-full rounded-md border border-zinc-900 bg-transparent px-3 py-2 pl-7 text-lg font-medium shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 placeholder:text-zinc-700"
                       />
                     </div>
                   </div>
 
                   {placeError && <p className="text-sm text-red-400">{placeError}</p>}
 
-                  <div className="space-y-3 pt-4 border-t border-zinc-800/50">
+                  <div className="space-y-3 pt-4 border-t border-zinc-900/50">
                     <div className="flex justify-between text-xs text-zinc-500 uppercase font-medium">
                       <span>{lang === 'RU' ? 'Акций' : 'Shares'}</span>
                       <span className="text-white font-mono">{estimatedShares.toFixed(2)}</span>
@@ -566,7 +563,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                     </div>
                     <div className="flex justify-between text-xs text-zinc-500 uppercase font-medium">
                       <span>{lang === 'RU' ? 'Прибыль' : 'Profit'}</span>
-                      <span className="text-[#BEFF1D] font-mono">+${potentialProfit}</span>
+                      <span className="text-zinc-100 font-mono">+${potentialProfit}</span>
                     </div>
                   </div>
 
@@ -574,11 +571,6 @@ const MarketPage: React.FC<MarketPageProps> = ({
                     fullWidth
                     onClick={handlePlaceBetClick}
                     disabled={!user || placing}
-                    className={
-                      tradeType === 'NO' && user
-                        ? '!bg-[rgba(250,73,159,1)] hover:!opacity-90 !text-white'
-                        : ''
-                    }
                   >
                     {!user
                       ? lang === 'RU'
@@ -595,12 +587,12 @@ const MarketPage: React.FC<MarketPageProps> = ({
 
                 {/* User Position & Sell */}
                 {user && userShares > 0 && onSellPosition && (
-                  <div className="mt-6 pt-4 border-t border-zinc-800/50 space-y-3">
+                  <div className="mt-6 pt-4 border-t border-zinc-900/50 space-y-3">
                     <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 flex items-center gap-2">
                       <TrendingDown size={12} />
                       {lang === 'RU' ? 'Ваша позиция' : 'Your Position'}
                     </p>
-                    <div className="bg-zinc-900/50 rounded-lg p-3 border border-zinc-800">
+                    <div className="bg-zinc-950/40 rounded-2xl p-3 border border-zinc-900">
                       <div className="flex justify-between text-sm">
                         <span className="text-zinc-400">{tradeType} {lang === 'RU' ? 'акции' : 'shares'}</span>
                         <span className="text-white font-mono">{userShares.toFixed(2)}</span>
@@ -631,16 +623,12 @@ const MarketPage: React.FC<MarketPageProps> = ({
                       {sellablePositions.map((position) => (
                         <div
                           key={`${position.marketId}-${position.outcome}`}
-                          className="bg-zinc-900/40 border border-zinc-800 rounded-lg p-3"
+                          className="bg-zinc-950/40 border border-zinc-900 rounded-2xl p-3"
                         >
                           <div className="flex items-center justify-between text-sm">
                             <div className="flex items-center gap-2 text-white">
                               <span
-                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm ${
-                                  position.outcome === 'YES'
-                                    ? 'bg-[#BEFF1D] text-black'
-                                    : 'bg-[rgba(250,73,159,1)] text-black'
-                                }`}
+                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm border border-zinc-900 bg-black text-zinc-200"
                               >
                                 {position.outcome}
                               </span>
@@ -686,7 +674,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
 
             {/* Admin Controls */}
             {adminControlsEnabled && (
-              <div className="mt-6 pt-4 border-t border-zinc-800/50 space-y-3">
+              <div className="mt-6 pt-4 border-t border-zinc-900/50 space-y-3">
                 <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 flex items-center gap-2">
                   <ShieldCheck size={12} />
                   {lang === 'RU' ? 'Админ: исход события' : 'Admin: Resolve Outcome'}
@@ -704,7 +692,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                         fullWidth
                         onClick={() => handleResolveOutcomeClick('YES')}
                         disabled={Boolean(resolvingOutcome)}
-                        className="!bg-[#BEFF1D] !text-black hover:!opacity-90"
+                        variant="secondary"
                       >
                         {lang === 'RU' ? 'Завершить как ДА' : 'Resolve as YES'}
                       </Button>
@@ -712,7 +700,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                         fullWidth
                         onClick={() => handleResolveOutcomeClick('NO')}
                         disabled={Boolean(resolvingOutcome)}
-                        className="!bg-[rgba(250,73,159,1)] !text-black hover:!opacity-90"
+                        variant="secondary"
                       >
                         {lang === 'RU' ? 'Завершить как НЕТ' : 'Resolve as NO'}
                       </Button>
@@ -726,9 +714,9 @@ const MarketPage: React.FC<MarketPageProps> = ({
             )}
 
             {/* Disclaimer Footnote */}
-            <div className="mt-6 pt-4 border-t border-zinc-800/50">
+            <div className="mt-6 pt-4 border-t border-zinc-900/50">
               <p className="text-[10px] leading-relaxed text-zinc-500 text-justify">
-                <span className="text-[#f544a6] font-semibold">Disclaimer:</span>{' '}
+                <span className="text-zinc-400 font-semibold">Disclaimer:</span>{' '}
                 {lang === 'RU'
                   ? `Если ваш прогноз верен, каждая акция погашается по цене $1.00. Если неверен — акции сгорают. Рынки прогнозов сопряжены с высоким риском потери средств.`
                   : `If your prediction is correct, each share is redeemed for $1.00. If incorrect — shares expire worthless. Prediction markets involve a high risk of total loss.`}
@@ -737,14 +725,14 @@ const MarketPage: React.FC<MarketPageProps> = ({
             </div>
 
             {/* Rules Card */}
-            <div className="rounded-xl border border-zinc-800 bg-[#09090b] p-6 shadow-sm">
+            <div className="rounded-2xl border border-zinc-900 bg-black p-6 shadow-sm">
               <h3 className="font-semibold text-zinc-300 mb-4 flex items-center gap-2 text-xs uppercase tracking-wider">
                 <ShieldCheck size={14} />
                 {lang === 'RU' ? 'Правила исхода' : 'Rules'}
               </h3>
               <div className="text-xs text-zinc-500 leading-relaxed space-y-4 font-mono">
                 <p>{market.description}</p>
-                <p className="pt-4 border-t border-zinc-800">
+                <p className="pt-4 border-t border-zinc-900">
                   Resolution based on consensus.
                 </p>
               </div>

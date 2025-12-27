@@ -62,7 +62,7 @@ const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-zinc-800 bg-[#09090b]/80 backdrop-blur supports-[backdrop-filter]:bg-[#09090b]/60">
+    <header className="sticky top-0 z-40 w-full border-b border-zinc-900 bg-black/80 backdrop-blur supports-[backdrop-filter]:bg-black/60">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
         {/* Logo */}
         <div
@@ -88,9 +88,9 @@ const Header: React.FC<HeaderProps> = ({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={t.search}
-            className="flex h-9 w-full rounded-md border border-zinc-800 bg-transparent px-3 py-1 pl-9 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-9 w-full rounded-full border border-zinc-900 bg-zinc-950/40 px-3 py-1 pl-9 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
           />
-          <Search size={14} className="absolute left-3 top-2.5 text-zinc-500" />
+          <Search size={14} className="absolute left-3 top-2.5 text-zinc-600" />
         </div>
 
         {/* Actions */}
@@ -98,7 +98,7 @@ const Header: React.FC<HeaderProps> = ({
           {onHelpClick && (
             <button
               onClick={onHelpClick}
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BEFF1D] hover:bg-zinc-800 hover:text-zinc-50 h-9 w-9"
+              className="inline-flex items-center justify-center rounded-full text-sm font-medium ring-offset-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-700 hover:bg-zinc-950/60 hover:text-zinc-50 h-9 w-9"
               title={t.help}
             >
               <HelpCircle size={16} />
@@ -108,7 +108,7 @@ const Header: React.FC<HeaderProps> = ({
           {onToggleLang && (
             <button
               onClick={onToggleLang}
-              className="inline-flex items-center justify-center rounded-md text-xs font-bold ring-offset-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BEFF1D] border border-zinc-800 bg-transparent hover:bg-zinc-800 text-zinc-400 hover:text-white h-9 px-3 gap-2"
+              className="inline-flex items-center justify-center rounded-full text-xs font-bold ring-offset-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-700 border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60 text-zinc-300 hover:text-white h-9 px-3 gap-2"
             >
               <Globe size={12} />
               {lang}
@@ -122,7 +122,7 @@ const Header: React.FC<HeaderProps> = ({
               </Button>
               <button
                 onClick={onAdminClick}
-                className="sm:hidden inline-flex items-center justify-center rounded-md border border-zinc-800 bg-neutral-900 text-white hover:border-[#BEFF1D] h-9 w-9"
+                className="sm:hidden inline-flex items-center justify-center rounded-full border border-zinc-900 bg-zinc-950/40 text-white hover:bg-zinc-950/60 h-9 w-9"
                 aria-label={t.createMarket}
               >
                 <Plus size={16} />
