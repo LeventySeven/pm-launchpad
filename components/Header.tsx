@@ -1,9 +1,13 @@
 import React from 'react';
-import { Search, Globe, HelpCircle } from 'lucide-react';
+import { Search, Globe, HelpCircle, Wallet } from 'lucide-react';
+import Button from './Button';
+import { User } from '../types';
 
 interface HeaderProps {
   searchQuery: string;
   onSearchChange: (value: string) => void;
+  user?: User | null;
+  onAuthClick?: () => void;
   lang?: 'RU' | 'EN';
   onToggleLang?: () => void;
   onHelpClick?: () => void;
@@ -37,6 +41,8 @@ const YallaIcon = ({ size = 24, className = '' }: { size?: number; className?: s
 const Header: React.FC<HeaderProps> = ({
   searchQuery,
   onSearchChange,
+  user,
+  onAuthClick,
   lang = 'RU',
   onToggleLang,
   onHelpClick,
@@ -46,6 +52,7 @@ const Header: React.FC<HeaderProps> = ({
     home: lang === 'RU' ? 'На главную' : 'Go to home',
     search: lang === 'RU' ? 'Поиск...' : 'Search...',
     help: lang === 'RU' ? 'Помощь' : 'Help',
+    registration: lang === 'RU' ? 'Регистрация' : 'Registration',
   };
 
   return (
@@ -100,6 +107,13 @@ const Header: React.FC<HeaderProps> = ({
               <Globe size={12} />
               {lang}
             </button>
+          )}
+
+          {!user && onAuthClick && (
+            <Button onClick={onAuthClick} className="flex items-center gap-2 text-sm">
+              <Wallet size={16} />
+              <span>{t.registration}</span>
+            </Button>
           )}
         </div>
       </div>

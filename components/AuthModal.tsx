@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { X, Mail, User, Lock } from 'lucide-react';
 import Button from './Button';
 
@@ -8,9 +8,10 @@ interface AuthModalProps {
   onLogin: (payload: { emailOrUsername: string; password: string }) => void | Promise<void>;
   onSignUp: (payload: { email: string; username: string; password: string }) => void | Promise<void>;
   lang?: 'RU' | 'EN';
+  initialMode?: AuthMode;
 }
 
-type AuthMode = 'SIGN_IN' | 'SIGN_UP';
+export type AuthMode = 'SIGN_IN' | 'SIGN_UP';
 
 const friendlyMessages = {
   RU: {
@@ -167,7 +168,7 @@ const formatErrorMessage = (err: unknown, lang: 'RU' | 'EN'): string => {
   return t.genericError;
 };
 
-const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, onSignUp, lang = 'RU' }) => {
+const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, onSignUp, lang = 'RU', initialMode }) => {
   const [mode, setMode] = useState<AuthMode>('SIGN_IN');
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -179,6 +180,11 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, onSignU
   const t = friendlyMessages[lang];
   const modalTitle = mode === 'SIGN_IN' ? t.loginTitle : t.signupTitle;
   const modalSubtitle = mode === 'SIGN_IN' ? t.loginSubtitle : t.signupSubtitle;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setMode(initialMode ?? 'SIGN_IN');
+  }, [isOpen, initialMode]);
 
   const handleSubmit = async () => {
     try {

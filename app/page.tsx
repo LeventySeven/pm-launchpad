@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import AuthModal from "@/components/AuthModal";
+import AuthModal, { type AuthMode } from "@/components/AuthModal";
 import Header from "@/components/Header";
 import MarketCard from "@/components/MarketCard";
 import MarketPage from "@/components/MarketPage";
@@ -27,6 +27,7 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
+  const [authInitialMode, setAuthInitialMode] = useState<AuthMode>("SIGN_IN");
   const [lang, setLang] = useState<"RU" | "EN">("RU");
   const [user, setUser] = useState<User | null>(null);
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
@@ -117,6 +118,11 @@ export default function HomePage() {
   const handleToggleLang = () => {
     setLang((prev) => (prev === "RU" ? "EN" : "RU"));
   };
+
+  const openAuth = useCallback((mode: AuthMode) => {
+    setAuthInitialMode(mode);
+    setShowAuth(true);
+  }, []);
 
   const handleSignUp = async (payload: {
     email: string;
@@ -490,7 +496,7 @@ export default function HomePage() {
   }) => {
     try {
       if (!user) {
-        setShowAuth(true);
+        openAuth("SIGN_IN");
         setBetConfirm({
           open: true,
           marketTitle,
@@ -588,6 +594,8 @@ export default function HomePage() {
           <Header
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            user={user}
+            onAuthClick={() => openAuth("SIGN_UP")}
             onHelpClick={() => setShowOnboarding(true)}
             onLogoClick={() => {
               setSelectedMarketId(null);
@@ -601,7 +609,7 @@ export default function HomePage() {
               market={selectedMarket}
               user={user}
               onBack={() => setSelectedMarketId(null)}
-              onLogin={() => setShowAuth(true)}
+              onLogin={() => openAuth("SIGN_IN")}
               lang={lang}
               onResolveOutcome={user?.isAdmin ? resolveMarketOutcome : undefined}
               onPlaceBet={handlePlaceBet}
@@ -616,7 +624,7 @@ export default function HomePage() {
             currentView={currentView}
             lang={lang}
             user={user}
-            onLoginRequest={() => setShowAuth(true)}
+            onLoginRequest={() => openAuth("SIGN_IN")}
             onChange={(view) => {
               // Bottom nav always navigates back to the main shell
               setSelectedMarketId(null);
@@ -638,6 +646,8 @@ export default function HomePage() {
           <Header
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            user={user}
+            onAuthClick={() => openAuth("SIGN_UP")}
             onHelpClick={() => setShowOnboarding(true)}
             onLogoClick={() => {
               setSelectedMarketId(null);
@@ -701,16 +711,16 @@ export default function HomePage() {
               />
             )}
 
-            {currentView === "REFERRALS" && <Referrals user={user} onLogin={() => setShowAuth(true)} lang={lang} />}
+            {currentView === "REFERRALS" && <Referrals user={user} onLogin={() => openAuth("SIGN_IN")} lang={lang} />}
 
-            {currentView === "WALLET" && <WalletPage user={user} onLogin={() => setShowAuth(true)} lang={lang} />}
+            {currentView === "WALLET" && <WalletPage user={user} onLogin={() => openAuth("SIGN_IN")} lang={lang} />}
           </main>
 
           <BottomMenu
             currentView={currentView}
             lang={lang}
             user={user}
-            onLoginRequest={() => setShowAuth(true)}
+            onLoginRequest={() => openAuth("SIGN_IN")}
             onChange={(view) => {
               if (view === "PROFILE") {
                 setShowProfile(true);
@@ -750,6 +760,7 @@ export default function HomePage() {
         onSignUp={handleSignUp}
         onLogin={handleLoginSubmit}
         lang={lang}
+        initialMode={authInitialMode}
       />
       <UserProfileModal
         isOpen={showProfile}
