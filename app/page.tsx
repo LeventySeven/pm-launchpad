@@ -453,9 +453,9 @@ export default function HomePage() {
     [user, loadMarkets, loadMyBets, refreshUser]
   );
 
-  // Refresh positions periodically while Profile screen is open
+  // Refresh positions/trades periodically while Wallet screen is open
   useEffect(() => {
-    if (currentView !== "PROFILE" || !user) return;
+    if (currentView !== "WALLET" || !user) return;
     void loadMyBets();
     const id = setInterval(() => {
       void loadMyBets();
@@ -762,6 +762,8 @@ export default function HomePage() {
                 user={user}
                 onLogin={() => openAuth("SIGN_IN")}
                 lang={lang}
+                bets={legacyBets}
+                soldTrades={soldTrades}
                 transactions={walletTransactions}
                 loadingTransactions={walletTransactionsLoading}
                 pnlMajor={realizedPnl}
@@ -775,11 +777,6 @@ export default function HomePage() {
                 lang={lang}
                 onLogin={() => openAuth("SIGN_IN")}
                 onLogout={handleLogout}
-                bets={legacyBets}
-                onMarketClick={(marketId) => {
-                  setSelectedMarketId(marketId);
-                  setCurrentView("EVENTS");
-                }}
               />
             )}
           </main>

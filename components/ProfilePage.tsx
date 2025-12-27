@@ -1,17 +1,15 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import { LogOut, Mail, User as UserIcon, Shield, ChevronRight } from 'lucide-react';
+import React from 'react';
+import { LogOut, Mail, User as UserIcon, Shield } from 'lucide-react';
 import Button from './Button';
-import type { Bet, User } from '../types';
+import type { User } from '../types';
 
 type ProfilePageProps = {
   user: User | null;
   lang: 'RU' | 'EN';
   onLogin: () => void;
   onLogout: () => void;
-  bets: Bet[];
-  onMarketClick: (marketId: string) => void;
 };
 
 const initialsFrom = (value?: string) => {
@@ -34,7 +32,7 @@ const formatDate = (iso?: string, lang: 'RU' | 'EN' = 'RU') => {
   });
 };
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ user, lang, onLogin, onLogout, bets, onMarketClick }) => {
+const ProfilePage: React.FC<ProfilePageProps> = ({ user, lang, onLogin, onLogout }) => {
   if (!user) {
     return (
       <div className="max-w-xl mx-auto px-4 py-10 pb-24">
@@ -59,8 +57,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, lang, onLogin, onLogout
   const displayName = user.name ?? user.username ?? (lang === 'RU' ? 'Пользователь' : 'User');
   const handle = user.username ? `@${user.username}` : null;
   const joined = formatDate(user.createdAt, lang);
-
-  const activeBets = useMemo(() => bets.filter((b) => b.status === 'open'), [bets]);
 
   return (
     <div className="max-w-xl mx-auto px-4 py-6 pb-24 animate-in fade-in duration-300">
@@ -105,50 +101,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, lang, onLogin, onLogout
             <LogOut size={16} />
           </Button>
         </div>
-      </div>
-
-      <div className="mt-6">
-        <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3 px-1">
-          {lang === 'RU' ? 'Активные ставки' : 'Active bets'}
-        </h2>
-        {activeBets.length === 0 ? (
-          <div className="text-sm text-zinc-500 px-1">
-            {lang === 'RU' ? 'Нет активных ставок' : 'No active bets'}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {activeBets.map((bet) => (
-              <button
-                key={bet.id}
-                type="button"
-                onClick={() => onMarketClick(bet.marketId)}
-                className="w-full text-left border border-zinc-900 bg-black rounded-2xl p-4 hover:bg-zinc-950/40 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold text-zinc-100 truncate">
-                      {(lang === 'RU' ? bet.marketTitleRu : bet.marketTitleEn) || bet.marketTitle}
-                    </div>
-                    <div className="mt-1 text-xs text-zinc-500 flex items-center gap-2">
-                      <span
-                        className={`font-semibold ${
-                          bet.side === 'YES'
-                            ? 'text-[rgba(36,182,255,1)]'
-                            : 'text-[rgba(201,37,28,1)]'
-                        }`}
-                      >
-                        {bet.side === 'YES' ? (lang === 'RU' ? 'ДА' : 'YES') : (lang === 'RU' ? 'НЕТ' : 'NO')}
-                      </span>
-                      <span className="text-zinc-500">•</span>
-                      <span className="font-mono text-zinc-300">${bet.amount.toFixed(2)}</span>
-                    </div>
-                  </div>
-                  <ChevronRight size={18} className="text-zinc-700 flex-shrink-0" />
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
