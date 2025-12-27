@@ -14,8 +14,8 @@ type AuthMode = 'SIGN_IN' | 'SIGN_UP';
 
 const friendlyMessages = {
   RU: {
-    loginTitle: 'Войдите в Normis',
-    signupTitle: 'Создайте аккаунт Normis',
+    loginTitle: 'Войдите в Yalla Market',
+    signupTitle: 'Создайте аккаунт Yalla Market',
     loginSubtitle: 'Используйте email или username и пароль.',
     signupSubtitle: 'Заполните все поля, чтобы зарегистрироваться.',
     loginTab: 'Вход',
@@ -25,9 +25,9 @@ const friendlyMessages = {
     username: 'Username',
     password: 'Пароль',
     placeholderEmail: 'имя@пример.com',
-    placeholderUsername: 'normis_trader',
+    placeholderUsername: 'yalla_trader',
     placeholderPassword: '********',
-    placeholderEmailOrUsername: 'имя@пример.com / normis_trader',
+    placeholderEmailOrUsername: 'имя@пример.com / yalla_trader',
     loginButton: 'Войти',
     signupButton: 'Создать аккаунт',
     loginRequired: 'Введите email/username и пароль.',
@@ -36,8 +36,8 @@ const friendlyMessages = {
     loadingText: 'Пожалуйста, подождите...',
   },
   EN: {
-    loginTitle: 'Log in to Normis',
-    signupTitle: 'Create your Normis account',
+    loginTitle: 'Log in to Yalla Market',
+    signupTitle: 'Create your Yalla Market account',
     loginSubtitle: 'Use your email or username plus password.',
     signupSubtitle: 'All fields are required.',
     loginTab: 'Log in',
@@ -47,14 +47,14 @@ const friendlyMessages = {
     username: 'Username',
     password: 'Password',
     placeholderEmail: 'name@example.com',
-    placeholderUsername: 'normis_trader',
+    placeholderUsername: 'yalla_trader',
     placeholderPassword: '********',
     loginButton: 'Log in',
     signupButton: 'Create account',
     loginRequired: 'Enter email/username and password.',
     signupRequired: 'Fill in email, username, and password.',
     genericError: 'Request failed',
-    placeholderEmailOrUsername: 'you@example.com / normis_trader',
+    placeholderEmailOrUsername: 'you@example.com / yalla_trader',
     loadingText: 'Please wait...',
   },
 };
@@ -236,7 +236,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, onSignU
       <div className="relative bg-[#09090b] border border-zinc-800 w-full max-w-sm rounded-xl p-6 shadow-lg animate-in zoom-in-95 duration-200">
         <button 
           onClick={onClose}
-          className="absolute top-4 right-4 rounded-sm opacity-70 ring-offset-black transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-[#BEFF1D] focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-zinc-800 data-[state=open]:text-zinc-500"
+          className="absolute top-4 right-4 rounded-sm opacity-70 ring-offset-black transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-[rgba(36,182,255,1)] focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-zinc-800 data-[state=open]:text-zinc-500"
         >
           <X size={16} className="text-zinc-400" />
       </button>
@@ -255,7 +255,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, onSignU
             onClick={() => resetAndSwitch('SIGN_IN')}
             className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${
               mode === 'SIGN_IN'
-                ? 'bg-[#BEFF1D] text-black'
+                ? 'bg-[rgba(36,182,255,1)] text-black'
                 : 'bg-zinc-900 text-zinc-400 hover:text-white'
             }`}
           >
@@ -265,7 +265,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, onSignU
             onClick={() => resetAndSwitch('SIGN_UP')}
             className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${
               mode === 'SIGN_UP'
-                ? 'bg-[#BEFF1D] text-black'
+                ? 'bg-[rgba(36,182,255,1)] text-black'
                 : 'bg-zinc-900 text-zinc-400 hover:text-white'
             }`}
           >
@@ -284,7 +284,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, onSignU
                   value={emailOrUsername}
                   onChange={(e) => setEmailOrUsername(e.target.value)}
                   placeholder={t.placeholderEmailOrUsername}
-                  className="flex h-10 w-full rounded-lg border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D]"
+                  className="flex h-10 w-full rounded-lg border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[rgba(36,182,255,1)]"
                 />
               </div>
               <div className="space-y-2">
@@ -296,7 +296,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, onSignU
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={t.placeholderPassword}
-                  className="flex h-10 w-full rounded-lg border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D]"
+                  className="flex h-10 w-full rounded-lg border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[rgba(36,182,255,1)]"
                 />
               </div>
             </>
@@ -311,7 +311,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, onSignU
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={t.placeholderEmail}
-                  className="flex h-10 w-full rounded-lg border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D]"
+                  className="flex h-10 w-full rounded-lg border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[rgba(36,182,255,1)]"
                 />
               </div>
               <div className="space-y-2">
@@ -322,7 +322,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, onSignU
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder={t.placeholderUsername}
-                  className="flex h-10 w-full rounded-lg border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D]"
+                  className="flex h-10 w-full rounded-lg border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[rgba(36,182,255,1)]"
                 />
               </div>
               <div className="space-y-2">
@@ -334,7 +334,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, onSignU
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={t.placeholderPassword}
-                  className="flex h-10 w-full rounded-lg border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D]"
+                  className="flex h-10 w-full rounded-lg border border-zinc-800 bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[rgba(36,182,255,1)]"
                 />
               </div>
             </>

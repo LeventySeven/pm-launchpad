@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Pravda Market",
+  title: "Yalla Market",
   description: "Prediction market demo for Telegram mini app",
 };
 

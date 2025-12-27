@@ -51,7 +51,13 @@ export const BetConfirmModal: React.FC<BetConfirmModalProps> = ({
             <div className="space-y-2 text-sm text-neutral-300">
               <div className="flex justify-between">
                 <span className="text-neutral-500">Side</span>
-                <span className="text-zinc-100 font-semibold">{side}</span>
+                <span
+                  className={`font-semibold ${
+                    side === 'YES' ? 'text-[rgba(36,182,255,1)]' : 'text-[rgba(201,37,28,1)]'
+                  }`}
+                >
+                  {side}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-500">Amount</span>

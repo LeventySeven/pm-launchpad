@@ -46,7 +46,7 @@ const WalletPage: React.FC<WalletPageProps> = ({ user, onLogin, lang }) => {
       
       {/* Balance Card */}
       <div className="bg-gradient-to-br from-zinc-900 to-black border border-zinc-800 rounded-xl p-8 mb-8 relative overflow-hidden shadow-sm">
-        <div className="absolute top-0 right-0 p-32 bg-[#BEFF1D] opacity-[0.03] rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+        <div className="absolute top-0 right-0 p-32 bg-[rgba(36,182,255,1)] opacity-[0.05] rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
         
         <div className="text-center relative z-10">
             <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 block">
@@ -57,11 +57,11 @@ const WalletPage: React.FC<WalletPageProps> = ({ user, onLogin, lang }) => {
             </h1>
 
             <div className="flex gap-4 justify-center">
-                <button className="flex-1 bg-[#BEFF1D] hover:bg-[#a6e612] text-black font-semibold py-2.5 px-4 rounded-md flex items-center justify-center gap-2 transition-colors text-sm shadow-sm">
+                <button className="flex-1 bg-[rgba(36,182,255,1)] hover:opacity-90 text-black font-semibold py-2.5 px-4 rounded-md flex items-center justify-center gap-2 transition-colors text-sm shadow-sm">
                     <ArrowDownLeft size={16} />
                     {lang === 'RU' ? 'Пополнить' : 'Deposit'}
                 </button>
-                <button className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold py-2.5 px-4 rounded-md flex items-center justify-center gap-2 transition-colors border border-zinc-700 text-sm shadow-sm">
+                <button className="flex-1 bg-[rgba(201,37,28,1)] hover:opacity-90 text-white font-semibold py-2.5 px-4 rounded-md flex items-center justify-center gap-2 transition-colors border border-[rgba(201,37,28,0.6)] text-sm shadow-sm">
                     <ArrowUpRight size={16} />
                     {lang === 'RU' ? 'Вывести' : 'Withdraw'}
                 </button>
@@ -80,7 +80,11 @@ const WalletPage: React.FC<WalletPageProps> = ({ user, onLogin, lang }) => {
             {MOCK_TRANSACTIONS.map((tx) => (
                 <div key={tx.id} className="flex items-center justify-between p-4 bg-zinc-900/30 border border-zinc-800 rounded-lg transition-colors hover:bg-zinc-900/50">
                     <div className="flex items-center gap-4">
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center border ${tx.amount > 0 ? 'bg-[#BEFF1D]/10 text-[#BEFF1D] border-[#BEFF1D]/20' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}>
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center border ${
+                          tx.amount > 0
+                            ? 'bg-[rgba(36,182,255,0.12)] text-[rgba(36,182,255,1)] border-[rgba(36,182,255,0.3)]'
+                            : 'bg-[rgba(201,37,28,0.10)] text-[rgba(201,37,28,1)] border-[rgba(201,37,28,0.25)]'
+                        }`}>
                             {tx.type === 'DEPOSIT' && <ArrowDownLeft size={16} />}
                             {tx.type === 'WITHDRAW' && <ArrowUpRight size={16} />}
                             {tx.type === 'WIN' && <Wallet size={16} />}
@@ -96,7 +100,7 @@ const WalletPage: React.FC<WalletPageProps> = ({ user, onLogin, lang }) => {
                             <div className="text-[10px] text-zinc-500 uppercase tracking-wider">{tx.date}</div>
                         </div>
                     </div>
-                    <div className={`font-mono font-bold text-sm ${tx.amount > 0 ? 'text-[#BEFF1D]' : 'text-zinc-200'}`}>
+                    <div className={`font-mono font-bold text-sm ${tx.amount > 0 ? 'text-[rgba(36,182,255,1)]' : 'text-[rgba(201,37,28,1)]'}`}>
                         {tx.amount > 0 ? '+' : ''}{tx.amount.toFixed(2)}
                     </div>
                 </div>

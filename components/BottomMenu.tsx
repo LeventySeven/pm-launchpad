@@ -28,7 +28,7 @@ const BottomMenu: React.FC<BottomMenuProps> = ({ currentView, onChange, lang, us
       <button
         onClick={() => onChange('LEADERBOARD')}
         className={`flex flex-col items-center justify-center gap-1 w-16 ${
-          currentView === 'LEADERBOARD' ? 'text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
+          currentView === 'LEADERBOARD' ? 'text-[rgba(36,182,255,1)]' : 'text-zinc-500 hover:text-zinc-300'
         }`}
       >
         <Trophy size={18} />
@@ -38,7 +38,7 @@ const BottomMenu: React.FC<BottomMenuProps> = ({ currentView, onChange, lang, us
       <button
         onClick={() => onChange('REFERRALS')}
         className={`flex flex-col items-center justify-center gap-1 w-16 ${
-          currentView === 'REFERRALS' ? 'text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
+          currentView === 'REFERRALS' ? 'text-[rgba(36,182,255,1)]' : 'text-zinc-500 hover:text-zinc-300'
         }`}
       >
         <Users size={18} />
@@ -48,7 +48,7 @@ const BottomMenu: React.FC<BottomMenuProps> = ({ currentView, onChange, lang, us
       <button
         onClick={() => onChange('EVENTS')}
         className={`flex flex-col items-center justify-center gap-1 w-16 ${
-          currentView === 'EVENTS' ? 'text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
+          currentView === 'EVENTS' ? 'text-[rgba(36,182,255,1)]' : 'text-zinc-500 hover:text-zinc-300'
         }`}
       >
         <Zap size={18} />
@@ -58,7 +58,7 @@ const BottomMenu: React.FC<BottomMenuProps> = ({ currentView, onChange, lang, us
       <button
         onClick={() => handleProtectedClick('WALLET')}
         className={`flex flex-col items-center justify-center gap-1 w-16 ${
-          currentView === 'WALLET' ? 'text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
+          currentView === 'WALLET' ? 'text-[rgba(36,182,255,1)]' : 'text-zinc-500 hover:text-zinc-300'
         }`}
       >
         <Wallet size={18} />
@@ -68,7 +68,7 @@ const BottomMenu: React.FC<BottomMenuProps> = ({ currentView, onChange, lang, us
       <button
         onClick={() => handleProtectedClick('PROFILE')}
         className={`flex flex-col items-center justify-center gap-1 w-16 ${
-          currentView === 'PROFILE' ? 'text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
+          currentView === 'PROFILE' ? 'text-[rgba(36,182,255,1)]' : 'text-zinc-500 hover:text-zinc-300'
         }`}
       >
         <UserIcon size={18} />

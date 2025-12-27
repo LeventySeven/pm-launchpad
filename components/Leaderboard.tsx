@@ -23,7 +23,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, onUserClick, lang }) =
       <div className="text-center mb-8">
         <Trophy 
             size={48} 
-            className={`mx-auto mb-4 transition-all duration-1000 ${glow ? 'text-[#BEFF1D] drop-shadow-[0_0_8px_rgba(190,255,29,0.5)]' : 'text-neutral-600'}`} 
+            className={`mx-auto mb-4 transition-all duration-1000 ${glow ? 'text-[rgba(36,182,255,1)] drop-shadow-[0_0_8px_rgba(36,182,255,0.35)]' : 'text-neutral-600'}`} 
         />
         <h2 className="text-2xl font-bold uppercase tracking-widest text-white mb-2">
             {lang === 'RU' ? 'Лидерборд' : 'Leaderboard'}
@@ -53,14 +53,14 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, onUserClick, lang }) =
                 <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full bg-black object-cover grayscale" />
                 
                 <div className="flex-1">
-                    <h3 className="font-bold text-white text-sm group-hover:text-[#BEFF1D] transition-colors">{user.name}</h3>
+                    <h3 className="font-bold text-white text-sm group-hover:text-[rgba(36,182,255,1)] transition-colors">{user.name}</h3>
                     <p className="text-[10px] text-neutral-500 uppercase tracking-wider">
                         {user.betCount ?? 0} {lang === 'RU' ? 'ставок' : 'bets'}
                     </p>
                 </div>
 
                 <div className="text-right">
-                    <div className={`font-mono font-bold flex items-center justify-end gap-1 ${(user.pnl || 0) >= 0 ? 'text-[#BEFF1D]' : 'text-[#f544a6]'}`}>
+                    <div className={`font-mono font-bold flex items-center justify-end gap-1 ${(user.pnl || 0) >= 0 ? 'text-[rgba(36,182,255,1)]' : 'text-[rgba(201,37,28,1)]'}`}>
                         {(user.pnl || 0) >= 0 ? '+' : ''}${(user.pnl || 0).toLocaleString()}
                         {(user.pnl || 0) >= 0 ? <TrendingUp size={14}/> : <TrendingDown size={14}/>}
                     </div>

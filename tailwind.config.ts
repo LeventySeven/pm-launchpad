@@ -11,7 +11,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        accent: "#BEFF1D",
+        accent: "rgba(36, 182, 255, 1)",
       },
       fontFamily: {
         inter: ["var(--font-inter)", "Inter", "sans-serif"],

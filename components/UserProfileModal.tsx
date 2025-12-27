@@ -82,22 +82,22 @@ const PortfolioItem: React.FC<PortfolioItemProps> = ({ item, lang, onClick }) =>
         >
             <div>
                 <div className="flex items-center gap-2 mb-2">
-                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm ${item.side === 'YES' ? 'bg-[#BEFF1D] text-black' : 'bg-[#f544a6] text-black'}`}>
+                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm ${item.side === 'YES' ? 'bg-[rgba(36,182,255,1)] text-black' : 'bg-[rgba(201,37,28,1)] text-white'}`}>
                         {item.side}
                      </span>
-                     <span className="text-xs text-white max-w-[150px] truncate group-hover:text-[#BEFF1D] transition-colors font-medium">
+                     <span className="text-xs text-white max-w-[150px] truncate group-hover:text-[rgba(36,182,255,1)] transition-colors font-medium">
                         {item.marketTitle}
                      </span>
                 </div>
                 <div className="flex items-center gap-2 text-[10px] text-zinc-500 uppercase tracking-wider font-mono">
-                    <span className={`flex items-center gap-1 ${isSettled ? 'text-zinc-500' : 'text-[#f544a6]'}`}>
+                    <span className={`flex items-center gap-1 ${isSettled ? 'text-zinc-500' : 'text-zinc-400'}`}>
                         <Clock size={10} /> {timer}
                     </span>
                 </div>
             </div>
             <div className="text-right">
                 {isSettled ? (
-                    <div className={`font-mono text-sm font-bold ${isProfit ? 'text-[#BEFF1D]' : 'text-[#f544a6]'}`}>
+                    <div className={`font-mono text-sm font-bold ${isProfit ? 'text-[rgba(36,182,255,1)]' : 'text-[rgba(201,37,28,1)]'}`}>
                         {isProfit ? '+' : ''}${Math.abs(displayPnL).toFixed(2)} ({Math.abs(displayPercent).toFixed(1)}%)
                     </div>
                 ) : (
@@ -172,7 +172,7 @@ const SellHistoryItem: React.FC<SellHistoryItemProps> = ({ trade, lang, onClick 
         </div>
       </div>
       <div className="text-right">
-        <div className="font-mono text-sm text-[#BEFF1D]">
+        <div className="font-mono text-sm text-[rgba(36,182,255,1)]">
           +${payout.toFixed(2)}
         </div>
         <div className="text-[11px] text-zinc-500">
@@ -185,7 +185,7 @@ const SellHistoryItem: React.FC<SellHistoryItemProps> = ({ trade, lang, onClick 
         {realizedPnlValue !== null && (
           <div
             className={`text-[11px] font-mono ${
-              pnlIsPositive ? 'text-[#BEFF1D]' : 'text-[#f544a6]'
+              pnlIsPositive ? 'text-[rgba(36,182,255,1)]' : 'text-[rgba(201,37,28,1)]'
             }`}
           >
             {lang === 'RU' ? 'Профит' : 'P&L'} {pnlIsPositive ? '+' : '-'}$
@@ -221,7 +221,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
         className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
         onClick={onClose}
       ></div>
-      <div className="relative bg-[#09090b] border border-zinc-800 w-full max-w-lg rounded-xl p-6 shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+      <div className="relative bg-black border border-zinc-900 w-full max-w-lg rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
         
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -239,21 +239,21 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 gap-4 mb-8">
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4">
+            <div className="bg-zinc-950/40 border border-zinc-900 rounded-2xl p-4">
                 <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest block mb-1">
                     {lang === 'RU' ? 'БАЛАНС' : 'BALANCE'}
                 </span>
                 <span className="text-2xl font-mono text-white tracking-tight">${user.balance.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).replace(',', ' ')}</span>
             </div>
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4 relative overflow-hidden">
+            <div className="bg-zinc-950/40 border border-zinc-900 rounded-2xl p-4 relative overflow-hidden">
                 <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest block mb-1">
                     PNL (PROFIT/LOSS)
                 </span>
                 <div className="flex items-center gap-2">
-                    <span className={`text-2xl font-mono tracking-tight ${isPositivePnL ? 'text-[#BEFF1D]' : 'text-[#f544a6]'}`}>
+                    <span className={`text-2xl font-mono tracking-tight ${isPositivePnL ? 'text-[rgba(36,182,255,1)]' : 'text-[rgba(201,37,28,1)]'}`}>
                         {isPositivePnL ? '+' : ''}${Math.abs(totalRealizedPnL).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).replace('.', ',')}
                     </span>
-                    {isPositivePnL ? <TrendingUp size={16} className="text-[#BEFF1D]"/> : <TrendingDown size={16} className="text-[#f544a6]"/>}
+                    {isPositivePnL ? <TrendingUp size={16} className="text-[rgba(36,182,255,1)]"/> : <TrendingDown size={16} className="text-[rgba(201,37,28,1)]"/>}
                 </div>
             </div>
         </div>
@@ -261,7 +261,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
         {/* Bets Lists */}
         <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar mb-4 space-y-8">
           <section>
-            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4 sticky top-0 bg-[#09090b] py-2 z-10">
+            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4 sticky top-0 bg-black py-2 z-10">
               {lang === 'RU' ? 'АКТИВНЫЕ СТАВКИ' : 'ACTIVE BETS'}
             </h3>
             <div className="space-y-3">
@@ -283,7 +283,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
           </section>
 
           <section>
-            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4 sticky top-0 bg-[#09090b] py-2 z-10">
+            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4 sticky top-0 bg-black py-2 z-10">
               {lang === 'RU' ? 'ПРОДАННЫЕ СТАВКИ' : 'SOLD BETS'}
             </h3>
             <div className="space-y-3">

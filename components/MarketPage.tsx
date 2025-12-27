@@ -304,7 +304,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
           {/* Chart */}
           <div className="rounded-2xl border border-zinc-900 bg-black p-6 h-[420px] relative">
             <div className="flex items-baseline gap-4 mb-8">
-              <span className="text-4xl font-bold tracking-tight text-zinc-100">{displayedChance}%</span>
+              <span className="text-4xl font-bold tracking-tight text-[rgba(36,182,255,1)]">{displayedChance}%</span>
               <span className="text-zinc-500 text-sm font-medium uppercase tracking-wide">
                 {lang === 'RU' ? 'Вероятность (Да)' : 'Yes Probability'}
               </span>
@@ -319,8 +319,8 @@ const MarketPage: React.FC<MarketPageProps> = ({
                 <AreaChart data={chartSeries}>
                   <defs>
                     <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#e5e7eb" stopOpacity={0.12}/>
-                      <stop offset="95%" stopColor="#e5e7eb" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="rgba(36, 182, 255, 1)" stopOpacity={0.18}/>
+                      <stop offset="95%" stopColor="rgba(36, 182, 255, 1)" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
                   <XAxis 
@@ -338,14 +338,14 @@ const MarketPage: React.FC<MarketPageProps> = ({
                   <CartesianGrid vertical={false} stroke="#18181b" strokeDasharray="3 3" />
                   <Tooltip 
                     contentStyle={{backgroundColor: '#000000', borderColor: '#27272a', borderRadius: '10px'}}
-                    itemStyle={{color: '#e5e7eb', fontSize: '12px'}}
+                    itemStyle={{color: 'rgba(36, 182, 255, 1)', fontSize: '12px'}}
                     labelStyle={{color: '#71717a', fontSize: '10px', textTransform: 'uppercase'}}
                     formatter={(value: number) => [`${value}%`, lang === 'RU' ? 'Вероятность' : 'Chance']}
                   />
                   <Area 
                     type="monotone" 
                     dataKey="value" 
-                    stroke="#e5e7eb" 
+                    stroke="rgba(36, 182, 255, 1)" 
                     strokeWidth={2}
                     fillOpacity={1} 
                     fill="url(#colorValue)" 
@@ -516,7 +516,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                   <button
                     onClick={() => setTradeType('YES')}
                     className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-full transition-all ${
-                      tradeType === 'YES' ? 'bg-zinc-100 text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-200'
+                      tradeType === 'YES' ? 'bg-[rgba(36,182,255,1)] text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-200'
                     }`}
                   >
                     {lang === 'RU' ? 'ДА' : 'YES'} ${market.yesPrice.toFixed(2)}
@@ -524,7 +524,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                   <button
                     onClick={() => setTradeType('NO')}
                     className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-full transition-all ${
-                      tradeType === 'NO' ? 'bg-zinc-100 text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-200'
+                      tradeType === 'NO' ? 'bg-[rgba(201,37,28,1)] text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-200'
                     }`}
                   >
                     {lang === 'RU' ? 'НЕТ' : 'NO'} ${market.noPrice.toFixed(2)}
@@ -563,7 +563,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                     </div>
                     <div className="flex justify-between text-xs text-zinc-500 uppercase font-medium">
                       <span>{lang === 'RU' ? 'Прибыль' : 'Profit'}</span>
-                      <span className="text-zinc-100 font-mono">+${potentialProfit}</span>
+                      <span className="text-[rgba(36,182,255,1)] font-mono">+${potentialProfit}</span>
                     </div>
                   </div>
 
@@ -628,7 +628,11 @@ const MarketPage: React.FC<MarketPageProps> = ({
                           <div className="flex items-center justify-between text-sm">
                             <div className="flex items-center gap-2 text-white">
                               <span
-                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm border border-zinc-900 bg-black text-zinc-200"
+                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm ${
+                                  position.outcome === 'YES'
+                                    ? 'bg-[rgba(36,182,255,1)] text-black'
+                                    : 'bg-[rgba(201,37,28,1)] text-white'
+                                }`}
                               >
                                 {position.outcome}
                               </span>
@@ -692,7 +696,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                         fullWidth
                         onClick={() => handleResolveOutcomeClick('YES')}
                         disabled={Boolean(resolvingOutcome)}
-                        variant="secondary"
+                        className="!bg-[rgba(36,182,255,1)] !text-black hover:!opacity-90"
                       >
                         {lang === 'RU' ? 'Завершить как ДА' : 'Resolve as YES'}
                       </Button>
@@ -700,7 +704,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                         fullWidth
                         onClick={() => handleResolveOutcomeClick('NO')}
                         disabled={Boolean(resolvingOutcome)}
-                        variant="secondary"
+                        className="!bg-[rgba(201,37,28,1)] !text-white hover:!opacity-90"
                       >
                         {lang === 'RU' ? 'Завершить как НЕТ' : 'Resolve as NO'}
                       </Button>

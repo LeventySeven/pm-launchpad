@@ -40,7 +40,7 @@ const Referrals: React.FC<ReferralsProps> = ({ user, onLogin, lang }) => {
     <div className="max-w-md mx-auto px-4 py-8 pb-24 text-center animate-in fade-in duration-500">
         <div className="bg-zinc-900/30 border border-zinc-800 rounded-xl p-8 mb-8">
             <div className="w-16 h-16 bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-6 border border-zinc-700">
-                <Users size={32} className="text-[#BEFF1D]" />
+                <Users size={32} className="text-[rgba(36,182,255,1)]" />
             </div>
             <h2 className="text-2xl font-bold text-white mb-2 uppercase tracking-wide">
                 {lang === 'RU' ? 'Пригласи Друзей' : 'Invite Friends'}
@@ -51,7 +51,7 @@ const Referrals: React.FC<ReferralsProps> = ({ user, onLogin, lang }) => {
                     : 'Earn 30% of your friends\' trading fees forever. Just share your invite link.'}
             </p>
 
-            <div className="bg-[#09090b] border border-zinc-800 rounded-md p-1.5 flex items-center gap-2 mb-6 relative group focus-within:ring-1 focus-within:ring-[#BEFF1D]">
+            <div className="bg-black border border-zinc-900 rounded-md p-1.5 flex items-center gap-2 mb-6 relative group focus-within:ring-1 focus-within:ring-[rgba(36,182,255,1)]">
                  <input 
                     readOnly 
                     value={user ? inviteLink : (lang === 'RU' ? 'Войдите чтобы получить ссылку' : 'Log in to get link')} 
@@ -61,7 +61,7 @@ const Referrals: React.FC<ReferralsProps> = ({ user, onLogin, lang }) => {
                     onClick={handleCopy}
                     className="p-2 hover:bg-zinc-800 rounded-sm transition-colors text-zinc-500 hover:text-white"
                  >
-                    {copied ? <Check size={16} className="text-[#BEFF1D]" /> : <Copy size={16} />}
+                    {copied ? <Check size={16} className="text-[rgba(36,182,255,1)]" /> : <Copy size={16} />}
                  </button>
             </div>
 
@@ -85,7 +85,7 @@ const Referrals: React.FC<ReferralsProps> = ({ user, onLogin, lang }) => {
                         <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest block mb-2">
                             {lang === 'RU' ? 'Заработано' : 'Earned'}
                         </span>
-                        <span className="text-2xl font-mono text-[#BEFF1D]">$0.00</span>
+                        <span className="text-2xl font-mono text-[rgba(36,182,255,1)]">$0.00</span>
                     </div>
                 </div>
 
@@ -102,12 +102,12 @@ const Referrals: React.FC<ReferralsProps> = ({ user, onLogin, lang }) => {
                             value={friendName}
                             onChange={(e) => setFriendName(e.target.value)}
                             placeholder={lang === 'RU' ? "Никнейм друга..." : "Friend's nickname..."}
-                            className="flex h-10 w-full rounded-md border border-zinc-800 bg-transparent px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#BEFF1D]"
+                            className="flex h-10 w-full rounded-md border border-zinc-800 bg-transparent px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[rgba(36,182,255,1)]"
                         />
                         <button 
                             onClick={handleAddFriend}
                             disabled={!friendName}
-                            className="bg-[#BEFF1D] text-black rounded-md px-3 hover:bg-[#a6e612] disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-[#BEFF1D]"
+                            className="bg-[rgba(36,182,255,1)] text-black rounded-md px-3 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-[rgba(36,182,255,1)]"
                         >
                             <UserPlus size={18} />
                         </button>
@@ -122,7 +122,7 @@ const Referrals: React.FC<ReferralsProps> = ({ user, onLogin, lang }) => {
                                     <span className="text-sm font-medium text-white">{friend}</span>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <span className="text-[10px] text-[#BEFF1D] font-mono">+12% PnL</span>
+                                    <span className="text-[10px] text-[rgba(36,182,255,1)] font-mono">+12% PnL</span>
                                     <button onClick={() => removeFriend(friend)} className="text-zinc-600 hover:text-red-500">
                                         <X size={14} />
                                     </button>

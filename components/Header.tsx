@@ -1,23 +1,17 @@
 import React from 'react';
-import { Search, Globe, HelpCircle, User as UserIcon, Wallet, Plus } from 'lucide-react';
-import Button from './Button';
-import { User } from '../types';
+import { Search, Globe, HelpCircle } from 'lucide-react';
 
 interface HeaderProps {
-  onLoginClick: () => void;
-  user: User | null;
   searchQuery: string;
   onSearchChange: (value: string) => void;
-  onProfileClick?: () => void;
-  onAdminClick?: () => void;
   lang?: 'RU' | 'EN';
   onToggleLang?: () => void;
   onHelpClick?: () => void;
   onLogoClick?: () => void;
 }
 
-// Custom Minimalist Normis Icon (Abstract Geometric)
-const NormisIcon = ({ size = 24, className = '' }: { size?: number; className?: string }) => (
+// Custom Minimalist Yalla Icon (Abstract Geometric)
+const YallaIcon = ({ size = 24, className = '' }: { size?: number; className?: string }) => (
   <svg
     width={size}
     height={size}
@@ -32,21 +26,17 @@ const NormisIcon = ({ size = 24, className = '' }: { size?: number; className?: 
       width="16"
       height="16"
       rx="4"
-      stroke="#BEFF1D"
+      stroke="rgba(36, 182, 255, 1)"
       strokeWidth="1.5"
       strokeOpacity="0.8"
     />
-    <circle cx="12" cy="12" r="3" fill="#BEFF1D" />
+    <circle cx="12" cy="12" r="3" fill="rgba(36, 182, 255, 1)" />
   </svg>
 );
 
 const Header: React.FC<HeaderProps> = ({
-  onLoginClick,
-  user,
   searchQuery,
   onSearchChange,
-  onProfileClick,
-  onAdminClick,
   lang = 'RU',
   onToggleLang,
   onHelpClick,
@@ -56,9 +46,6 @@ const Header: React.FC<HeaderProps> = ({
     home: lang === 'RU' ? 'На главную' : 'Go to home',
     search: lang === 'RU' ? 'Поиск...' : 'Search...',
     help: lang === 'RU' ? 'Помощь' : 'Help',
-    createMarket: lang === 'RU' ? 'Создать рынок' : 'Create market',
-    login: lang === 'RU' ? 'Вход' : 'Log in',
-    registration: lang === 'RU' ? 'Регистрация' : 'Registration',
   };
 
   return (
@@ -72,11 +59,11 @@ const Header: React.FC<HeaderProps> = ({
           aria-label={onLogoClick ? t.home : undefined}
         >
           <div className="transition-transform group-hover:rotate-90 duration-500">
-            <NormisIcon size={24} />
+            <YallaIcon size={24} />
           </div>
           <div>
-            <h1 className="text-sm font-bold tracking-tight text-white leading-none uppercase group-hover:text-[#BEFF1D] transition-colors">
-              NORMIS MARKET
+            <h1 className="text-sm font-bold tracking-tight text-white leading-none uppercase group-hover:text-[rgba(36,182,255,1)] transition-colors">
+              YALLA MARKET
             </h1>
           </div>
         </div>
@@ -113,49 +100,6 @@ const Header: React.FC<HeaderProps> = ({
               <Globe size={12} />
               {lang}
             </button>
-          )}
-
-          {user?.isAdmin && onAdminClick && (
-            <>
-              <Button variant="secondary" onClick={onAdminClick} className="hidden sm:inline-flex text-sm">
-                {t.createMarket}
-              </Button>
-              <button
-                onClick={onAdminClick}
-                className="sm:hidden inline-flex items-center justify-center rounded-full border border-zinc-900 bg-zinc-950/40 text-white hover:bg-zinc-950/60 h-9 w-9"
-                aria-label={t.createMarket}
-              >
-                <Plus size={16} />
-              </button>
-            </>
-          )}
-
-          {user ? (
-            <button
-              onClick={onProfileClick}
-              className="flex items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-lg py-1.5 pl-4 pr-1.5 hover:border-neutral-700 transition-colors cursor-pointer group"
-            >
-              <span className="text-sm font-bold text-[#BEFF1D] group-hover:text-white transition-colors">
-                ${user.balance.toLocaleString()}
-              </span>
-              <div className="h-7 w-7 bg-neutral-800 rounded flex items-center justify-center border border-neutral-700 group-hover:border-neutral-600">
-                <UserIcon size={14} className="text-white" />
-              </div>
-            </button>
-          ) : (
-            <>
-              <Button
-                variant="ghost"
-                onClick={onLoginClick}
-                className="hidden sm:inline-flex text-sm font-medium hover:text-[#BEFF1D]"
-              >
-                {t.login}
-              </Button>
-              <Button onClick={onLoginClick} className="flex items-center gap-2 text-sm">
-                <Wallet size={16} />
-                <span>{t.registration}</span>
-              </Button>
-            </>
           )}
         </div>
       </div>

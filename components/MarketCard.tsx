@@ -82,7 +82,7 @@ const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, lang = 'RU' })
       {/* Main Stats: Chance Bar */}
       <div className="mt-auto">
         <div className="flex items-end justify-between mb-2">
-          <span className="text-2xl font-bold text-zinc-100 leading-none tracking-tight tabular-nums">
+          <span className="text-2xl font-bold text-[rgba(36,182,255,1)] leading-none tracking-tight tabular-nums">
             {displayChance}%
           </span>
           <span className="text-[11px] text-zinc-500 font-medium uppercase tracking-wide">
@@ -90,18 +90,19 @@ const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, lang = 'RU' })
           </span>
         </div>
 
-        <div className="w-full h-1.5 bg-zinc-900 rounded-full mb-3 overflow-hidden">
-          <div className="h-full bg-zinc-200/70" style={{ width: `${displayChance}%` }} />
+        <div className="w-full h-1.5 bg-zinc-900 rounded-full mb-3 overflow-hidden flex">
+          <div className="h-full bg-[rgba(36,182,255,1)]" style={{ width: `${displayChance}%` }} />
+          <div className="h-full bg-[rgba(201,37,28,1)]" style={{ width: `${100 - displayChance}%` }} />
         </div>
 
         {/* Inline info instead of buttons */}
         <div className="flex items-center justify-between gap-3 text-xs text-zinc-400 tabular-nums">
           <span className="flex items-center gap-1">
-            <span className="font-semibold text-zinc-200">{yesLabel}</span>
+            <span className="font-semibold text-[rgba(36,182,255,1)]">{yesLabel}</span>
             <span>${market.yesPrice}</span>
           </span>
           <span className="flex items-center gap-1">
-            <span className="font-semibold text-zinc-200">{noLabel}</span>
+            <span className="font-semibold text-[rgba(201,37,28,1)]">{noLabel}</span>
             <span>${market.noPrice}</span>
           </span>
         </div>

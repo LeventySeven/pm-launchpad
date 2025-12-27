@@ -586,15 +586,8 @@ export default function HomePage() {
       {selectedMarket ? (
         <>
           <Header
-            onLoginClick={() => setShowAuth(true)}
-            user={user}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
-            onProfileClick={() => {
-              setShowProfile(true);
-              void loadMyBets();
-            }}
-            onAdminClick={user?.isAdmin ? () => setShowAdminModal(true) : undefined}
             onHelpClick={() => setShowOnboarding(true)}
             onLogoClick={() => {
               setSelectedMarketId(null);
@@ -619,20 +612,32 @@ export default function HomePage() {
               insightsLoading={marketInsightsLoading}
             />
           </main>
+          <BottomMenu
+            currentView={currentView}
+            lang={lang}
+            user={user}
+            onLoginRequest={() => setShowAuth(true)}
+            onChange={(view) => {
+              // Bottom nav always navigates back to the main shell
+              setSelectedMarketId(null);
+
+              if (view === "PROFILE") {
+                setShowProfile(true);
+                setCurrentView("PROFILE");
+                void loadMyBets();
+                return;
+              }
+
+              setShowProfile(false);
+              setCurrentView(view);
+            }}
+          />
         </>
       ) : (
         <>
           <Header
-            onLoginClick={() => setShowAuth(true)}
-            user={user}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
-            onProfileClick={() => {
-              setShowProfile(true);
-              setCurrentView("PROFILE");
-              void loadMyBets();
-            }}
-            onAdminClick={user?.isAdmin ? () => setShowAdminModal(true) : undefined}
             onHelpClick={() => setShowOnboarding(true)}
             onLogoClick={() => {
               setSelectedMarketId(null);

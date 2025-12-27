@@ -1,7 +1,7 @@
 import { Category, LeaderboardUser } from './types';
 
-export const ACCENT_COLOR = '#f544a6'; // Neon Pink for 'No' / Accent
-export const GREEN_COLOR = '#BEFF1D'; // Green for 'Yes' / Profit
+export const YES_COLOR = 'rgba(36, 182, 255, 1)'; // YES / positive
+export const NO_COLOR = 'rgba(201, 37, 28, 1)'; // NO / negative
 
 export const CATEGORIES: { id: Category; labelRU: string; labelEN: string; icon: string }[] = [
   { id: 'ALL', labelRU: 'Все', labelEN: 'All', icon: '✦' },
@@ -20,7 +20,7 @@ export const MOCK_LEADERBOARD: LeaderboardUser[] = [
     id: 'l1',
     rank: 1,
     name: 'SatoshiN',
-    avatar: 'https://ui-avatars.com/api/?name=Satoshi&background=111&color=BEFF1D',
+    avatar: 'https://ui-avatars.com/api/?name=Satoshi&background=111&color=24B6FF',
     balance: 145000,
     pnl: 45200,
     referrals: 124,
@@ -30,7 +30,7 @@ export const MOCK_LEADERBOARD: LeaderboardUser[] = [
     id: 'l2',
     rank: 2,
     name: 'Oracle_X',
-    avatar: 'https://ui-avatars.com/api/?name=Oracle&background=111&color=f544a6',
+    avatar: 'https://ui-avatars.com/api/?name=Oracle&background=111&color=C9251C',
     balance: 89000,
     pnl: 21500,
     referrals: 45,
