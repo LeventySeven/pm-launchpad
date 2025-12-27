@@ -9,7 +9,7 @@ import OnboardingModal from "@/components/OnboardingModal";
 import BetConfirmModal from "@/components/BetConfirmModal";
 import AdminMarketModal from "@/components/AdminMarketModal";
 import ProfilePage from "@/components/ProfilePage";
-import type { Category, Market, User, Bet, Position, Trade, PriceCandle, PublicTrade, WalletTransaction } from "@/types";
+import type { Category, Market, User, Bet, Position, Trade, PriceCandle, PublicTrade } from "@/types";
 import { trpcClient } from "@/src/utils/trpcClient";
 import { Search, Plus } from "lucide-react";
 import BottomMenu, { type ViewType } from "@/components/BottomMenu";
@@ -51,8 +51,6 @@ export default function HomePage() {
   const [marketCandles, setMarketCandles] = useState<PriceCandle[]>([]);
   const [marketPublicTrades, setMarketPublicTrades] = useState<PublicTrade[]>([]);
   const [marketInsightsLoading, setMarketInsightsLoading] = useState(false);
-  const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>([]);
-  const [walletTransactionsLoading, setWalletTransactionsLoading] = useState(false);
 
   const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === "object" && value !== null;
@@ -257,22 +255,7 @@ export default function HomePage() {
     }
   }, [user]);
 
-  const loadWalletTxs = useCallback(async () => {
-    if (!user) {
-      setWalletTransactions([]);
-      return;
-    }
-    setWalletTransactionsLoading(true);
-    try {
-      const txs = await trpcClient.user.myWalletTransactions.query();
-      setWalletTransactions(txs as WalletTransaction[]);
-    } catch (err: unknown) {
-      console.error("Failed to load wallet transactions", err);
-      setWalletTransactions([]);
-    } finally {
-      setWalletTransactionsLoading(false);
-    }
-  }, [user]);
+  // NOTE: wallet_transactions loading was removed from the UI (wallet now focuses on bets + PnL).
 
   // Fetch session user via auth.me
   useEffect(() => {
@@ -340,17 +323,10 @@ export default function HomePage() {
     if (!user) {
       setMyPositions([]);
       setMyTrades([]);
-      setWalletTransactions([]);
       return;
     }
     void loadMyBets();
   }, [user, loadMyBets]);
-
-  useEffect(() => {
-    if (!user) return;
-    if (currentView !== "WALLET") return;
-    void loadWalletTxs();
-  }, [currentView, user, loadWalletTxs]);
 
   useEffect(() => {
     void loadMarkets();
@@ -569,7 +545,6 @@ export default function HomePage() {
       await loadMarkets();
       await refreshUser();
       await loadMyBets();
-      await loadWalletTxs();
 
       setBetConfirm({
         open: true,
@@ -585,7 +560,6 @@ export default function HomePage() {
       await loadMarkets();
       await refreshUser();
       await loadMyBets();
-      await loadWalletTxs();
       setBetConfirm({
         open: true,
         marketTitle,
@@ -626,13 +600,11 @@ export default function HomePage() {
       await loadMarkets();
       await refreshUser();
       await loadMyBets();
-      await loadWalletTxs();
     } catch (err: unknown) {
       console.error("sellPosition failed", err);
       await loadMarkets();
       await refreshUser();
       await loadMyBets();
-      await loadWalletTxs();
       throw err;
     }
   };
@@ -764,8 +736,6 @@ export default function HomePage() {
                 lang={lang}
                 bets={legacyBets}
                 soldTrades={soldTrades}
-                transactions={walletTransactions}
-                loadingTransactions={walletTransactionsLoading}
                 pnlMajor={realizedPnl}
                 onMarketClick={(marketId) => setSelectedMarketId(marketId)}
               />

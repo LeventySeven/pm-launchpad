@@ -1,6 +1,6 @@
 import React from 'react';
-import type { Bet, Trade, User, WalletTransaction } from '../types';
-import { Wallet, ArrowDownLeft, ArrowUpRight, History } from 'lucide-react';
+import type { Bet, Trade, User } from '../types';
+import { Wallet, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import Button from './Button';
 
 interface WalletPageProps {
@@ -9,8 +9,6 @@ interface WalletPageProps {
   lang: 'RU' | 'EN';
   bets: Bet[];
   soldTrades: Trade[];
-  transactions: WalletTransaction[];
-  loadingTransactions: boolean;
   pnlMajor: number;
   onMarketClick?: (marketId: string) => void;
 }
@@ -21,8 +19,6 @@ const WalletPage: React.FC<WalletPageProps> = ({
   lang,
   bets,
   soldTrades,
-  transactions,
-  loadingTransactions,
   pnlMajor,
   onMarketClick,
 }) => {
@@ -45,32 +41,11 @@ const WalletPage: React.FC<WalletPageProps> = ({
 
   const pnlIsPositive = (pnlMajor ?? 0) >= 0;
 
-  const kindLabel = (kind: string) => {
-    const k = String(kind).toLowerCase();
-    if (k === 'trade') return lang === 'RU' ? 'Сделка' : 'Trade';
-    if (k === 'fee') return lang === 'RU' ? 'Комиссия' : 'Fee';
-    if (k === 'payout') return lang === 'RU' ? 'Выплата' : 'Payout';
-    if (k === 'deposit') return lang === 'RU' ? 'Пополнение' : 'Deposit';
-    if (k === 'withdraw') return lang === 'RU' ? 'Вывод' : 'Withdraw';
-    if (k === 'referral') return lang === 'RU' ? 'Реферал' : 'Referral';
-    return kind;
-  };
-
-  const formatTs = (iso: string) =>
-    new Date(iso).toLocaleString(lang === 'RU' ? 'ru-RU' : 'en-US', {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
   const yesLabel = lang === 'RU' ? 'Да' : 'Yes';
   const noLabel = lang === 'RU' ? 'Нет' : 'No';
 
   const activeBets = bets.filter((b) => b.status === 'open');
   const settledBets = bets.filter((b) => b.status !== 'open');
-
-  const txs = transactions.filter((tx) => String(tx.kind).toLowerCase() !== 'fee');
 
   const formatMoney = (value: number) => `$${value.toFixed(2)}`;
 
@@ -268,80 +243,6 @@ const WalletPage: React.FC<WalletPageProps> = ({
               </div>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* Transactions */}
-      <div>
-        <h3 className="flex items-center gap-2 text-xs font-bold text-zinc-500 uppercase tracking-widest mb-6 px-1">
-            <History size={14} />
-            {lang === 'RU' ? 'История транзакций' : 'Transaction History'}
-        </h3>
-        
-        <div className="space-y-3">
-          {loadingTransactions ? (
-            <div className="text-sm text-zinc-500 px-1">
-              {lang === 'RU' ? 'Загрузка...' : 'Loading...'}
-            </div>
-          ) : txs.length === 0 ? (
-            <div className="text-sm text-zinc-500 px-1">
-              {lang === 'RU' ? 'Транзакций пока нет' : 'No transactions yet'}
-            </div>
-          ) : (
-            txs.map((tx) => {
-              const isPositive = tx.amountMajor > 0;
-              const amountColor = isPositive ? 'text-[rgba(36,182,255,1)]' : 'text-[rgba(201,37,28,1)]';
-              const iconBg = isPositive
-                ? 'bg-[rgba(36,182,255,0.12)] text-[rgba(36,182,255,1)] border-[rgba(36,182,255,0.3)]'
-                : 'bg-[rgba(201,37,28,0.10)] text-[rgba(201,37,28,1)] border-[rgba(201,37,28,0.25)]';
-              const icon =
-                String(tx.kind).toLowerCase() === 'withdraw' ? (
-                  <ArrowUpRight size={16} />
-                ) : String(tx.kind).toLowerCase() === 'deposit' ? (
-                  <ArrowDownLeft size={16} />
-                ) : (
-                  <Wallet size={16} />
-                );
-
-              const canOpenMarket = Boolean(tx.marketId) && Boolean(onMarketClick);
-              const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) =>
-                canOpenMarket ? (
-                  <button
-                    type="button"
-                    onClick={() => tx.marketId && onMarketClick?.(tx.marketId)}
-                    className="w-full"
-                  >
-                    {children}
-                  </button>
-                ) : (
-                  <>{children}</>
-                );
-
-              return (
-                <Wrapper key={tx.id}>
-                  <div className="flex items-center justify-between p-4 bg-zinc-900/30 border border-zinc-800 rounded-2xl transition-colors hover:bg-zinc-900/50">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center border ${iconBg}`}>
-                        {icon}
-                      </div>
-                      <div className="text-left">
-                        <div className="text-sm font-semibold text-zinc-200">
-                          {kindLabel(tx.kind)}
-                          <span className="text-zinc-500 font-normal"> · {tx.assetCode}</span>
-                        </div>
-                        <div className="text-[10px] text-zinc-500 uppercase tracking-wider">
-                          {formatTs(tx.createdAt)}
-                        </div>
-                      </div>
-                    </div>
-                    <div className={`font-mono font-bold text-sm ${amountColor}`}>
-                      {isPositive ? '+' : '-'}{Math.abs(tx.amountMajor).toFixed(2)}
-                    </div>
-                  </div>
-                </Wrapper>
-              );
-            })
-          )}
         </div>
       </div>
 
