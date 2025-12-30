@@ -11,7 +11,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "supabase:schema": "bun --env-file .env scripts/supabase/pull-schema.ts",
+    "supabase:schema:check": "bun --env-file .env scripts/supabase/validate-schema.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.0",

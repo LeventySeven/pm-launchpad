@@ -3,7 +3,9 @@ begin;
 
 drop view if exists public.trades_public;
 
-create or replace view public.trades_public as
+create or replace view public.trades_public
+with (security_invoker = true)
+as
 select
   id,
   market_id,

@@ -7,9 +7,18 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+node_modules/
+dist/
+dist-ssr/
+.next/
+out/
+.vercel/
+.turbo/
+.swc/
+.eslintcache
+coverage/
+*.tsbuildinfo
+.bun/
 *.local
 
 # Editor directories and files
@@ -23,3 +32,16 @@ dist-ssr
 *.sln
 *.sw?
 .env
+.env.*
+!.env.example
+
+# Local debug artifacts
+build-output.txt
+
+# Supabase CLI local artifacts
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+
+# Supabase introspection artifacts (generated; optional)
+supabase/openapi.public.json

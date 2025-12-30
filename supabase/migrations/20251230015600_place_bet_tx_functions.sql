@@ -1,3 +1,10 @@
+-- Source of truth: db/functions/place_bet_tx.sql
+-- Purpose: deploy/update core transactional RPC functions + LMSR helpers in the remote DB.
+--
+-- Note: trades_public view security is handled by supabase/migrations/20251230015348_fix_security_03.sql.
+-- Keep that view definition in the dedicated migration so future view/security changes don't get
+-- accidentally overwritten by a later "functions" migration.
+
 -- Safe LMSR helpers --------------------------------------------------------
 create or replace function lmsr_cost_safe(q_yes numeric, q_no numeric, b numeric)
 returns numeric
@@ -53,9 +60,9 @@ $$;
 
 -- Main transactional RPC ----------------------------------------------------
 create or replace function place_bet_tx(
-  p_market_id uuid,
-  p_side text,
-  p_amount numeric
+    p_market_id uuid,
+    p_side text,
+    p_amount numeric
 ) returns table (
   trade_id uuid,
   new_balance_minor bigint,

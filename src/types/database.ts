@@ -39,6 +39,8 @@ export interface Database {
           email: string;
           is_admin: boolean;
           referral_code: string | null;
+          referral_commission_rate: number | null;
+          referral_enabled: boolean | null;
           created_at: string;
         };
         Insert: {
@@ -48,6 +50,8 @@ export interface Database {
           email: string;
           is_admin?: boolean;
           referral_code?: string | null;
+          referral_commission_rate?: number | null;
+          referral_enabled?: boolean | null;
           created_at?: string;
         };
         Update: {
@@ -57,6 +61,8 @@ export interface Database {
           email?: string;
           is_admin?: boolean;
           referral_code?: string | null;
+          referral_commission_rate?: number | null;
+          referral_enabled?: boolean | null;
           created_at?: string;
         };
         Relationships: [];
@@ -352,6 +358,7 @@ export interface Database {
           asset_code: string;
           amount_minor: number;
           status: RewardStatus;
+          commission_rate_snapshot: number | null;
           created_at: string;
         };
         Insert: {
@@ -364,6 +371,7 @@ export interface Database {
           asset_code: string;
           amount_minor: number;
           status?: RewardStatus;
+          commission_rate_snapshot?: number | null;
           created_at?: string;
         };
         Update: {
@@ -376,6 +384,7 @@ export interface Database {
           asset_code?: string;
           amount_minor?: number;
           status?: RewardStatus;
+          commission_rate_snapshot?: number | null;
           created_at?: string;
         };
         Relationships: [];
