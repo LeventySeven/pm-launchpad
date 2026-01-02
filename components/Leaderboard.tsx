@@ -24,18 +24,26 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, onUserClick, lang }) =
     })}`;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8 pb-24 animate-fade-in">
-      <div className="text-center mb-8">
-        <Trophy 
-            size={48} 
-            className={`mx-auto mb-4 transition-all duration-1000 ${glow ? 'text-[rgba(36,182,255,1)] drop-shadow-[0_0_8px_rgba(36,182,255,0.35)]' : 'text-neutral-600'}`} 
-        />
-        <h2 className="text-2xl font-bold uppercase tracking-widest text-white mb-2">
+    <div className="animate-fade-in">
+      <div className="mb-4 flex items-start gap-3">
+        <div className="pt-0.5">
+          <Trophy
+            size={20}
+            className={`transition-all duration-1000 ${
+              glow
+                ? 'text-[rgba(36,182,255,1)] drop-shadow-[0_0_8px_rgba(36,182,255,0.35)]'
+                : 'text-neutral-600'
+            }`}
+          />
+        </div>
+        <div>
+          <div className="text-sm font-bold uppercase tracking-wider text-white leading-none">
             {lang === 'RU' ? 'Лидерборд' : 'Leaderboard'}
-        </h2>
-        <p className="text-xs text-neutral-500 uppercase tracking-wider">
+          </div>
+          <div className="mt-1 text-[10px] text-neutral-500 uppercase tracking-wider">
             {lang === 'RU' ? 'Топ трейдеров по прибыли' : 'Top Traders by Profit'}
-        </p>
+          </div>
+        </div>
       </div>
 
       <div className="space-y-3">

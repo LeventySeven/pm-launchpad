@@ -19,7 +19,7 @@ type FriendsPageProps = {
 };
 
 const FriendsPage: React.FC<FriendsPageProps> = ({ lang, user, leaderboardUsers, leaderboardLoading, onLogin, onCreateReferralLink }) => {
-  const [tab, setTab] = useState<'LEADERBOARD' | 'REFERRALS'>('REFERRALS');
+  const [tab, setTab] = useState<'LEADERBOARD' | 'REFERRALS'>('LEADERBOARD');
 
   const t = useMemo(
     () => ({
@@ -34,17 +34,6 @@ const FriendsPage: React.FC<FriendsPageProps> = ({ lang, user, leaderboardUsers,
       <div className="mb-4 flex items-center gap-2 border border-zinc-900 bg-black rounded-full p-1">
         <button
           type="button"
-          onClick={() => setTab('REFERRALS')}
-          className={`flex-1 rounded-full py-2 text-xs font-bold uppercase tracking-wider transition ${
-            tab === 'REFERRALS'
-              ? 'bg-white text-black'
-              : 'text-zinc-400 hover:text-white'
-          }`}
-        >
-          {t.friends}
-        </button>
-        <button
-          type="button"
           onClick={() => setTab('LEADERBOARD')}
           className={`flex-1 rounded-full py-2 text-xs font-bold uppercase tracking-wider transition ${
             tab === 'LEADERBOARD'
@@ -54,11 +43,20 @@ const FriendsPage: React.FC<FriendsPageProps> = ({ lang, user, leaderboardUsers,
         >
           {t.leaderboard}
         </button>
+        <button
+          type="button"
+          onClick={() => setTab('REFERRALS')}
+          className={`flex-1 rounded-full py-2 text-xs font-bold uppercase tracking-wider transition ${
+            tab === 'REFERRALS'
+              ? 'bg-white text-black'
+              : 'text-zinc-400 hover:text-white'
+          }`}
+        >
+          {t.friends}
+        </button>
       </div>
 
-      {tab === 'REFERRALS' ? (
-        <Referrals user={user} onLogin={onLogin} lang={lang} onCreateReferralLink={onCreateReferralLink} />
-      ) : (
+      {tab === 'LEADERBOARD' ? (
         leaderboardLoading ? (
           <div className="py-10 text-center text-zinc-500 text-sm">
             {lang === 'RU' ? 'Загрузка...' : 'Loading...'}
@@ -70,6 +68,8 @@ const FriendsPage: React.FC<FriendsPageProps> = ({ lang, user, leaderboardUsers,
         ) : (
           <Leaderboard users={leaderboardUsers} lang={lang} onUserClick={() => {}} />
         )
+      ) : (
+        <Referrals user={user} onLogin={onLogin} lang={lang} onCreateReferralLink={onCreateReferralLink} />
       )}
     </div>
   );
