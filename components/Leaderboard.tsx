@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { LeaderboardUser } from '../types';
-import { Trophy, TrendingUp, TrendingDown } from 'lucide-react';
+import { Trophy } from 'lucide-react';
 
 interface LeaderboardProps {
   users: LeaderboardUser[];
@@ -17,6 +17,11 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, onUserClick, lang }) =
     }, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  const formatPnl = (value: number) =>
+    `$${value.toLocaleString(undefined, {
+      maximumFractionDigits: 3,
+    })}`;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 pb-24 animate-fade-in">
@@ -38,16 +43,15 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, onUserClick, lang }) =
             <div 
                 key={user.id}
                 onClick={() => onUserClick(user)}
-                className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4 flex items-center gap-4 cursor-pointer hover:bg-neutral-800/80 hover:border-neutral-700 transition-all group"
+                className="bg-neutral-900/40 rounded-xl p-4 flex items-center gap-4 cursor-pointer hover:bg-neutral-800/60 transition-colors group"
             >
-                {/* Monochrome Minimalist Rank Badge */}
-                <div className={`w-8 h-8 flex items-center justify-center font-bold font-mono rounded text-sm ${
-                    user.rank === 1 ? 'bg-white text-black' : 
-                    user.rank === 2 ? 'bg-neutral-400 text-black' : 
-                    user.rank === 3 ? 'bg-neutral-600 text-black' : 
-                    'bg-neutral-800 text-white'
-                }`}>
-                    {user.rank}
+                {/* Rank (no outline / no badge) */}
+                <div
+                  className={`w-6 text-center font-mono text-xs tabular-nums ${
+                    user.rank === 1 ? 'text-white' : 'text-neutral-500'
+                  }`}
+                >
+                  {user.rank}
                 </div>
                 
                 <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full bg-black object-cover grayscale" />
@@ -59,12 +63,14 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, onUserClick, lang }) =
                     </p>
                 </div>
 
-                <div className="text-right">
-                    <div className={`font-mono font-bold flex items-center justify-end gap-1 ${(user.pnl || 0) >= 0 ? 'text-[rgba(36,182,255,1)]' : 'text-[rgba(201,37,28,1)]'}`}>
-                        {(user.pnl || 0) >= 0 ? '+' : ''}${(user.pnl || 0).toLocaleString()}
-                        {(user.pnl || 0) >= 0 ? <TrendingUp size={14}/> : <TrendingDown size={14}/>}
-                    </div>
-                     <span className="text-[10px] text-neutral-500 uppercase tracking-widest">Profit</span>
+                {/* PnL (numbers only, aligned) */}
+                <div
+                  className={`w-[140px] text-right font-mono font-bold tabular-nums ${
+                    (user.pnl || 0) >= 0 ? 'text-[rgba(36,182,255,1)]' : 'text-[rgba(201,37,28,1)]'
+                  }`}
+                >
+                  {(user.pnl || 0) >= 0 ? '+' : ''}
+                  {formatPnl(user.pnl || 0)}
                 </div>
             </div>
         ))}
