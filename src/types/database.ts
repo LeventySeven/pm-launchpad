@@ -294,7 +294,11 @@ export interface Database {
           price_after?: number;
           created_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          { foreignKeyName: "trades_market_id_fkey"; columns: ["market_id"]; referencedRelation: "markets"; referencedColumns: ["id"] },
+          { foreignKeyName: "trades_user_id_fkey"; columns: ["user_id"]; referencedRelation: "users"; referencedColumns: ["id"] },
+          { foreignKeyName: "trades_asset_code_fkey"; columns: ["asset_code"]; referencedRelation: "assets"; referencedColumns: ["code"] }
+        ];
       };
       market_price_candles: {
         Row: {

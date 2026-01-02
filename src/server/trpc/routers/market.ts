@@ -168,7 +168,7 @@ export const marketRouter = router({
           id, title_rus, title_eng, description, state, closes_at, expires_at,
           resolve_outcome, settlement_asset_code, fee_bps, liquidity_b, amm_type, created_at,
           category_id, category_label_ru, category_label_en,
-          market_amm_state (market_id, b, q_yes, q_no, last_price_yes, fee_accumulated_minor)
+          market_amm_state (market_id, b, q_yes, q_no, last_price_yes, fee_accumulated_minor, updated_at)
         `)
         .order("created_at", { ascending: false });
 
@@ -200,7 +200,7 @@ export const marketRouter = router({
           id, title_rus, title_eng, description, state, closes_at, expires_at,
           resolve_outcome, settlement_asset_code, fee_bps, liquidity_b, amm_type, created_at,
           category_id, category_label_ru, category_label_en,
-          market_amm_state (market_id, b, q_yes, q_no, last_price_yes, fee_accumulated_minor)
+          market_amm_state (market_id, b, q_yes, q_no, last_price_yes, fee_accumulated_minor, updated_at)
         `)
         .eq("id", input.marketId)
         .single();
@@ -526,7 +526,7 @@ export const marketRouter = router({
         });
       }
 
-      const rows = (data ?? []) as TradeWithMarket[];
+      const rows: TradeWithMarket[] = data ?? [];
       return rows.map((r) => mapTradeRow(r, VCOIN_DECIMALS));
     }),
 
