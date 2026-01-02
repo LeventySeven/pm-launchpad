@@ -281,6 +281,12 @@ const MarketPage: React.FC<MarketPageProps> = ({
   // Fee display (in basis points)
   const feePercent = market.feeBps ? (market.feeBps / 100).toFixed(1) : '2.0';
 
+  const scrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 animate-in fade-in duration-500">
       {/* Navigation */}
@@ -293,8 +299,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-        
-        {/* Left Column: Chart & Info */}
+        {/* Chart + Info */}
         <div className="lg:col-span-8 space-y-8">
           <div className="flex items-start gap-6">
             <img src={market.imageUrl} alt={localizedTitle} className="w-16 h-16 rounded-full bg-zinc-950 object-cover grayscale opacity-90 border border-zinc-900" />
@@ -314,10 +319,28 @@ const MarketPage: React.FC<MarketPageProps> = ({
             </div>
           </div>
 
+          {/* Mobile quick scroll buttons (keep desktop web layout untouched) */}
+          <div className="lg:hidden flex gap-2">
+            <button
+              type="button"
+              onClick={() => scrollToSection('bid-section')}
+              className="flex-1 h-9 rounded-full border border-zinc-900 bg-black text-[11px] font-bold uppercase tracking-wider text-zinc-200 hover:bg-zinc-950/60 transition-colors"
+            >
+              {lang === 'RU' ? 'Ставка' : 'Bid'}
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollToSection('comments-section')}
+              className="flex-1 h-9 rounded-full border border-zinc-900 bg-black text-[11px] font-bold uppercase tracking-wider text-zinc-200 hover:bg-zinc-950/60 transition-colors"
+            >
+              {lang === 'RU' ? 'Комментарии' : 'Comments'}
+            </button>
+          </div>
+
           {/* Chart */}
-          <div className="rounded-2xl border border-zinc-900 bg-black p-4 sm:p-6 h-[320px] sm:h-[420px] relative">
-            <div className="flex items-baseline gap-3 mb-5 sm:mb-8">
-              <span className="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-100">{displayedChance}%</span>
+          <div className="rounded-2xl border border-zinc-900 bg-black p-6 h-[420px] relative">
+            <div className="flex items-baseline gap-4 mb-8">
+              <span className="text-4xl font-bold tracking-tight text-zinc-100">{displayedChance}%</span>
               <span className="text-zinc-500 text-sm font-medium uppercase tracking-wide">
                 {lang === 'RU' ? 'Вероятность (Да)' : 'Yes Probability'}
               </span>
@@ -371,133 +394,13 @@ const MarketPage: React.FC<MarketPageProps> = ({
               </div>
             )}
           </div>
-
-          {/* Tabs */}
-          <div>
-            <div className="flex border-b border-zinc-900 mb-8">
-              <button 
-                onClick={() => setActiveTab('COMMENTS')}
-                className={`px-4 py-3 font-medium text-sm transition-colors border-b-2 ${activeTab === 'COMMENTS' ? 'border-white text-white' : 'border-transparent text-zinc-500 hover:text-white'}`}
-              >
-                {lang === 'RU' ? 'Комментарии' : 'Comments'}
-              </button>
-              <button 
-                onClick={() => setActiveTab('ACTIVITY')}
-                className={`px-4 py-3 font-medium text-sm transition-colors border-b-2 ${activeTab === 'ACTIVITY' ? 'border-white text-white' : 'border-transparent text-zinc-500 hover:text-white'}`}
-              >
-                {lang === 'RU' ? 'Активность' : 'Activity'}
-              </button>
-            </div>
-
-            {/* Comments Section */}
-            {activeTab === 'COMMENTS' && (
-              <div className="space-y-8">
-                {/* Input */}
-                <div className="flex gap-4">
-                  <div className="w-9 h-9 rounded-full bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                    <UserIcon size={16} className="text-zinc-500" />
-                  </div>
-                  <div className="flex-1 relative">
-                    <input 
-                      type="text" 
-                      value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handlePostComment()}
-                      placeholder={lang === 'RU' ? "Написать комментарий..." : "Write something..."}
-                      className="flex h-10 w-full rounded-md border border-zinc-900 bg-transparent px-3 py-2 pr-10 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 placeholder:text-zinc-600"
-                    />
-                    <button 
-                      onClick={handlePostComment}
-                      className="absolute right-2 top-2 p-1 text-zinc-500 hover:text-white transition-colors"
-                    >
-                      <Send size={16} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* List */}
-                <div className="space-y-6">
-                  {comments.map((comment) => (
-                    <div key={comment.id} className="flex gap-4 animate-in fade-in group">
-                      <img src={comment.avatar} alt={comment.user} className="w-9 h-9 rounded-full bg-zinc-900 grayscale opacity-70 group-hover:opacity-100 transition-opacity" />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                          <span className="font-semibold text-sm text-white">{comment.user}</span>
-                          <span className="text-[10px] uppercase text-zinc-500 tracking-wider">{comment.timestamp}</span>
-                        </div>
-                        <p className="text-zinc-300 text-sm mb-2">{comment.text}</p>
-                        <button className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white transition-colors">
-                          <ThumbsUp size={12} /> {comment.likes}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'ACTIVITY' && (
-              <div className="space-y-4">
-                {insightsLoading && (
-                  <p className="text-sm text-neutral-400">
-                    {lang === 'RU' ? 'Загрузка активности...' : 'Loading activity...'}
-                  </p>
-                )}
-                {!insightsLoading && publicTrades.length === 0 && (
-                  <p className="text-sm text-neutral-500">
-                    {lang === 'RU' ? 'Сделок пока нет' : 'No trades yet'}
-                  </p>
-                )}
-                {publicTrades.map((trade) => {
-                  const isBuy = trade.action === 'buy';
-                  const label =
-                    isBuy
-                      ? lang === 'RU'
-                        ? 'Покупка'
-                        : 'Buy'
-                      : lang === 'RU'
-                      ? 'Продажа'
-                      : 'Sell';
-                  const formattedTime = new Date(trade.createdAt).toLocaleString(
-                    lang === 'RU' ? 'ru-RU' : 'en-US',
-                    {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      day: '2-digit',
-                      month: 'short',
-                    }
-                  );
-                  return (
-                    <div
-                      key={trade.id}
-                      className="flex items-center justify-between border border-zinc-900 rounded-2xl p-3 text-sm text-neutral-300"
-                    >
-                      <div>
-                        <p className="font-semibold text-white">
-                          {label} • {trade.outcome}
-                        </p>
-                        <p className="text-[11px] text-neutral-500 uppercase tracking-wider">
-                          {formattedTime}
-                        </p>
-                      </div>
-                      <div className="text-right font-mono">
-                        <p className="text-zinc-100">
-                          ${trade.collateralGross.toFixed(2)}
-                        </p>
-                        <p className="text-[11px] text-neutral-500">
-                          {Math.abs(trade.sharesDelta).toFixed(2)} sh @ {(trade.priceAfter * 100).toFixed(1)}%
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
         </div>
 
-        {/* Right Column: Trading & Rules */}
-        <div className="lg:col-span-4">
+        {/* Bid (trade card) */}
+        <div
+          id="bid-section"
+          className="scroll-mt-24 lg:col-span-4 lg:col-start-9 lg:row-start-1 lg:row-span-2"
+        >
           <div className="space-y-6 lg:sticky lg:top-24 lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:pr-1 custom-scrollbar">
             {/* Trading Card */}
             <div className="rounded-2xl border border-zinc-900 bg-black p-6 shadow-sm">
@@ -758,8 +661,8 @@ const MarketPage: React.FC<MarketPageProps> = ({
             </div>
             </div>
 
-            {/* Rules Card */}
-            <div className="rounded-2xl border border-zinc-900 bg-black p-6 shadow-sm">
+            {/* Rules Card (desktop stays as-is) */}
+            <div className="hidden lg:block rounded-2xl border border-zinc-900 bg-black p-6 shadow-sm">
               <h3 className="font-semibold text-zinc-300 mb-4 flex items-center gap-2 text-xs uppercase tracking-wider">
                 <ShieldCheck size={14} />
                 {lang === 'RU' ? 'Правила исхода' : 'Rules'}
@@ -770,6 +673,154 @@ const MarketPage: React.FC<MarketPageProps> = ({
                   Resolution based on consensus.
                 </p>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Comments / Activity (on mobile this comes AFTER bid; on desktop it stays under chart) */}
+        <div id="comments-section" className="scroll-mt-24 lg:col-span-8">
+          <div>
+            <div className="flex border-b border-zinc-900 mb-8">
+              <button
+                onClick={() => setActiveTab('COMMENTS')}
+                className={`px-4 py-3 font-medium text-sm transition-colors border-b-2 ${
+                  activeTab === 'COMMENTS'
+                    ? 'border-white text-white'
+                    : 'border-transparent text-zinc-500 hover:text-white'
+                }`}
+              >
+                {lang === 'RU' ? 'Комментарии' : 'Comments'}
+              </button>
+              <button
+                onClick={() => setActiveTab('ACTIVITY')}
+                className={`px-4 py-3 font-medium text-sm transition-colors border-b-2 ${
+                  activeTab === 'ACTIVITY'
+                    ? 'border-white text-white'
+                    : 'border-transparent text-zinc-500 hover:text-white'
+                }`}
+              >
+                {lang === 'RU' ? 'Активность' : 'Activity'}
+              </button>
+            </div>
+
+            {/* Comments Section */}
+            {activeTab === 'COMMENTS' && (
+              <div className="space-y-8">
+                {/* Input */}
+                <div className="flex gap-4">
+                  <div className="w-9 h-9 rounded-full bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                    <UserIcon size={16} className="text-zinc-500" />
+                  </div>
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handlePostComment()}
+                      placeholder={lang === 'RU' ? "Написать комментарий..." : "Write something..."}
+                      className="flex h-10 w-full rounded-md border border-zinc-900 bg-transparent px-3 py-2 pr-10 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 placeholder:text-zinc-600"
+                    />
+                    <button
+                      onClick={handlePostComment}
+                      className="absolute right-2 top-2 p-1 text-zinc-500 hover:text-white transition-colors"
+                    >
+                      <Send size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* List */}
+                <div className="space-y-6">
+                  {comments.map((comment) => (
+                    <div key={comment.id} className="flex gap-4 animate-in fade-in group">
+                      <img
+                        src={comment.avatar}
+                        alt={comment.user}
+                        className="w-9 h-9 rounded-full bg-zinc-900 grayscale opacity-70 group-hover:opacity-100 transition-opacity"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-1">
+                          <span className="font-semibold text-sm text-white">{comment.user}</span>
+                          <span className="text-[10px] uppercase text-zinc-500 tracking-wider">{comment.timestamp}</span>
+                        </div>
+                        <p className="text-zinc-300 text-sm mb-2">{comment.text}</p>
+                        <button className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white transition-colors">
+                          <ThumbsUp size={12} /> {comment.likes}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'ACTIVITY' && (
+              <div className="space-y-4">
+                {insightsLoading && (
+                  <p className="text-sm text-neutral-400">
+                    {lang === 'RU' ? 'Загрузка активности...' : 'Loading activity...'}
+                  </p>
+                )}
+                {!insightsLoading && publicTrades.length === 0 && (
+                  <p className="text-sm text-neutral-500">
+                    {lang === 'RU' ? 'Сделок пока нет' : 'No trades yet'}
+                  </p>
+                )}
+                {publicTrades.map((trade) => {
+                  const isBuy = trade.action === 'buy';
+                  const label =
+                    isBuy
+                      ? lang === 'RU'
+                        ? 'Покупка'
+                        : 'Buy'
+                      : lang === 'RU'
+                      ? 'Продажа'
+                      : 'Sell';
+                  const formattedTime = new Date(trade.createdAt).toLocaleString(lang === 'RU' ? 'ru-RU' : 'en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    day: '2-digit',
+                    month: 'short',
+                  });
+                  return (
+                    <div
+                      key={trade.id}
+                      className="flex items-center justify-between border border-zinc-900 rounded-2xl p-3 text-sm text-neutral-300"
+                    >
+                      <div>
+                        <p className="font-semibold text-white">
+                          {label} • {trade.outcome}
+                        </p>
+                        <p className="text-[11px] text-neutral-500 uppercase tracking-wider">
+                          {formattedTime}
+                        </p>
+                      </div>
+                      <div className="text-right font-mono">
+                        <p className="text-zinc-100">
+                          ${trade.collateralGross.toFixed(2)}
+                        </p>
+                        <p className="text-[11px] text-neutral-500">
+                          {Math.abs(trade.sharesDelta).toFixed(2)} sh @ {(trade.priceAfter * 100).toFixed(1)}%
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Rules Card (mobile: after bid + comments/activity) */}
+          <div className="mt-8 lg:hidden rounded-2xl border border-zinc-900 bg-black p-6 shadow-sm">
+            <h3 className="font-semibold text-zinc-300 mb-4 flex items-center gap-2 text-xs uppercase tracking-wider">
+              <ShieldCheck size={14} />
+              {lang === 'RU' ? 'Правила исхода' : 'Rules'}
+            </h3>
+            <div className="text-xs text-zinc-500 leading-relaxed space-y-4 font-mono">
+              <p>{market.description}</p>
+              <p className="pt-4 border-t border-zinc-900">
+                Resolution based on consensus.
+              </p>
             </div>
           </div>
         </div>
