@@ -107,8 +107,8 @@ export default function HomePage() {
       const usersRaw = await trpcClient.user.leaderboard.query({ limit: 25 });
       const users: LeaderboardUser[] = leaderboardUsersSchema.parse(usersRaw);
       setLeaderboardUsers(users);
-    } catch {
-      // Keep UI quiet; leaderboard can fail without breaking the app.
+    } catch (err) {
+      console.error("Failed to load leaderboard", err);
       setLeaderboardUsers([]);
     } finally {
       setLoadingLeaderboard(false);

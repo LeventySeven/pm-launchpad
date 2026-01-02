@@ -400,6 +400,26 @@ export interface Database {
           id: string;
           market_id: string;
           action: TradeAction;
+          is_sold: boolean;
+          outcome: OutcomeSide;
+          asset_code: string;
+          collateral_gross_minor: number;
+          fee_minor: number;
+          collateral_net_minor: number;
+          shares_delta: number;
+          price_before: number;
+          price_after: number;
+          created_at: string;
+        };
+        Relationships: [];
+      };
+      trades_public_with_user: {
+        Row: {
+          id: string;
+          market_id: string;
+          user_id: string;
+          action: TradeAction;
+          is_sold: boolean;
           outcome: OutcomeSide;
           asset_code: string;
           collateral_gross_minor: number;
