@@ -10,6 +10,7 @@ type FriendsPageProps = {
   user: User | null;
   leaderboardUsers: LeaderboardUser[];
   leaderboardLoading: boolean;
+  leaderboardError: string | null;
   onLogin: () => void;
   onCreateReferralLink: () => Promise<{
     referralCode: string;
@@ -18,7 +19,7 @@ type FriendsPageProps = {
   }>;
 };
 
-const FriendsPage: React.FC<FriendsPageProps> = ({ lang, user, leaderboardUsers, leaderboardLoading, onLogin, onCreateReferralLink }) => {
+const FriendsPage: React.FC<FriendsPageProps> = ({ lang, user, leaderboardUsers, leaderboardLoading, leaderboardError, onLogin, onCreateReferralLink }) => {
   const [tab, setTab] = useState<'LEADERBOARD' | 'REFERRALS'>('LEADERBOARD');
 
   const t = useMemo(
@@ -60,6 +61,10 @@ const FriendsPage: React.FC<FriendsPageProps> = ({ lang, user, leaderboardUsers,
         leaderboardLoading ? (
           <div className="py-10 text-center text-zinc-500 text-sm">
             {lang === 'RU' ? 'Загрузка...' : 'Loading...'}
+          </div>
+        ) : leaderboardError ? (
+          <div className="py-10 text-center text-zinc-500 text-sm">
+            {leaderboardError}
           </div>
         ) : leaderboardUsers.length === 0 ? (
           <div className="py-10 text-center text-zinc-500 text-sm">

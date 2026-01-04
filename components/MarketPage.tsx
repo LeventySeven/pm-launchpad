@@ -729,7 +729,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                       <img
                         src={comment.avatar}
                         alt={comment.user}
-                        className="w-9 h-9 rounded-full bg-zinc-900 grayscale opacity-70 group-hover:opacity-100 transition-opacity"
+                        className="w-9 h-9 rounded-full bg-zinc-900 opacity-80 group-hover:opacity-100 transition-opacity"
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-1">

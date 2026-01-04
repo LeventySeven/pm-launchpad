@@ -724,8 +724,8 @@ export const marketRouter = router({
     )
     .output(z.array(marketCommentOutput))
     .query(async ({ ctx, input }) => {
-      const { supabase } = ctx;
-      const { data, error } = await supabase
+      const { supabaseService } = ctx;
+      const { data, error } = await supabaseService
         .from("market_comments_public")
         .select("id, market_id, user_id, body, created_at, author_name, author_username, author_avatar_url")
         .eq("market_id", input.marketId)
@@ -788,7 +788,8 @@ export const marketRouter = router({
         });
       }
 
-      const { data: row, error } = await supabase
+      const { supabaseService } = ctx;
+      const { data: row, error } = await supabaseService
         .from("market_comments_public")
         .select("id, market_id, user_id, body, created_at, author_name, author_username, author_avatar_url")
         .eq("id", inserted.data.id)

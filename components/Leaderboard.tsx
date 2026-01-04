@@ -49,7 +49,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, onUserClick, lang }) =
                   {user.rank}
                 </div>
                 
-                <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full bg-black object-cover grayscale" />
+                <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full bg-black object-cover" />
                 
                 <div className="flex-1">
                     <h3 className="font-bold text-white text-sm group-hover:text-[rgba(36,182,255,1)] transition-colors">{user.name}</h3>

@@ -102,6 +102,7 @@ export default function HomePage() {
   const [marketInsightsLoading, setMarketInsightsLoading] = useState(false);
   const [leaderboardUsers, setLeaderboardUsers] = useState<LeaderboardUser[]>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState<string | null>(null);
 
   const requireValue = <T,>(v: T | null | undefined, code: string): T => {
     if (v === null || v === undefined) {
@@ -161,13 +162,16 @@ export default function HomePage() {
 
   const loadLeaderboard = useCallback(async () => {
     setLoadingLeaderboard(true);
+    setLeaderboardError(null);
     try {
       const usersRaw = await trpcClient.user.leaderboard.query({ limit: 25 });
       const users: LeaderboardUser[] = leaderboardUsersSchema.parse(usersRaw);
       setLeaderboardUsers(users);
     } catch (err) {
       console.error("Failed to load leaderboard", err);
-      setLeaderboardUsers([]);
+      setLeaderboardError(lang === "RU" ? "Не удалось загрузить лидерборд" : "Failed to load leaderboard");
+      // Keep the previous list if we have one; avoid flashing "No data yet" on transient errors.
+      setLeaderboardUsers((prev) => prev);
     } finally {
       setLoadingLeaderboard(false);
     }
@@ -1004,6 +1008,7 @@ export default function HomePage() {
                 user={user}
                 leaderboardUsers={leaderboardUsers}
                 leaderboardLoading={loadingLeaderboard}
+                leaderboardError={leaderboardError}
                 onLogin={() => openAuth("SIGN_IN")}
                 onCreateReferralLink={handleCreateReferralLink}
               />
