@@ -51,6 +51,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   pnlMajor,
   bets,
   soldTrades,
+  comments,
   onMarketClick,
 }) => {
   if (!user) {

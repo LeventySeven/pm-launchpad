@@ -597,7 +597,17 @@ export default function HomePage() {
     try {
       const raw = await trpcClient.market.myComments.query({ limit: 100 });
       const parsed = myCommentsSchema.parse(raw);
-      setMyComments(parsed);
+      const rows = parsed.map((c) => ({
+        id: requireValue(c.id, "MY_COMMENT_ID_MISSING"),
+        marketId: requireValue(c.marketId, "MY_COMMENT_MARKET_ID_MISSING"),
+        parentId: c.parentId ?? null,
+        body: requireValue(c.body, "MY_COMMENT_BODY_MISSING"),
+        createdAt: requireValue(c.createdAt, "MY_COMMENT_CREATED_AT_MISSING"),
+        marketTitleRu: requireValue(c.marketTitleRu, "MY_COMMENT_TITLE_RU_MISSING"),
+        marketTitleEn: requireValue(c.marketTitleEn, "MY_COMMENT_TITLE_EN_MISSING"),
+        likesCount: requireValue(c.likesCount, "MY_COMMENT_LIKES_COUNT_MISSING"),
+      }));
+      setMyComments(rows);
     } catch (err) {
       console.error("Failed to load my comments", err);
       setMyComments([]);
