@@ -192,6 +192,7 @@ export interface Database {
           category_id: string | null;
           category_label_ru: string | null;
           category_label_en: string | null;
+          created_by: string | null;
           created_at: string;
         };
         Insert: {
@@ -210,6 +211,7 @@ export interface Database {
           category_id?: string | null;
           category_label_ru?: string | null;
           category_label_en?: string | null;
+          created_by?: string | null;
           created_at?: string;
         };
         Update: {
@@ -228,6 +230,7 @@ export interface Database {
           category_id?: string | null;
           category_label_ru?: string | null;
           category_label_en?: string | null;
+          created_by?: string | null;
           created_at?: string;
         };
         Relationships: [

@@ -24,6 +24,7 @@ export interface Market {
   titleEn: string;
   state: MarketState;
   outcome: "YES" | "NO" | null;
+  createdBy?: string | null;
   category: Category;
   imageUrl: string;
   volume: string;

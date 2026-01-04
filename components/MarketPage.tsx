@@ -88,7 +88,12 @@ const MarketPage: React.FC<MarketPageProps> = ({
 
   const isResolved = market.state === 'resolved' || Boolean(market.outcome);
   const winningSide = market.outcome;
-  const adminControlsEnabled = Boolean(user?.isAdmin && onResolveOutcome);
+  const isCreator = Boolean(user && market.createdBy && market.createdBy === user.id);
+  const eventEnded = (() => {
+    const parsed = Date.parse(eventEnd);
+    return Number.isFinite(parsed) && parsed <= Date.now();
+  })();
+  const creatorControlsEnabled = Boolean(isCreator && onResolveOutcome);
 
   // User's current position for this market
   const userYesPosition = userPositions.find(p => p.outcome === 'YES');
@@ -237,7 +242,11 @@ const MarketPage: React.FC<MarketPageProps> = ({
   };
 
   const handleResolveOutcomeClick = async (side: 'YES' | 'NO') => {
-    if (!adminControlsEnabled || !onResolveOutcome) return;
+    if (!creatorControlsEnabled || !onResolveOutcome) return;
+    if (!eventEnded) {
+      setResolveError(lang === 'RU' ? 'Событие ещё не закончилось' : 'Event has not ended yet');
+      return;
+    }
     setResolveError(null);
     setResolvingOutcome(side);
     try {
@@ -602,12 +611,12 @@ const MarketPage: React.FC<MarketPageProps> = ({
               </>
             )}
 
-            {/* Admin Controls */}
-            {adminControlsEnabled && (
+            {/* Creator Controls */}
+            {creatorControlsEnabled && (
               <div className="mt-6 pt-4 border-t border-zinc-900/50 space-y-3">
                 <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 flex items-center gap-2">
                   <ShieldCheck size={12} />
-                  {lang === 'RU' ? 'Админ: исход события' : 'Admin: Resolve Outcome'}
+                  {lang === 'RU' ? 'Исход события (создатель)' : 'Resolve outcome (creator)'}
                 </p>
                 {isResolved ? (
                   <p className="text-sm text-neutral-300">

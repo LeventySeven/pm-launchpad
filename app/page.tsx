@@ -30,7 +30,15 @@ export default function HomePage() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState<AuthMode>("SIGN_IN");
-  const [lang, setLang] = useState<"RU" | "EN">("RU");
+  const [lang, setLang] = useState<"RU" | "EN">(() => {
+    if (typeof window === "undefined") return "EN";
+    try {
+      const stored = localStorage.getItem("lang");
+      return stored === "RU" || stored === "EN" ? stored : "EN";
+    } catch {
+      return "EN";
+    }
+  });
   const [user, setUser] = useState<User | null>(null);
   const [pendingReferralCode, setPendingReferralCode] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -194,7 +202,15 @@ export default function HomePage() {
   };
 
   const handleToggleLang = () => {
-    setLang((prev) => (prev === "RU" ? "EN" : "RU"));
+    setLang((prev) => {
+      const next = prev === "RU" ? "EN" : "RU";
+      try {
+        localStorage.setItem("lang", next);
+      } catch {
+        // ignore
+      }
+      return next;
+    });
   };
 
   const openAuth = useCallback((mode: AuthMode) => {
@@ -514,6 +530,7 @@ export default function HomePage() {
           titleEn: m.titleEn,
           state: m.state as Market["state"],
           outcome: m.outcome,
+          createdBy: m.createdBy ?? null,
           category: "ALL" as Category,
           imageUrl: buildInitialsAvatarDataUrl(title, { bg: "#111111", fg: "#ffffff" }),
           volume: `$${m.volume.toFixed(2)}`,
@@ -639,15 +656,17 @@ export default function HomePage() {
 
   const resolveMarketOutcome = useCallback(
     async ({ marketId, outcome }: { marketId: string; outcome: "YES" | "NO" }) => {
-      if (!user || !user.isAdmin) {
-        throw new Error("UNAUTHORIZED");
+      if (!user) throw new Error("UNAUTHORIZED");
+      const market = markets.find((m) => m.id === marketId);
+      if (!market || !market.createdBy || market.createdBy !== user.id) {
+        throw new Error("FORBIDDEN");
       }
       await trpcClient.market.resolveMarket.mutate({ marketId, outcome });
       await loadMarkets();
       await loadMyBets();
       await refreshUser();
     },
-    [user, loadMarkets, loadMyBets, refreshUser]
+    [user, markets, loadMarkets, loadMyBets, refreshUser]
   );
 
   // We load profile bets on navigation and after mutations; no periodic polling needed.
@@ -916,7 +935,9 @@ export default function HomePage() {
               onBack={() => setSelectedMarketId(null)}
               onLogin={() => openAuth("SIGN_IN")}
               lang={lang}
-              onResolveOutcome={user?.isAdmin ? resolveMarketOutcome : undefined}
+              onResolveOutcome={
+                user && selectedMarket.createdBy && selectedMarket.createdBy === user.id ? resolveMarketOutcome : undefined
+              }
               onPlaceBet={handlePlaceBet}
               onSellPosition={handleSellPosition}
               comments={marketComments}
@@ -1047,15 +1068,21 @@ export default function HomePage() {
             }}
           />
 
-          {user?.isAdmin && currentView === "EVENTS" && (
+          {currentView === "EVENTS" && (
             <button
               type="button"
-              onClick={() => setShowAdminModal(true)}
-              className="fixed bottom-16 right-4 h-12 w-12 rounded-full bg-zinc-100 text-black flex items-center justify-center shadow-lg shadow-black/30"
+              onClick={() => {
+                if (!user) {
+                  openAuth("SIGN_IN");
+                  return;
+                }
+                setShowAdminModal(true);
+              }}
+              className="fixed bottom-20 right-4 h-14 w-14 rounded-full bg-gradient-to-r from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-xl shadow-sky-500/25 ring-1 ring-white/10 hover:from-sky-400 hover:to-indigo-500 active:scale-[0.98] transition"
               aria-label={lang === "RU" ? "Создать рынок" : "Create market"}
               title={lang === "RU" ? "Создать рынок" : "Create market"}
             >
-              <Plus size={20} />
+              <Plus size={22} />
             </button>
           )}
         </>
@@ -1089,6 +1116,7 @@ export default function HomePage() {
       <AdminMarketModal
         isOpen={showAdminModal}
         onClose={() => setShowAdminModal(false)}
+        lang={lang}
         onCreate={async (payload) => {
           try {
             await trpcClient.market.createMarket.mutate(payload);

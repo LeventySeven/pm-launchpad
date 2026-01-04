@@ -1,46 +1,58 @@
 import React, { useMemo, useState } from "react";
-import { X, Calendar, Clock, Info } from "lucide-react";
+import { X, Calendar, Clock, Info, Sparkles } from "lucide-react";
 import Button from "./Button";
 
 type AdminMarketModalProps = {
   isOpen: boolean;
   onClose: () => void;
+  lang: "RU" | "EN";
   onCreate: (payload: {
     titleRu: string;
     titleEn: string;
     description?: string | null;
+    closesAt?: string | null;
     expiresAt: string;
-    poolYes?: number;
-    poolNo?: number;
+    liquidityB?: number;
+    feeBps?: number;
+    categoryLabelRu?: string | null;
+    categoryLabelEn?: string | null;
   }) => Promise<void>;
 };
 
 const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
   isOpen,
   onClose,
+  lang,
   onCreate,
 }) => {
   const [titleRu, setTitleRu] = useState("");
   const [titleEn, setTitleEn] = useState("");
   const [description, setDescription] = useState("");
+  const [closesAt, setClosesAt] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
-  const [poolYes, setPoolYes] = useState("0");
-  const [poolNo, setPoolNo] = useState("0");
+  const [liquidityB, setLiquidityB] = useState("100");
+  const [feeBps, setFeeBps] = useState("200");
+  const [categoryLabelRu, setCategoryLabelRu] = useState("");
+  const [categoryLabelEn, setCategoryLabelEn] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const numericYes = Number(poolYes) || 0;
-  const numericNo = Number(poolNo) || 0;
+  const t = (ru: string, en: string) => (lang === "RU" ? ru : en);
 
   const isValid =
     titleRu.trim().length >= 3 &&
     titleEn.trim().length >= 3 &&
     expiresAt.trim().length > 0;
 
-  const totalPool = useMemo(() => {
-    const sum = numericYes + numericNo;
-    return sum < 0 ? 0 : sum;
-  }, [numericYes, numericNo]);
+  const parsedLiquidityB = useMemo(() => {
+    const n = Number(liquidityB);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [liquidityB]);
+
+  const parsedFeeBps = useMemo(() => {
+    const n = Number(feeBps);
+    return Number.isFinite(n) && n >= 0 && n <= 2000 ? n : null;
+  }, [feeBps]);
 
   if (!isOpen) return null;
 
@@ -52,7 +64,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
     if (error && typeof error === "object" && typeof (error as { message?: string }).message === "string") {
       return String((error as { message?: string }).message);
     }
-    return "Не удалось создать рынок";
+    return t("Не удалось создать рынок", "Failed to create market");
   };
 
   const handleSubmit = async () => {
@@ -60,20 +72,33 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
     setError(null);
     setLoading(true);
     try {
+      if (parsedLiquidityB === null) {
+        throw new Error(t("Некорректная ликвидность", "Invalid liquidity"));
+      }
+      if (parsedFeeBps === null) {
+        throw new Error(t("Некорректная комиссия (bps)", "Invalid fee (bps)"));
+      }
+
       await onCreate({
         titleRu: titleRu.trim(),
         titleEn: titleEn.trim(),
         description: description.trim() || null,
+        closesAt: closesAt.trim() ? closesAt.trim() : null,
         expiresAt,
-        poolYes: numericYes,
-        poolNo: numericNo,
+        liquidityB: parsedLiquidityB,
+        feeBps: parsedFeeBps,
+        categoryLabelRu: categoryLabelRu.trim() || null,
+        categoryLabelEn: categoryLabelEn.trim() || null,
       });
       setTitleRu("");
       setTitleEn("");
       setDescription("");
+      setClosesAt("");
       setExpiresAt("");
-      setPoolYes("0");
-      setPoolNo("0");
+      setLiquidityB("100");
+      setFeeBps("200");
+      setCategoryLabelRu("");
+      setCategoryLabelEn("");
       onClose();
     } catch (error) {
       setError(getErrorMessage(error));
@@ -95,13 +120,15 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
         </button>
         <div className="flex flex-col gap-2 mb-5">
           <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-zinc-300">
-            <Info size={14} />
-            Только для администраторов
+            <Sparkles size={14} />
+            {t("Новый рынок", "New market")}
           </div>
-          <h2 className="text-2xl font-bold text-white">Создать рынок</h2>
+          <h2 className="text-2xl font-bold text-white">{t("Создать рынок", "Create market")}</h2>
           <p className="text-sm text-neutral-400">
-            Если ваша учетная запись в Supabase имеет флаг <code className="text-zinc-200">is_admin</code>, вы можете
-            публиковать события прямо отсюда. Новые рынки появляются на главном экране сразу после создания. Заполните поля на двух языках — интерфейс автоматически покажет нужную версию.
+            {t(
+              "Заполните поля на двух языках — интерфейс автоматически покажет нужную версию.",
+              "Fill in both languages — the UI will automatically show the correct version."
+            )}
           </p>
         </div>
 
@@ -109,42 +136,78 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
           <div className="lg:col-span-3 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-neutral-400 mb-1">Название (RU)</label>
+                <label className="block text-xs text-neutral-400 mb-1">{t("Название (RU)", "Title (RU)")}</label>
                 <input
                   value={titleRu}
                   onChange={(e) => setTitleRu(e.target.value)}
-                  placeholder="Например: Bitcoin > $125k к концу 2025?"
+                  placeholder={t("Например: Bitcoin > $125k к концу 2025?", "e.g. Bitcoin > $125k by end of 2025?")}
                   className="w-full bg-zinc-950/40 border border-zinc-900 rounded-xl p-3 text-white focus:border-zinc-700 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs text-neutral-400 mb-1">Title (EN)</label>
+                <label className="block text-xs text-neutral-400 mb-1">{t("Название (EN)", "Title (EN)")}</label>
                 <input
                   value={titleEn}
                   onChange={(e) => setTitleEn(e.target.value)}
-                  placeholder="e.g. Bitcoin > $125k by 2025?"
+                  placeholder={t("Например: Bitcoin > $125k к концу 2025?", "e.g. Bitcoin > $125k by end of 2025?")}
                   className="w-full bg-zinc-950/40 border border-zinc-900 rounded-xl p-3 text-white focus:border-zinc-700 focus:outline-none"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-xs text-neutral-400 mb-1">Описание</label>
+              <label className="block text-xs text-neutral-400 mb-1">{t("Описание", "Description")}</label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={4}
-                placeholder="Условия разрешения события..."
+                placeholder={t("Условия разрешения события...", "Resolution criteria...")}
                 className="w-full bg-zinc-950/40 border border-zinc-900 rounded-xl p-3 text-white focus:border-zinc-700 focus:outline-none"
               />
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-neutral-400 mb-1">{t("Категория (RU)", "Category (RU)")}</label>
+                <input
+                  value={categoryLabelRu}
+                  onChange={(e) => setCategoryLabelRu(e.target.value)}
+                  placeholder={t("например: Крипто", "e.g. Crypto")}
+                  className="w-full bg-zinc-950/40 border border-zinc-900 rounded-xl p-3 text-white focus:border-zinc-700 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-neutral-400 mb-1">{t("Категория (EN)", "Category (EN)")}</label>
+                <input
+                  value={categoryLabelEn}
+                  onChange={(e) => setCategoryLabelEn(e.target.value)}
+                  placeholder={t("например: Crypto", "e.g. Crypto")}
+                  className="w-full bg-zinc-950/40 border border-zinc-900 rounded-xl p-3 text-white focus:border-zinc-700 focus:outline-none"
+                />
+              </div>
+            </div>
+
             <div>
-              <label className="block text-xs text-neutral-400 mb-2">
-                Дата/время окончания (UTC)
-              </label>
+              <label className="block text-xs text-neutral-400 mb-2">{t("Торги закрываются (UTC)", "Trading closes (UTC)")}</label>
               <div className="flex items-center gap-3 mb-2 text-xs text-neutral-500">
                 <Calendar size={14} />
-                Выберите точное время или используйте пресеты
+                {t("Можно оставить пустым — будет равно времени окончания", "Optional — defaults to end time")}
+              </div>
+              <div className="relative">
+                <input
+                  type="datetime-local"
+                  value={closesAt}
+                  onChange={(e) => setClosesAt(e.target.value)}
+                  className="w-full bg-zinc-950/40 border border-zinc-900 rounded-xl p-3 text-white focus:border-zinc-700 focus:outline-none"
+                />
+                <Clock size={16} className="absolute right-3 top-3.5 text-neutral-600" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs text-neutral-400 mb-2">{t("Окончание события (UTC)", "Event end (UTC)")}</label>
+              <div className="flex items-center gap-3 mb-2 text-xs text-neutral-500">
+                <Info size={14} />
+                {t("После этого времени торги должны быть закрыты, а рынок можно разрешить.", "After this, trading should be closed and the market can be resolved.")}
               </div>
               <div className="flex flex-wrap gap-2 mb-3">
                 {[24, 72, 168].map((hours) => (
@@ -152,14 +215,18 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
                     key={hours}
                     type="button"
                     onClick={() => {
-                      const iso = new Date(Date.now() + hours * 60 * 60 * 1000)
-                        .toISOString()
-                        .slice(0, 16);
+                      const iso = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString().slice(0, 16);
                       setExpiresAt(iso);
+                      if (!closesAt.trim()) {
+                        setClosesAt(iso);
+                      }
                     }}
                     className="px-3 py-1 rounded-full border border-zinc-900 text-xs text-zinc-400 hover:text-white hover:border-zinc-700"
                   >
-                    +{hours === 24 ? "1 день" : hours === 72 ? "3 дня" : "7 дней"}
+                    {t(
+                      `+${hours === 24 ? "1 день" : hours === 72 ? "3 дня" : "7 дней"}`,
+                      `+${hours === 24 ? "1 day" : hours === 72 ? "3 days" : "7 days"}`
+                    )}
                   </button>
                 ))}
               </div>
@@ -174,22 +241,25 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-neutral-400 mb-1">Пул YES</label>
+                <label className="block text-xs text-neutral-400 mb-1">{t("Ликвидность B (LMSR)", "Liquidity B (LMSR)")}</label>
                 <input
                   type="number"
-                  value={poolYes}
-                  onChange={(e) => setPoolYes(e.target.value)}
+                  min={1}
+                  value={liquidityB}
+                  onChange={(e) => setLiquidityB(e.target.value)}
                   className="w-full bg-zinc-950/40 border border-zinc-900 rounded-xl p-3 text-white focus:border-zinc-700 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs text-neutral-400 mb-1">Пул NO</label>
+                <label className="block text-xs text-neutral-400 mb-1">{t("Комиссия (bps)", "Fee (bps)")}</label>
                 <input
                   type="number"
-                  value={poolNo}
-                  onChange={(e) => setPoolNo(e.target.value)}
+                  min={0}
+                  max={2000}
+                  value={feeBps}
+                  onChange={(e) => setFeeBps(e.target.value)}
                   className="w-full bg-zinc-950/40 border border-zinc-900 rounded-xl p-3 text-white focus:border-zinc-700 focus:outline-none"
                 />
               </div>
@@ -198,10 +268,10 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
 
           <div className="lg:col-span-2 bg-zinc-950/40 border border-zinc-900 rounded-2xl p-4 space-y-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-neutral-500 mb-1">Предпросмотр (RU)</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-neutral-500 mb-1">{t("Предпросмотр (RU)", "Preview (RU)")}</p>
               <h3 className="text-lg font-semibold text-white line-clamp-2">{titleRu || "Название события"}</h3>
               <p className="text-sm text-neutral-400 line-clamp-3">
-                {description || "Короткое описание условия и критериев разрешения."}
+                {description || t("Короткое описание условия и критериев разрешения.", "Short resolution criteria/description.")}
               </p>
               <div className="mt-4 text-xs text-neutral-500">
                 <span className="font-semibold text-white block mb-1">EN:</span>
@@ -212,18 +282,21 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="bg-zinc-950/60 border border-zinc-900 rounded-xl p-3">
-                <p className="text-xs text-neutral-500 mb-1">Общий пул</p>
-                <p className="text-xl font-mono text-white">${totalPool.toFixed(2)}</p>
+                <p className="text-xs text-neutral-500 mb-1">{t("Ликвидность B", "Liquidity B")}</p>
+                <p className="text-xl font-mono text-white">{parsedLiquidityB ?? "—"}</p>
               </div>
               <div className="bg-zinc-950/60 border border-zinc-900 rounded-xl p-3">
-                <p className="text-xs text-neutral-500 mb-1">Закрытие</p>
+                <p className="text-xs text-neutral-500 mb-1">{t("Окончание", "Ends")}</p>
                 <p className="text-sm text-white">
-                  {expiresAt ? new Date(expiresAt).toLocaleString("ru-RU", { hour12: false }) : "—"}
+                  {expiresAt ? new Date(expiresAt).toLocaleString(lang === "RU" ? "ru-RU" : "en-US", { hour12: false }) : "—"}
                 </p>
               </div>
             </div>
             <div className="text-xs text-neutral-500">
-              Все значения автоматически сохраняются в Supabase и становятся доступны пользователям после нажатия <span className="text-zinc-200 font-semibold">"Создать"</span>.
+              {t(
+                'Рынок будет сохранён в Supabase и появится в списке после нажатия "Создать".',
+                'The market will be saved to Supabase and will appear in the list after you click "Create".'
+              )}
             </div>
           </div>
         </div>
@@ -234,10 +307,10 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
 
         <div className="mt-6 flex justify-end gap-3">
           <Button variant="ghost" onClick={onClose}>
-            Отмена
+            {t("Отмена", "Cancel")}
           </Button>
           <Button onClick={handleSubmit} disabled={!isValid || loading}>
-            {loading ? "Создание..." : "Создать"}
+            {loading ? t("Создание...", "Creating...") : t("Создать", "Create")}
           </Button>
         </div>
       </div>

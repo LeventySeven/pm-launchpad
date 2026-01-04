@@ -63,6 +63,7 @@ const mapMarketRow = (row: MarketWithAmm) => {
     closesAt: new Date(row.closes_at).toISOString(),
     expiresAt: new Date(row.expires_at).toISOString(),
     outcome: row.resolve_outcome,
+    createdBy: row.created_by ?? null,
     settlementAsset: row.settlement_asset_code,
     feeBps: row.fee_bps,
     liquidityB: Number(row.liquidity_b),
@@ -159,6 +160,7 @@ const marketOutput = z.object({
   closesAt: z.string(),
   expiresAt: z.string(),
   outcome: z.enum(["YES", "NO"]).nullable(),
+  createdBy: z.string().nullable(),
   settlementAsset: z.string(),
   feeBps: z.number(),
   liquidityB: z.number(),
@@ -178,7 +180,7 @@ export const marketRouter = router({
       let query = supabase
         .from("markets")
         .select(`
-          id, title_rus, title_eng, description, state, closes_at, expires_at,
+          id, title_rus, title_eng, description, state, closes_at, expires_at, created_by,
           resolve_outcome, settlement_asset_code, fee_bps, liquidity_b, amm_type, created_at,
           category_id, category_label_ru, category_label_en,
           market_amm_state (market_id, b, q_yes, q_no, last_price_yes, fee_accumulated_minor, updated_at)
@@ -210,7 +212,7 @@ export const marketRouter = router({
       const { data, error } = await supabase
         .from("markets")
         .select(`
-          id, title_rus, title_eng, description, state, closes_at, expires_at,
+          id, title_rus, title_eng, description, state, closes_at, expires_at, created_by,
           resolve_outcome, settlement_asset_code, fee_bps, liquidity_b, amm_type, created_at,
           category_id, category_label_ru, category_label_en,
           market_amm_state (market_id, b, q_yes, q_no, last_price_yes, fee_accumulated_minor, updated_at)
@@ -429,7 +431,7 @@ export const marketRouter = router({
     }),
 
   /**
-   * Resolve market (admin only) - calls service RPC
+   * Resolve market (creator only) - calls service RPC
    */
   resolveMarket: publicProcedure
     .input(
@@ -448,13 +450,40 @@ export const marketRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const { supabaseService, authUser } = ctx;
-      if (!authUser || !authUser.isAdmin) {
-        throw new TRPCError({ code: "UNAUTHORIZED", message: "Admin only" });
+      if (!authUser) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
       }
       const { marketId, outcome } = input;
 
-      // This RPC should be called with service_role for production
-      // For now we call it as admin user - the DB function should check admin status
+      // Enforce creator-only resolution at the API layer (we call the RPC using service_role).
+      const { data: marketRow, error: marketLoadError } = await supabaseService
+        .from("markets")
+        .select("id, created_by, expires_at, resolve_outcome, state")
+        .eq("id", marketId)
+        .single();
+
+      if (marketLoadError || !marketRow) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: marketLoadError?.message ?? "Market not found",
+        });
+      }
+
+      const creatorId = (marketRow as Pick<MarketRow, "created_by">).created_by;
+      if (!creatorId || creatorId !== authUser.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Creator only" });
+      }
+
+      const endMs = Date.parse(String((marketRow as Pick<MarketRow, "expires_at">).expires_at));
+      if (Number.isFinite(endMs) && Date.now() < endMs) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Event has not ended yet" });
+      }
+
+      if ((marketRow as Pick<MarketRow, "resolve_outcome" | "state">).resolve_outcome || (marketRow as Pick<MarketRow, "state">).state === "resolved") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Market already resolved" });
+      }
+
+      // Call the settlement RPC with service_role.
       const { data, error } = await (supabaseService as SupabaseDbClient).rpc("resolve_market_service_tx", {
         p_market_id: marketId,
         p_outcome: outcome,
@@ -816,7 +845,7 @@ export const marketRouter = router({
     }),
 
   /**
-   * Create market (admin only)
+   * Create market (authenticated)
    */
   createMarket: publicProcedure
     .input(
@@ -824,10 +853,12 @@ export const marketRouter = router({
         titleRu: z.string().min(3),
         titleEn: z.string().min(3),
         description: z.string().optional().nullable(),
-        closesAt: z.string(),
+        closesAt: z.string().optional().nullable(),
         expiresAt: z.string(),
         liquidityB: z.number().positive().optional().default(100),
         feeBps: z.number().min(0).max(2000).optional().default(200),
+        categoryLabelRu: z.string().optional().nullable(),
+        categoryLabelEn: z.string().optional().nullable(),
       })
     )
     .output(
@@ -839,14 +870,17 @@ export const marketRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const { supabaseService, authUser } = ctx;
-      if (!authUser || !authUser.isAdmin) {
-        throw new TRPCError({ code: "UNAUTHORIZED", message: "Admin only" });
+      if (!authUser) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
       }
 
-      const closesAtMs = Date.parse(input.closesAt);
       const expiresAtMs = Date.parse(input.expiresAt);
+      const closesAtMs = input.closesAt ? Date.parse(input.closesAt) : expiresAtMs;
       if (!Number.isFinite(closesAtMs) || !Number.isFinite(expiresAtMs)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid dates" });
+      }
+      if (closesAtMs > expiresAtMs) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Trading close must be <= end time" });
       }
 
       // Insert market
@@ -859,10 +893,13 @@ export const marketRouter = router({
           state: "open",
           closes_at: new Date(closesAtMs).toISOString(),
           expires_at: new Date(expiresAtMs).toISOString(),
+          created_by: authUser.id,
           settlement_asset_code: DEFAULT_ASSET,
           fee_bps: input.feeBps,
           liquidity_b: input.liquidityB,
           amm_type: "lmsr",
+          category_label_ru: input.categoryLabelRu?.trim() ? input.categoryLabelRu.trim() : null,
+          category_label_en: input.categoryLabelEn?.trim() ? input.categoryLabelEn.trim() : null,
         })
         .select("id, title_rus, title_eng")
         .single();
