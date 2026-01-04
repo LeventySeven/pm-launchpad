@@ -37,6 +37,12 @@ export interface Database {
           username: string;
           display_name: string | null;
           email: string;
+          telegram_id: number | null;
+          telegram_username: string | null;
+          telegram_first_name: string | null;
+          telegram_last_name: string | null;
+          telegram_photo_url: string | null;
+          telegram_auth_date: string | null;
           is_admin: boolean;
           referral_code: string | null;
           referral_commission_rate: number | null;
@@ -48,6 +54,12 @@ export interface Database {
           username: string;
           display_name?: string | null;
           email: string;
+          telegram_id?: number | null;
+          telegram_username?: string | null;
+          telegram_first_name?: string | null;
+          telegram_last_name?: string | null;
+          telegram_photo_url?: string | null;
+          telegram_auth_date?: string | null;
           is_admin?: boolean;
           referral_code?: string | null;
           referral_commission_rate?: number | null;
@@ -59,6 +71,12 @@ export interface Database {
           username?: string;
           display_name?: string | null;
           email?: string;
+          telegram_id?: number | null;
+          telegram_username?: string | null;
+          telegram_first_name?: string | null;
+          telegram_last_name?: string | null;
+          telegram_photo_url?: string | null;
+          telegram_auth_date?: string | null;
           is_admin?: boolean;
           referral_code?: string | null;
           referral_commission_rate?: number | null;

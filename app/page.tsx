@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AuthModal, { type AuthMode } from "@/components/AuthModal";
 import Header from "@/components/Header";
 import MarketCard from "@/components/MarketCard";
@@ -33,6 +33,16 @@ export default function HomePage() {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loadingMarkets, setLoadingMarkets] = useState(false);
   const [loadingUser, setLoadingUser] = useState(false);
+  const telegramAutoLoginAttemptedRef = useRef(false);
+
+  const getTelegramInitData = () => {
+    if (typeof window === "undefined") return null;
+    const w = window as unknown as {
+      Telegram?: { WebApp?: { initData?: unknown } };
+    };
+    const initData = w.Telegram?.WebApp?.initData;
+    return typeof initData === "string" && initData.trim().length > 0 ? initData : null;
+  };
   const [currentView, setCurrentView] = useState<ViewType>("EVENTS");
 
   const [myPositions, setMyPositions] = useState<Position[]>([]);
@@ -226,10 +236,12 @@ export default function HomePage() {
           referralCommissionRate: me.referralCommissionRate,
           referralEnabled: me.referralEnabled,
         });
+        return me;
       }
     } catch (err: unknown) {
       console.error("Failed to refresh session user", err);
     }
+    return null;
   }, []);
 
   const handleUpdateDisplayName = useCallback(
@@ -362,7 +374,32 @@ export default function HomePage() {
   useEffect(() => {
     const loadUser = async () => {
       setLoadingUser(true);
-      await refreshUser();
+      const me = await refreshUser();
+
+      // Telegram Mini App: one-click login if no session exists.
+      if (!me && !telegramAutoLoginAttemptedRef.current) {
+        telegramAutoLoginAttemptedRef.current = true;
+        const initData = getTelegramInitData();
+        if (initData) {
+          try {
+            const res = await trpcClient.auth.telegramLogin.mutate({ initData });
+            setUser({
+              id: String(res.user.id),
+              email: res.user.email,
+              username: res.user.username,
+              name: res.user.displayName ?? res.user.username,
+              createdAt: res.user.createdAt,
+              balance: res.user.balance,
+              isAdmin: res.user.isAdmin,
+              referralCode: res.user.referralCode,
+              referralCommissionRate: res.user.referralCommissionRate,
+              referralEnabled: res.user.referralEnabled,
+            });
+          } catch (err: unknown) {
+            console.error("Telegram auto-login failed", err);
+          }
+        }
+      }
       setLoadingUser(false);
     };
 

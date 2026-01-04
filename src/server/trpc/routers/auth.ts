@@ -6,6 +6,7 @@ import { authCookie, signAuthToken, verifyAuthToken } from "../../auth/jwt";
 import type { PublicUser } from "../../auth/types";
 import type { Database } from "../../../types/database";
 import { toMajorUnits } from "../helpers/pricing";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 const SUPABASE_ACCESS_COOKIE = "sb_access_token";
 const SUPABASE_REFRESH_COOKIE = "sb_refresh_token";
@@ -54,6 +55,78 @@ type DbUserRow = Database["public"]["Tables"]["users"]["Row"];
 type UserInsert = Database["public"]["Tables"]["users"]["Insert"];
 type WalletBalanceInsert = Database["public"]["Tables"]["wallet_balances"]["Insert"];
 type WalletBalanceRow = Pick<Database["public"]["Tables"]["wallet_balances"]["Row"], "balance_minor">;
+
+const TELEGRAM_PLACEHOLDER_DOMAIN = "telegram.local";
+const buildTelegramEmail = (telegramId: number) => `tg_${telegramId}@${TELEGRAM_PLACEHOLDER_DOMAIN}`;
+const buildTelegramUsername = (telegramId: number) => `tg_${telegramId}`;
+
+const telegramUserSchema = z.object({
+  id: z.number().int().positive(),
+  username: z.string().optional(),
+  first_name: z.string().optional(),
+  last_name: z.string().optional(),
+  photo_url: z.string().url().optional(),
+});
+
+const parseTelegramInitData = (initData: string, botToken: string) => {
+  const params = new URLSearchParams(initData);
+  const hash = params.get("hash");
+  if (!hash) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "TELEGRAM_INITDATA_MISSING_HASH" });
+  }
+
+  params.delete("hash");
+
+  const entries: Array<[string, string]> = [];
+  for (const [k, v] of params.entries()) {
+    entries.push([k, v]);
+  }
+  entries.sort(([a], [b]) => a.localeCompare(b));
+
+  const dataCheckString = entries.map(([k, v]) => `${k}=${v}`).join("\n");
+
+  // Telegram WebApp validation:
+  // secret_key = HMAC_SHA256(key="WebAppData", message=botToken)
+  // expected_hash = HMAC_SHA256(key=secret_key, message=dataCheckString)
+  const secretKey = createHmac("sha256", "WebAppData").update(botToken).digest();
+  const expectedHashHex = createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
+
+  try {
+    const a = Buffer.from(expectedHashHex, "hex");
+    const b = Buffer.from(hash, "hex");
+    if (a.length !== b.length || !timingSafeEqual(a, b)) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "TELEGRAM_INITDATA_INVALID_HASH" });
+    }
+  } catch (err) {
+    if (err instanceof TRPCError) throw err;
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "TELEGRAM_INITDATA_INVALID_HASH" });
+  }
+
+  const authDateRaw = params.get("auth_date");
+  const authDate = authDateRaw ? Number(authDateRaw) : null;
+  if (authDate && Number.isFinite(authDate)) {
+    const now = Math.floor(Date.now() / 1000);
+    const maxAgeSeconds = 60 * 60 * 24 * 7; // 7 days
+    if (authDate > now + 60 || now - authDate > maxAgeSeconds) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "TELEGRAM_INITDATA_EXPIRED" });
+    }
+  }
+
+  const userJson = params.get("user");
+  if (!userJson) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "TELEGRAM_INITDATA_MISSING_USER" });
+  }
+
+  let userParsed: unknown;
+  try {
+    userParsed = JSON.parse(userJson);
+  } catch {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "TELEGRAM_INITDATA_BAD_USER" });
+  }
+
+  const user = telegramUserSchema.parse(userParsed);
+  return { user, authDate };
+};
 
 const toPublicUser = (row: DbUserRow, balanceMinor: number = 0): PublicUser => ({
   id: String(row.id),
@@ -285,6 +358,164 @@ export const authRouter = router({
       setCookie(authCookie(token));
 
       return { user: toPublicUser(authRow, Number(balanceMinor)) };
+    }),
+
+  /**
+   * Telegram Mini App one-click login.
+   * Validates initData, upserts a user by telegram_id, then creates a Supabase session
+   * (required because core trading RPCs rely on auth.uid()).
+   */
+  telegramLogin: publicProcedure
+    .input(
+      z.object({
+        initData: z.string().min(1).max(8192),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { supabase, supabaseService, setCookie } = ctx;
+      const botToken = process.env.TELEGRAM_BOT_TOKEN;
+      if (!botToken) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "TELEGRAM_BOT_TOKEN_NOT_SET" });
+      }
+
+      const { user: tgUser, authDate } = parseTelegramInitData(input.initData, botToken);
+      const telegramId = tgUser.id;
+      const email = buildTelegramEmail(telegramId);
+
+      // Avoid overwriting user's custom nickname/username if they already exist.
+      const existing = await supabaseService
+        .from("users")
+        .select("id, email, username, display_name, is_admin")
+        .eq("telegram_id", telegramId)
+        .maybeSingle();
+
+      if (existing.error) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: existing.error.message });
+      }
+
+      const existingRow = existing.data as Pick<DbUserRow, "id" | "email" | "username" | "display_name" | "is_admin"> | null;
+
+      const fallbackUsername = tgUser.username?.trim() || buildTelegramUsername(telegramId);
+      const fullName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" ").trim();
+      const desiredDisplayName = fullName || fallbackUsername;
+
+      const username = existingRow?.username?.trim() || fallbackUsername;
+      const displayName = existingRow?.display_name?.trim() || desiredDisplayName;
+
+      // We rotate the password on every Telegram login so we never need to store it.
+      const password = randomBytes(24).toString("base64url");
+
+      let authUserId = existingRow?.id ?? null;
+
+      if (!authUserId) {
+        const created = await supabaseService.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: {
+            username,
+            telegram_id: telegramId,
+          },
+        });
+
+        if (created.error || !created.data?.user) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: created.error?.message ?? "Failed to create Supabase auth user",
+          });
+        }
+
+        authUserId = created.data.user.id;
+      } else {
+        // Ensure we can sign in with the rotated password and keep metadata in sync.
+        const updatedAuth = await supabaseService.auth.admin.updateUserById(authUserId, {
+          password,
+          email_confirm: true,
+          user_metadata: {
+            username,
+            telegram_id: telegramId,
+          },
+        });
+        if (updatedAuth.error) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: updatedAuth.error.message,
+          });
+        }
+      }
+
+      const payload: UserInsert = {
+        id: authUserId,
+        email,
+        username,
+        display_name: displayName,
+        telegram_id: telegramId,
+        telegram_username: tgUser.username ?? null,
+        telegram_first_name: tgUser.first_name ?? null,
+        telegram_last_name: tgUser.last_name ?? null,
+        telegram_photo_url: tgUser.photo_url ?? null,
+        telegram_auth_date: authDate ? new Date(authDate * 1000).toISOString() : null,
+      };
+
+      const upserted = await supabaseService
+        .from("users")
+        .upsert(payload, { onConflict: "id" })
+        .select(publicColumns)
+        .single();
+
+      if (upserted.error || !upserted.data) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: upserted.error?.message ?? "Failed to upsert user",
+        });
+      }
+
+      // Ensure wallet exists (idempotent)
+      await supabaseService
+        .from("wallet_balances")
+        .upsert(
+          {
+            user_id: upserted.data.id,
+            asset_code: DEFAULT_ASSET,
+            balance_minor: 0,
+          } as WalletBalanceInsert,
+          { onConflict: "user_id,asset_code" }
+        );
+
+      // Create a Supabase session for this user (required for auth.uid() in RPCs).
+      const signIn = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signIn.error || !signIn.data?.session) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: signIn.error?.message ?? "Failed to create Supabase session",
+        });
+      }
+
+      persistSupabaseSession(signIn.data.session, setCookie);
+
+      const { data: walletRow } = await supabaseService
+        .from("wallet_balances")
+        .select("balance_minor")
+        .eq("user_id", upserted.data.id)
+        .eq("asset_code", DEFAULT_ASSET)
+        .maybeSingle();
+
+      const wallet = walletRow as WalletBalanceRow | null;
+      const balanceMinor = wallet ? Number(wallet.balance_minor ?? 0) : 0;
+
+      const token = await signAuthToken({
+        sub: String(upserted.data.id),
+        email: upserted.data.email,
+        username: upserted.data.username,
+        isAdmin: Boolean((upserted.data as DbUserRow).is_admin),
+      });
+      setCookie(authCookie(token));
+
+      return { user: toPublicUser(upserted.data as DbUserRow, balanceMinor) };
     }),
 
   me: publicProcedure.query(async ({ ctx }) => {
