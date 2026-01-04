@@ -34,6 +34,8 @@ type TradeWithMarket = TradeRow & {
 type PlaceBetResult = Database["public"]["Functions"]["place_bet_tx"]["Returns"];
 type SellPositionResult = Database["public"]["Functions"]["sell_position_tx"]["Returns"];
 type ResolveMarketResult = Database["public"]["Functions"]["resolve_market_service_tx"]["Returns"];
+type MarketCommentPublicRow = Database["public"]["Views"]["market_comments_public"]["Row"];
+type MarketCommentInsert = Database["public"]["Tables"]["market_comments"]["Insert"];
 
 const deriveVolumeMajor = (amm: AmmStateRow | null, feeBps?: number | null) => {
   if (!amm) return 0;
@@ -135,6 +137,17 @@ const tradeSummary = z.object({
   marketTitleEn: z.string(),
   marketState: z.string(),
   marketOutcome: z.enum(["YES", "NO"]).nullable(),
+});
+
+const marketCommentOutput = z.object({
+  id: z.string(),
+  marketId: z.string(),
+  userId: z.string(),
+  body: z.string(),
+  createdAt: z.string(),
+  authorName: z.string(),
+  authorUsername: z.string().nullable(),
+  authorAvatarUrl: z.string().nullable(),
 });
 
 const marketOutput = z.object({
@@ -697,6 +710,108 @@ export const marketRouter = router({
           createdAt: new Date(trade.created_at).toISOString(),
         };
       });
+    }),
+
+  /**
+   * Get market comments (public) with author name + avatar.
+   */
+  getMarketComments: publicProcedure
+    .input(
+      z.object({
+        marketId: z.string().uuid(),
+        limit: z.number().min(1).max(200).optional().default(50),
+      })
+    )
+    .output(z.array(marketCommentOutput))
+    .query(async ({ ctx, input }) => {
+      const { supabase } = ctx;
+      const { data, error } = await supabase
+        .from("market_comments_public")
+        .select("id, market_id, user_id, body, created_at, author_name, author_username, author_avatar_url")
+        .eq("market_id", input.marketId)
+        .order("created_at", { ascending: false })
+        .limit(input.limit);
+
+      if (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error.message,
+        });
+      }
+
+      const rows = (data ?? []) as MarketCommentPublicRow[];
+      return rows.map((c) => ({
+        id: c.id,
+        marketId: c.market_id,
+        userId: c.user_id,
+        body: c.body,
+        createdAt: new Date(c.created_at).toISOString(),
+        authorName: c.author_name,
+        authorUsername: c.author_username,
+        authorAvatarUrl: c.author_avatar_url,
+      }));
+    }),
+
+  /**
+   * Post a comment under a market (authenticated).
+   */
+  postMarketComment: publicProcedure
+    .input(
+      z.object({
+        marketId: z.string().uuid(),
+        body: z.string().trim().min(1).max(2000),
+      })
+    )
+    .output(marketCommentOutput)
+    .mutation(async ({ ctx, input }) => {
+      const { supabase, authUser } = ctx;
+      if (!authUser) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
+      }
+
+      const payload: MarketCommentInsert = {
+        market_id: input.marketId,
+        user_id: authUser.id,
+        body: input.body.trim(),
+      };
+
+      const inserted = await supabase
+        .from("market_comments")
+        .insert(payload)
+        .select("id")
+        .single();
+
+      if (inserted.error || !inserted.data) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: inserted.error?.message ?? "Failed to create comment",
+        });
+      }
+
+      const { data: row, error } = await supabase
+        .from("market_comments_public")
+        .select("id, market_id, user_id, body, created_at, author_name, author_username, author_avatar_url")
+        .eq("id", inserted.data.id)
+        .single();
+
+      if (error || !row) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error?.message ?? "Failed to load comment",
+        });
+      }
+
+      const c = row as MarketCommentPublicRow;
+      return {
+        id: c.id,
+        marketId: c.market_id,
+        userId: c.user_id,
+        body: c.body,
+        createdAt: new Date(c.created_at).toISOString(),
+        authorName: c.author_name,
+        authorUsername: c.author_username,
+        authorAvatarUrl: c.author_avatar_url,
+      };
     }),
 
   /**

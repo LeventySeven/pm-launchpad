@@ -148,6 +148,33 @@ export interface Database {
         };
         Relationships: [];
       };
+      market_comments: {
+        Row: {
+          id: string;
+          market_id: string;
+          user_id: string;
+          body: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          market_id: string;
+          user_id: string;
+          body: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          market_id?: string;
+          user_id?: string;
+          body?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          { foreignKeyName: "market_comments_market_id_fkey"; columns: ["market_id"]; referencedRelation: "markets"; referencedColumns: ["id"] },
+          { foreignKeyName: "market_comments_user_id_fkey"; columns: ["user_id"]; referencedRelation: "users"; referencedColumns: ["id"] }
+        ];
+      };
       markets: {
         Row: {
           id: string;
@@ -434,6 +461,19 @@ export interface Database {
         };
         Relationships: [];
       };
+      market_comments_public: {
+        Row: {
+          id: string;
+          market_id: string;
+          user_id: string;
+          body: string;
+          created_at: string;
+          author_name: string;
+          author_username: string | null;
+          author_avatar_url: string | null;
+        };
+        Relationships: [];
+      };
       trades_public_with_user: {
         Row: {
           id: string;
@@ -458,6 +498,7 @@ export interface Database {
           user_id: string;
           name: string;
           username: string;
+          avatar_url: string | null;
           balance_minor: number;
           pnl_minor: number;
           bet_count: number;

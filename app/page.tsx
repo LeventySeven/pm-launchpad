@@ -17,6 +17,8 @@ import FriendsPage from "@/components/FriendsPage";
 import { leaderboardUsersSchema } from "@/src/schemas/leaderboard";
 import { positionsSchema, tradesSchema } from "@/src/schemas/portfolio";
 import { priceCandlesSchema, publicTradesSchema } from "@/src/schemas/marketInsights";
+import { marketCommentsSchema } from "@/src/schemas/comments";
+import { buildInitialsAvatarDataUrl } from "@/lib/avatar";
 
 // VCOIN decimals for display
 const VCOIN_DECIMALS = 6;
@@ -96,6 +98,7 @@ export default function HomePage() {
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [marketCandles, setMarketCandles] = useState<PriceCandle[]>([]);
   const [marketPublicTrades, setMarketPublicTrades] = useState<PublicTrade[]>([]);
+  const [marketComments, setMarketComments] = useState<Comment[]>([]);
   const [marketInsightsLoading, setMarketInsightsLoading] = useState(false);
   const [leaderboardUsers, setLeaderboardUsers] = useState<LeaderboardUser[]>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
@@ -500,12 +503,6 @@ export default function HomePage() {
         const title = lang === "RU" ? m.titleRu : m.titleEn;
         const chance = Math.round(m.priceYes * 100);
 
-        // Build simple history from current price
-        const history = [
-          { date: "T-1", value: 50 },
-          { date: "Now", value: chance },
-        ];
-
         return {
           id: String(m.id),
           title,
@@ -514,7 +511,7 @@ export default function HomePage() {
           state: m.state as Market["state"],
           outcome: m.outcome,
           category: "ALL" as Category,
-          imageUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(title)}&background=random&color=fff&size=128`,
+          imageUrl: buildInitialsAvatarDataUrl(title, { bg: "#111111", fg: "#ffffff" }),
           volume: `$${m.volume.toFixed(2)}`,
           closesAt: m.closesAt,
           expiresAt: m.expiresAt,
@@ -522,7 +519,7 @@ export default function HomePage() {
           noPrice: Number(m.priceNo.toFixed(4)),
           chance,
           description: m.description ?? (lang === "RU" ? "Описание будет добавлено." : "Description coming soon."),
-          history,
+          history: [],
           comments: [],
           liquidityB: m.liquidityB,
           feeBps: m.feeBps,
@@ -674,6 +671,7 @@ export default function HomePage() {
     if (!selectedMarketId) {
       setMarketCandles([]);
       setMarketPublicTrades([]);
+      setMarketComments([]);
       setMarketInsightsLoading(false);
       return;
     }
@@ -683,13 +681,15 @@ export default function HomePage() {
     const fetchInsights = async () => {
       setMarketInsightsLoading(true);
       try {
-        const [candlesRaw, tradesRaw] = await Promise.all([
+        const [candlesRaw, tradesRaw, commentsRaw] = await Promise.all([
           trpcClient.market.getPriceCandles.query({ marketId: selectedMarketId, limit: 200 }),
           trpcClient.market.getPublicTrades.query({ marketId: selectedMarketId, limit: 50 }),
+          trpcClient.market.getMarketComments.query({ marketId: selectedMarketId, limit: 50 }),
         ]);
         if (cancelled) return;
         const candlesParsed = priceCandlesSchema.parse(candlesRaw);
         const tradesParsed = publicTradesSchema.parse(tradesRaw);
+        const commentsParsed = marketCommentsSchema.parse(commentsRaw);
 
         const candles: PriceCandle[] = candlesParsed.map((c) => ({
           bucket: requireValue(c.bucket, "CANDLE_BUCKET_MISSING"),
@@ -713,13 +713,34 @@ export default function HomePage() {
           createdAt: requireValue(t.createdAt, "PUBLIC_TRADE_CREATED_AT_MISSING"),
         }));
 
+        const uiComments: Comment[] = commentsParsed.map((c) => {
+          const userLabel = c.authorUsername ? `${c.authorName} (@${c.authorUsername})` : c.authorName;
+          const avatar = c.authorAvatarUrl || buildInitialsAvatarDataUrl(c.authorName, { bg: "#333333", fg: "#ffffff" });
+          const timestamp = new Date(c.createdAt).toLocaleString(lang === "RU" ? "ru-RU" : "en-US", {
+            day: "2-digit",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+          return {
+            id: c.id,
+            user: userLabel,
+            avatar,
+            text: c.body,
+            timestamp,
+            likes: 0,
+          };
+        });
+
         setMarketCandles(candles);
         setMarketPublicTrades(trades);
+        setMarketComments(uiComments);
       } catch (err) {
         console.error("Failed to load market insights", err);
         if (!cancelled) {
           setMarketCandles([]);
           setMarketPublicTrades([]);
+          setMarketComments([]);
         }
       } finally {
         if (!cancelled) {
@@ -846,6 +867,27 @@ export default function HomePage() {
     }
   };
 
+  const handlePostMarketComment = useCallback(
+    async (params: { marketId: string; text: string }) => {
+      const created = await trpcClient.market.postMarketComment.mutate({
+        marketId: params.marketId,
+        body: params.text,
+      });
+      const parsed = marketCommentsSchema.parse([created])[0];
+      const userLabel = parsed.authorUsername ? `${parsed.authorName} (@${parsed.authorUsername})` : parsed.authorName;
+      const avatar = parsed.authorAvatarUrl || buildInitialsAvatarDataUrl(parsed.authorName, { bg: "#333333", fg: "#ffffff" });
+      const timestamp = new Date(parsed.createdAt).toLocaleString(lang === "RU" ? "ru-RU" : "en-US", {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const ui: Comment = { id: parsed.id, user: userLabel, avatar, text: parsed.body, timestamp, likes: 0 };
+      setMarketComments((prev) => [ui, ...prev]);
+    },
+    [lang]
+  );
+
   return (
     <div className="tg-scroll bg-black text-zinc-100 font-sans">
       {selectedMarket ? (
@@ -873,6 +915,8 @@ export default function HomePage() {
               onResolveOutcome={user?.isAdmin ? resolveMarketOutcome : undefined}
               onPlaceBet={handlePlaceBet}
               onSellPosition={handleSellPosition}
+              comments={marketComments}
+              onPostComment={handlePostMarketComment}
               userPositions={myPositions.filter((p) => p.marketId === selectedMarket.id)}
               priceCandles={marketCandles}
               publicTrades={marketPublicTrades}

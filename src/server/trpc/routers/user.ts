@@ -5,6 +5,7 @@ import { toMajorUnits } from "../helpers/pricing";
 import type { Database } from "../../../types/database";
 import { randomBytes } from "node:crypto";
 import { leaderboardUsersSchema } from "../../../schemas/leaderboard";
+import { buildInitialsAvatarDataUrl } from "@/lib/avatar";
 
 const DEFAULT_ASSET = "VCOIN";
 const VCOIN_DECIMALS = 6;
@@ -489,7 +490,7 @@ export const userRouter = router({
 
       const { data, error } = await supabaseService
         .from("leaderboard_public")
-        .select("user_id, name, username, balance_minor, pnl_minor, bet_count, referrals, rank")
+        .select("user_id, name, username, avatar_url, balance_minor, pnl_minor, bet_count, referrals, rank")
         .order("rank", { ascending: true })
         .limit(limit);
 
@@ -503,7 +504,7 @@ export const userRouter = router({
       const rows = (data ?? []) as LeaderboardRow[];
       return rows.map((r) => {
         const name = (r.name || r.username || "").trim() || "Trader";
-        const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=111&color=ffffff`;
+        const avatar = r.avatar_url || buildInitialsAvatarDataUrl(name, { bg: "#111111", fg: "#ffffff" });
         return {
           id: r.user_id,
           rank: Number(r.rank),

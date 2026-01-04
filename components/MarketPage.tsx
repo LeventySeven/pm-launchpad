@@ -28,6 +28,8 @@ interface MarketPageProps {
   onPlaceBet: (params: { side: 'YES' | 'NO'; amount: number; marketId: string; marketTitle: string }) => Promise<void>;
   onSellPosition?: (params: { marketId: string; side: 'YES' | 'NO'; shares: number }) => Promise<void>;
   onResolveOutcome?: (params: { marketId: string; outcome: 'YES' | 'NO' }) => Promise<void>;
+  comments: Comment[];
+  onPostComment: (params: { marketId: string; text: string }) => Promise<void>;
   userPositions?: Position[];
   lang?: 'RU' | 'EN';
   priceCandles?: PriceCandle[];
@@ -43,6 +45,8 @@ const MarketPage: React.FC<MarketPageProps> = ({
   onPlaceBet,
   onSellPosition,
   onResolveOutcome,
+  comments,
+  onPostComment,
   userPositions = [],
   lang = 'RU',
   priceCandles = [],
@@ -51,7 +55,6 @@ const MarketPage: React.FC<MarketPageProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'COMMENTS' | 'ACTIVITY'>('COMMENTS');
   const [commentText, setCommentText] = useState('');
-  const [localCommentsByMarket, setLocalCommentsByMarket] = useState<Record<string, Comment[]>>({});
   const [tradeType, setTradeType] = useState<'YES' | 'NO'>('YES');
   const [amount, setAmount] = useState('');
   const [timeLeft, setTimeLeft] = useState('');
@@ -61,9 +64,6 @@ const MarketPage: React.FC<MarketPageProps> = ({
   const [sellError, setSellError] = useState<string | null>(null);
   const [resolvingOutcome, setResolvingOutcome] = useState<'YES' | 'NO' | null>(null);
   const [resolveError, setResolveError] = useState<string | null>(null);
-
-  const localComments = localCommentsByMarket[market.id] ?? [];
-  const comments = useMemo(() => [...localComments, ...market.comments], [localComments, market.comments]);
 
   // Use closesAt for trading deadline, expiresAt for event end
   const tradingDeadline = market.closesAt || market.expiresAt;
@@ -106,8 +106,8 @@ const MarketPage: React.FC<MarketPageProps> = ({
         value: Number((c.close * 100).toFixed(2)),
       }));
     }
-    return market.history;
-  }, [priceCandles, market.history, lang]);
+    return [];
+  }, [priceCandles, lang]);
 
   const displayedChance = chartSeries.length > 0 ? chartSeries[chartSeries.length - 1].value : market.chance;
 
@@ -137,21 +137,9 @@ const MarketPage: React.FC<MarketPageProps> = ({
       onLogin();
       return;
     }
-    const newComment = {
-      id: Date.now().toString(),
-      user: 'You',
-      avatar:
-        user.avatar ||
-        `https://ui-avatars.com/api/?name=${encodeURIComponent(user.email || 'User')}&background=333&color=fff`,
-      text: commentText,
-      timestamp: lang === 'RU' ? 'Только что' : 'Just now',
-      likes: 0
-    };
-    setLocalCommentsByMarket((prev) => {
-      const current = prev[market.id] ?? [];
-      return { ...prev, [market.id]: [newComment, ...current] };
-    });
+    const text = commentText.trim();
     setCommentText('');
+    void onPostComment({ marketId: market.id, text });
   };
 
   const numericAmount = Number(amount || 0);
