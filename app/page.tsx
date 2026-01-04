@@ -238,29 +238,6 @@ export default function HomePage() {
     setShowAuth(true);
   }, []);
 
-  useEffect(() => {
-    if (!user || !postAuthAction) return;
-    if (postAuthAction.type === "OPEN_CREATE_MARKET") {
-      setPostAuthAction(null);
-      if (marketCategories.length === 0 && !loadingMarketCategories) {
-        void loadMarketCategories();
-      }
-      setShowAdminModal(true);
-      return;
-    }
-    if (postAuthAction.type === "PLACE_BET") {
-      const action = postAuthAction;
-      setPostAuthAction(null);
-      setSelectedMarketId(action.marketId);
-      void handlePlaceBet({
-        amount: action.amount,
-        marketId: action.marketId,
-        side: action.side,
-        marketTitle: action.marketTitle,
-      });
-    }
-  }, [user, postAuthAction, marketCategories.length, loadingMarketCategories, loadMarketCategories, handlePlaceBet]);
-
   const handleSignUp = async (payload: {
     email: string;
     username: string;
@@ -937,6 +914,30 @@ export default function HomePage() {
       });
     }
   };
+
+  // Post-auth actions (run only after user becomes available).
+  useEffect(() => {
+    if (!user || !postAuthAction) return;
+    if (postAuthAction.type === "OPEN_CREATE_MARKET") {
+      setPostAuthAction(null);
+      if (marketCategories.length === 0 && !loadingMarketCategories) {
+        void loadMarketCategories();
+      }
+      setShowAdminModal(true);
+      return;
+    }
+    if (postAuthAction.type === "PLACE_BET") {
+      const action = postAuthAction;
+      setPostAuthAction(null);
+      setSelectedMarketId(action.marketId);
+      void handlePlaceBet({
+        amount: action.amount,
+        marketId: action.marketId,
+        side: action.side,
+        marketTitle: action.marketTitle,
+      });
+    }
+  }, [user, postAuthAction, marketCategories.length, loadingMarketCategories, loadMarketCategories]);
 
   /**
    * Handle selling a position (cash out)
