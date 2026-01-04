@@ -9,7 +9,7 @@ import OnboardingModal from "@/components/OnboardingModal";
 import BetConfirmModal from "@/components/BetConfirmModal";
 import AdminMarketModal from "@/components/AdminMarketModal";
 import ProfilePage from "@/components/ProfilePage";
-import type { Category, Market, User, Bet, Position, Trade, PriceCandle, PublicTrade, LeaderboardUser } from "@/types";
+import type { Category, Market, User, Bet, Position, Trade, PriceCandle, PublicTrade, LeaderboardUser, Comment as MarketComment } from "@/types";
 import { trpcClient } from "@/src/utils/trpcClient";
 import { Search, Plus } from "lucide-react";
 import BottomMenu, { type ViewType } from "@/components/BottomMenu";
@@ -98,7 +98,7 @@ export default function HomePage() {
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [marketCandles, setMarketCandles] = useState<PriceCandle[]>([]);
   const [marketPublicTrades, setMarketPublicTrades] = useState<PublicTrade[]>([]);
-  const [marketComments, setMarketComments] = useState<Comment[]>([]);
+  const [marketComments, setMarketComments] = useState<MarketComment[]>([]);
   const [marketInsightsLoading, setMarketInsightsLoading] = useState(false);
   const [leaderboardUsers, setLeaderboardUsers] = useState<LeaderboardUser[]>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
@@ -713,7 +713,7 @@ export default function HomePage() {
           createdAt: requireValue(t.createdAt, "PUBLIC_TRADE_CREATED_AT_MISSING"),
         }));
 
-        const uiComments: Comment[] = commentsParsed.map((c) => {
+        const uiComments: MarketComment[] = commentsParsed.map((c) => {
           const userLabel = c.authorUsername ? `${c.authorName} (@${c.authorUsername})` : c.authorName;
           const avatar = c.authorAvatarUrl || buildInitialsAvatarDataUrl(c.authorName, { bg: "#333333", fg: "#ffffff" });
           const timestamp = new Date(c.createdAt).toLocaleString(lang === "RU" ? "ru-RU" : "en-US", {
@@ -882,7 +882,7 @@ export default function HomePage() {
         hour: "2-digit",
         minute: "2-digit",
       });
-      const ui: Comment = { id: parsed.id, user: userLabel, avatar, text: parsed.body, timestamp, likes: 0 };
+      const ui: MarketComment = { id: parsed.id, user: userLabel, avatar, text: parsed.body, timestamp, likes: 0 };
       setMarketComments((prev) => [ui, ...prev]);
     },
     [lang]
