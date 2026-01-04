@@ -142,7 +142,9 @@ const MarketPage: React.FC<MarketPageProps> = ({
     const newComment = {
       id: Date.now().toString(),
       user: 'You',
-      avatar: `https://ui-avatars.com/api/?name=${user.email || 'User'}&background=333&color=fff`,
+      avatar:
+        user.avatar ||
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(user.email || 'User')}&background=333&color=fff`,
       text: commentText,
       timestamp: lang === 'RU' ? 'Только что' : 'Just now',
       likes: 0

@@ -28,6 +28,8 @@ const userShape = {
   email: z.string().email(),
   username: z.string(),
   displayName: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+  telegramPhotoUrl: z.string().nullable(),
   referralCode: z.string().nullable(),
   referralCommissionRate: z.number().nullable(),
   referralEnabled: z.boolean().nullable(),
@@ -37,7 +39,7 @@ const userShape = {
 };
 
 const selectColumns =
-  "id, email, username, display_name, referral_code, referral_commission_rate, referral_enabled, created_at, is_admin";
+  "id, email, username, display_name, avatar_url, telegram_photo_url, referral_code, referral_commission_rate, referral_enabled, created_at, is_admin";
 
 const USERS_TABLE = "users" as const;
 const WALLET_BALANCES_TABLE = "wallet_balances" as const;
@@ -47,6 +49,8 @@ const formatUser = (row: UserRow, balanceMinor: number = 0) => ({
   email: row.email,
   username: row.username,
   displayName: row.display_name,
+  avatarUrl: row.avatar_url ?? null,
+  telegramPhotoUrl: row.telegram_photo_url ?? null,
   referralCode: row.referral_code,
   referralCommissionRate:
     row.referral_commission_rate === null || row.referral_commission_rate === undefined
@@ -274,6 +278,64 @@ export const userRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: updated.error?.message ?? "Failed to update display name",
+        });
+      }
+
+      const { data: walletRow } = await supabaseService
+        .from("wallet_balances")
+        .select("balance_minor")
+        .eq("user_id", authUser.id)
+        .eq("asset_code", DEFAULT_ASSET)
+        .maybeSingle();
+
+      const wallet = walletRow as WalletBalanceRow | null;
+      const balanceMinor = wallet ? Number(wallet.balance_minor ?? 0) : 0;
+      return formatUser(updated.data as UserRow, balanceMinor);
+    }),
+
+  /**
+   * Update avatar URL for the current user (custom avatar).
+   * Pass null/empty to clear and fall back to Telegram avatar (if any).
+   */
+  updateAvatarUrl: publicProcedure
+    .input(
+      z.object({
+        avatarUrl: z.string().max(2048).nullable(),
+      })
+    )
+    .output(z.object(userShape))
+    .mutation(async ({ ctx, input }) => {
+      const { supabaseService, authUser } = ctx;
+      if (!authUser) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
+      }
+
+      let next: string | null = input.avatarUrl ? input.avatarUrl.trim() : null;
+      if (next === "") next = null;
+
+      if (next) {
+        let parsed: URL;
+        try {
+          parsed = new URL(next);
+        } catch {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid avatar URL" });
+        }
+        if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Avatar URL must be http(s)" });
+        }
+      }
+
+      const updated = await supabaseService
+        .from("users")
+        .update({ avatar_url: next })
+        .eq("id", authUser.id)
+        .select(selectColumns)
+        .single();
+
+      if (updated.error || !updated.data) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: updated.error?.message ?? "Failed to update avatar",
         });
       }
 

@@ -63,8 +63,8 @@ const Referrals: React.FC<ReferralsProps> = ({ user, onLogin, lang, onCreateRefe
     if (!inviteLink) return;
     try {
       await navigator.clipboard.writeText(inviteLink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     } catch {
       setError(t.copyError);
     }
@@ -99,7 +99,7 @@ const Referrals: React.FC<ReferralsProps> = ({ user, onLogin, lang, onCreateRefe
               <div className="text-sm font-semibold text-zinc-100">{t.title}</div>
               <div className="text-xs text-zinc-500">{t.subtitle}</div>
             </div>
-          </div>
+            </div>
 
           {!user ? (
             <Button onClick={onLogin} className="h-9 rounded-full px-4">
@@ -108,18 +108,18 @@ const Referrals: React.FC<ReferralsProps> = ({ user, onLogin, lang, onCreateRefe
           ) : !referralCode ? (
             <Button onClick={handleCreate} className="h-9 rounded-full px-4" disabled={creating}>
               {creating ? t.creating : t.create}
-            </Button>
+                </Button>
           ) : null}
         </div>
 
         <div className="mt-4">
           <div className="flex items-center gap-2 rounded-xl border border-zinc-900 bg-zinc-950/40 px-3 py-2">
-            <input
+                        <input 
               readOnly
               value={!user ? t.loginToCreate : inviteLink ?? t.placeholder}
               className="w-full bg-transparent text-xs text-zinc-300 font-mono focus:outline-none"
-            />
-            <button
+                        />
+                        <button 
               type="button"
               onClick={handleCopy}
               disabled={!inviteLink}
@@ -127,8 +127,8 @@ const Referrals: React.FC<ReferralsProps> = ({ user, onLogin, lang, onCreateRefe
               title={t.copy}
             >
               {copied ? <Check size={14} className="text-[rgba(36,182,255,1)]" /> : <Copy size={14} />}
-            </button>
-          </div>
+                        </button>
+                    </div>
 
           {error && <div className="mt-2 text-xs text-[rgba(201,37,28,1)]">{error}</div>}
 
@@ -136,10 +136,10 @@ const Referrals: React.FC<ReferralsProps> = ({ user, onLogin, lang, onCreateRefe
             <div className="mt-3 text-[11px] text-zinc-500">
               {t.yourRate}:{' '}
               <span className="text-zinc-200 font-semibold">{commissionPct}%</span>
-            </div>
-          )}
-        </div>
-      </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
     </div>
   );
 };

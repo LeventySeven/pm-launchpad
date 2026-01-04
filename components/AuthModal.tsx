@@ -314,10 +314,10 @@ const AuthModal: React.FC<AuthModalProps> = ({
               type="button"
               onClick={handleTelegram}
               disabled={loading}
-              className="w-full h-11 rounded-lg border border-zinc-800 bg-black text-white hover:bg-zinc-950 transition-colors inline-flex items-center justify-center gap-2 font-semibold"
+              className="w-full h-11 rounded-lg border border-zinc-800 bg-black text-white hover:bg-zinc-950 transition-colors inline-flex items-center justify-center gap-2 font-semibold mb-5"
             >
-              <Send size={16} className="text-[rgba(36,182,255,1)] relative top-[0.5px]" />
-              <span>{t.telegramButton}</span>
+              <Send size={16} className="text-[rgba(36,182,255,1)] shrink-0" />
+              <span className="leading-none">{t.telegramButton}</span>
             </button>
           </>
         )}

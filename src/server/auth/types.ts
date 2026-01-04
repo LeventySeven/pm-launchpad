@@ -3,6 +3,8 @@ export type PublicUser = {
   email: string;
   username: string;
   displayName: string | null;
+  avatarUrl: string | null;
+  telegramPhotoUrl: string | null;
   referralCode: string | null;
   referralCommissionRate: number | null;
   referralEnabled: boolean | null;

@@ -45,7 +45,7 @@ const usernameSchema = z
 const passwordSchema = z.string().min(8).max(128);
 
 const publicColumns =
-  "id, email, username, display_name, referral_code, referral_commission_rate, referral_enabled, created_at, is_admin";
+  "id, email, username, display_name, avatar_url, telegram_photo_url, referral_code, referral_commission_rate, referral_enabled, created_at, is_admin";
 
 const USERS_TABLE = "users" as const;
 const WALLET_BALANCES_TABLE = "wallet_balances" as const;
@@ -133,6 +133,8 @@ const toPublicUser = (row: DbUserRow, balanceMinor: number = 0): PublicUser => (
   email: row.email,
   username: row.username,
   displayName: row.display_name,
+  avatarUrl: row.avatar_url ?? null,
+  telegramPhotoUrl: row.telegram_photo_url ?? null,
   referralCode: row.referral_code,
   referralCommissionRate:
     row.referral_commission_rate === null || row.referral_commission_rate === undefined
@@ -304,10 +306,10 @@ export const authRouter = router({
       let loginEmail = emailOrUsername.toLowerCase();
       if (!emailOrUsername.includes("@")) {
         const { data: usernameRow, error: usernameError } = await supabaseService
-          .from("users")
+        .from("users")
           .select("email")
           .eq("username", emailOrUsername)
-          .maybeSingle();
+        .maybeSingle();
 
         if (usernameError || !usernameRow) {
           throw new TRPCError({
@@ -396,7 +398,7 @@ export const authRouter = router({
       // Avoid overwriting user's custom nickname/username if they already exist.
       const existing = await supabaseService
         .from("users")
-        .select("id, email, username, display_name, is_admin")
+        .select("id, email, username, display_name, is_admin, avatar_url")
         .eq("telegram_id", telegramId)
         .maybeSingle();
 
@@ -404,7 +406,10 @@ export const authRouter = router({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: existing.error.message });
       }
 
-      const existingRow = existing.data as Pick<DbUserRow, "id" | "email" | "username" | "display_name" | "is_admin"> | null;
+      const existingRow = existing.data as Pick<
+        DbUserRow,
+        "id" | "email" | "username" | "display_name" | "is_admin" | "avatar_url"
+      > | null;
 
       const fallbackUsername = tgUser.username?.trim() || buildTelegramUsername(telegramId);
       const fullName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" ").trim();
@@ -412,6 +417,10 @@ export const authRouter = router({
 
       const username = existingRow?.username?.trim() || fallbackUsername;
       const displayName = existingRow?.display_name?.trim() || desiredDisplayName;
+      const avatarUrl =
+        existingRow?.avatar_url?.trim() ||
+        tgUser.photo_url?.trim() ||
+        null;
 
       // We rotate the password on every Telegram login so we never need to store it.
       const password = randomBytes(24).toString("base64url");
@@ -460,6 +469,11 @@ export const authRouter = router({
         email,
         username,
         display_name: displayName,
+        // Single source of truth for the avatar shown in-app:
+        // - first Telegram login sets avatar_url from photo_url
+        // - later user can override avatar_url manually
+        // - we never overwrite an existing avatar_url here
+        avatar_url: avatarUrl,
         telegram_id: telegramId,
         telegram_username: tgUser.username ?? null,
         telegram_first_name: tgUser.first_name ?? null,

@@ -202,6 +202,9 @@ export default function HomePage() {
       username: me.user.username,
       name: me.user.displayName ?? me.user.username,
       createdAt: me.user.createdAt,
+      avatarUrl: me.user.avatarUrl ?? null,
+      telegramPhotoUrl: me.user.telegramPhotoUrl ?? null,
+      avatar: me.user.avatarUrl ?? me.user.telegramPhotoUrl ?? undefined,
       balance: me.user.balance,
       isAdmin: me.user.isAdmin,
       referralCode: me.user.referralCode,
@@ -231,6 +234,9 @@ export default function HomePage() {
       username: me.user.username,
       name: me.user.displayName ?? me.user.username,
       createdAt: me.user.createdAt,
+      avatarUrl: me.user.avatarUrl ?? null,
+      telegramPhotoUrl: me.user.telegramPhotoUrl ?? null,
+      avatar: me.user.avatarUrl ?? me.user.telegramPhotoUrl ?? undefined,
       balance: me.user.balance,
       isAdmin: me.user.isAdmin,
       referralCode: me.user.referralCode,
@@ -247,6 +253,9 @@ export default function HomePage() {
       username: res.user.username,
       name: res.user.displayName ?? res.user.username,
       createdAt: res.user.createdAt,
+      avatarUrl: res.user.avatarUrl ?? null,
+      telegramPhotoUrl: res.user.telegramPhotoUrl ?? null,
+      avatar: res.user.avatarUrl ?? res.user.telegramPhotoUrl ?? undefined,
       balance: res.user.balance,
       isAdmin: res.user.isAdmin,
       referralCode: res.user.referralCode,
@@ -265,6 +274,9 @@ export default function HomePage() {
           username: me.username,
           name: me.displayName ?? me.username,
           createdAt: me.createdAt,
+          avatarUrl: me.avatarUrl ?? null,
+          telegramPhotoUrl: me.telegramPhotoUrl ?? null,
+          avatar: me.avatarUrl ?? me.telegramPhotoUrl ?? undefined,
           balance: me.balance,
           isAdmin: me.isAdmin,
           referralCode: me.referralCode,
@@ -295,6 +307,22 @@ export default function HomePage() {
     },
     []
   );
+
+  const handleUpdateAvatarUrl = useCallback(async (nextAvatarUrl: string | null) => {
+    const updated = await trpcClient.user.updateAvatarUrl.mutate({
+      avatarUrl: nextAvatarUrl,
+    });
+    setUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            avatarUrl: updated.avatarUrl ?? null,
+            telegramPhotoUrl: updated.telegramPhotoUrl ?? null,
+            avatar: updated.avatarUrl ?? updated.telegramPhotoUrl ?? undefined,
+          }
+        : prev
+    );
+  }, []);
 
   const handleCreateReferralLink = useCallback(async () => {
     const res = await trpcClient.user.createReferralLink.mutate();
@@ -896,6 +924,7 @@ export default function HomePage() {
                 onLogin={() => openAuth("SIGN_IN")}
                 onLogout={handleLogout}
                 onUpdateDisplayName={handleUpdateDisplayName}
+                onUpdateAvatarUrl={handleUpdateAvatarUrl}
                 balanceMajor={user?.balance ?? 0}
                 pnlMajor={realizedPnl}
                 bets={legacyBets}

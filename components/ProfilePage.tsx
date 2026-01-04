@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { LogOut, Mail, User as UserIcon, Shield, Pencil, X } from 'lucide-react';
+import { LogOut, Mail, User as UserIcon, Shield, Pencil, X, Image } from 'lucide-react';
 import Button from './Button';
 import type { Bet, Trade, User } from '../types';
 
@@ -11,6 +11,7 @@ type ProfilePageProps = {
   onLogin: () => void;
   onLogout: () => void;
   onUpdateDisplayName: (nextDisplayName: string) => Promise<void>;
+  onUpdateAvatarUrl: (nextAvatarUrl: string | null) => Promise<void>;
   balanceMajor: number;
   pnlMajor: number;
   bets: Bet[];
@@ -83,6 +84,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   const [nameDraft, setNameDraft] = useState(displayName);
   const [savingName, setSavingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+  const [isEditingAvatar, setIsEditingAvatar] = useState(false);
+  const [avatarDraft, setAvatarDraft] = useState(user.avatarUrl ?? '');
+  const [savingAvatar, setSavingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   const activeBets = bets.filter((b) => b.status === 'open');
   const settledBets = bets.filter((b) => b.status !== 'open');
@@ -94,8 +99,25 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
       {/* Profile header */}
       <div className="border border-zinc-900 bg-black rounded-2xl p-5">
         <div className="flex items-start gap-4">
-          <div className="h-14 w-14 rounded-full bg-zinc-950/40 border border-zinc-900 flex items-center justify-center text-zinc-100 font-bold">
-            {initialsFrom(displayName)}
+          <div className="h-14 w-14 rounded-full bg-zinc-950/40 border border-zinc-900 overflow-hidden flex items-center justify-center text-zinc-100 font-bold relative">
+            {user.avatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={user.avatar} alt={displayName} className="h-full w-full object-cover" />
+            ) : (
+              initialsFrom(displayName)
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setAvatarError(null);
+                setAvatarDraft(user.avatarUrl ?? '');
+                setIsEditingAvatar(true);
+              }}
+              className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full border border-zinc-900 bg-zinc-950/80 hover:bg-zinc-950 transition-colors flex items-center justify-center text-zinc-300"
+              title={lang === 'RU' ? 'Изменить аватар' : 'Edit avatar'}
+            >
+              <Image size={14} />
+            </button>
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
@@ -172,6 +194,84 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                 <div className="flex items-center gap-2">
                   <Mail size={14} className="text-zinc-600" />
                   <span className="truncate">{user.email}</span>
+                </div>
+              )}
+              {isEditingAvatar && (
+                <div className="mt-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={avatarDraft}
+                      onChange={(e) => setAvatarDraft(e.target.value)}
+                      placeholder={lang === 'RU' ? 'URL аватара (https://...)' : 'Avatar URL (https://...)'}
+                      className="flex-1 h-10 rounded-full bg-zinc-950 border border-zinc-900 px-4 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700"
+                    />
+                    <Button
+                      onClick={async () => {
+                        setAvatarError(null);
+                        const next = avatarDraft.trim();
+                        if (next.length > 0) {
+                          try {
+                            // Basic URL validation on client
+                            const u = new URL(next);
+                            if (u.protocol !== 'https:' && u.protocol !== 'http:') {
+                              setAvatarError(lang === 'RU' ? 'Нужен http(s) URL' : 'Avatar URL must be http(s)');
+                              return;
+                            }
+                          } catch {
+                            setAvatarError(lang === 'RU' ? 'Некорректный URL' : 'Invalid URL');
+                            return;
+                          }
+                        }
+                        setSavingAvatar(true);
+                        try {
+                          await onUpdateAvatarUrl(next.length ? next : null);
+                          setIsEditingAvatar(false);
+                        } catch {
+                          setAvatarError(lang === 'RU' ? 'Не удалось сохранить' : 'Failed to save');
+                        } finally {
+                          setSavingAvatar(false);
+                        }
+                      }}
+                      className="h-10 rounded-full px-4"
+                      disabled={savingAvatar}
+                    >
+                      {savingAvatar ? (lang === 'RU' ? 'Сохранение…' : 'Saving…') : (lang === 'RU' ? 'Сохранить' : 'Save')}
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAvatarError(null);
+                        setIsEditingAvatar(false);
+                      }}
+                      className="h-10 w-10 rounded-full border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60 transition-colors flex items-center justify-center text-zinc-300"
+                      title={lang === 'RU' ? 'Отмена' : 'Cancel'}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setAvatarError(null);
+                        setSavingAvatar(true);
+                        try {
+                          await onUpdateAvatarUrl(null);
+                          setAvatarDraft('');
+                          setIsEditingAvatar(false);
+                        } catch {
+                          setAvatarError(lang === 'RU' ? 'Не удалось сбросить' : 'Failed to reset');
+                        } finally {
+                          setSavingAvatar(false);
+                        }
+                      }}
+                      className="text-xs text-zinc-400 hover:text-zinc-200 underline underline-offset-4"
+                      disabled={savingAvatar}
+                    >
+                      {lang === 'RU' ? 'Сбросить (использовать Telegram/инициалы)' : 'Reset (use Telegram/initials)'}
+                    </button>
+                  </div>
+                  {avatarError && <div className="mt-2 text-xs text-[rgba(201,37,28,1)]">{avatarError}</div>}
                 </div>
               )}
               {joined && (

@@ -113,6 +113,8 @@ export interface User {
   isAdmin?: boolean;
   pnl?: number; // Total Profit/Loss
   name?: string; // Display name
+  avatarUrl?: string | null; // user-controlled avatar URL
+  telegramPhotoUrl?: string | null; // Telegram-provided photo URL (fallback)
   referralCode?: string | null;
   referralCommissionRate?: number | null;
   referralEnabled?: boolean | null;

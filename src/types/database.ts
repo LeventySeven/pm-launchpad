@@ -37,6 +37,7 @@ export interface Database {
           username: string;
           display_name: string | null;
           email: string;
+          avatar_url: string | null;
           telegram_id: number | null;
           telegram_username: string | null;
           telegram_first_name: string | null;
@@ -54,6 +55,7 @@ export interface Database {
           username: string;
           display_name?: string | null;
           email: string;
+          avatar_url?: string | null;
           telegram_id?: number | null;
           telegram_username?: string | null;
           telegram_first_name?: string | null;
@@ -71,6 +73,7 @@ export interface Database {
           username?: string;
           display_name?: string | null;
           email?: string;
+          avatar_url?: string | null;
           telegram_id?: number | null;
           telegram_username?: string | null;
           telegram_first_name?: string | null;
