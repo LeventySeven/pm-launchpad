@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { LogOut, Mail, User as UserIcon, Shield, Pencil, X, Image } from 'lucide-react';
 import Button from './Button';
-import type { Bet, Trade, User } from '../types';
+import type { Bet, Trade, User, UserCommentSummary } from '../types';
 
 type ProfilePageProps = {
   user: User | null;
@@ -16,6 +16,7 @@ type ProfilePageProps = {
   pnlMajor: number;
   bets: Bet[];
   soldTrades: Trade[];
+  comments: UserCommentSummary[];
   onMarketClick: (marketId: string) => void;
 };
 
@@ -89,6 +90,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'BETS' | 'COMMENTS'>('BETS');
 
   useEffect(() => {
     if (!avatarFile) {
@@ -363,58 +365,82 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="mt-6 border-b border-zinc-900 flex">
+        <button
+          type="button"
+          onClick={() => setActiveTab('BETS')}
+          className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+            activeTab === 'BETS' ? 'border-white text-white' : 'border-transparent text-zinc-500 hover:text-white'
+          }`}
+        >
+          {lang === 'RU' ? 'Ставки' : 'Bets'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('COMMENTS')}
+          className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+            activeTab === 'COMMENTS' ? 'border-white text-white' : 'border-transparent text-zinc-500 hover:text-white'
+          }`}
+        >
+          {lang === 'RU' ? 'Комментарии' : 'Comments'}
+        </button>
+      </div>
+
       {/* Transactions (bet history) */}
       <div className="mt-8">
-        <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3 px-1">
-          {lang === 'RU' ? 'Транзакции' : 'Transactions'}
-        </h2>
+        {activeTab === 'BETS' && (
+          <>
+            <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3 px-1">
+              {lang === 'RU' ? 'Транзакции' : 'Transactions'}
+            </h2>
 
-        {/* Active */}
-        <div className="mb-6">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-3 px-1">
-            {lang === 'RU' ? 'Активные' : 'Active'}
-          </div>
-          {activeBets.length === 0 ? (
-            <div className="text-sm text-zinc-500 px-1">
-              {lang === 'RU' ? 'Нет активных ставок' : 'No active bets'}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {activeBets.map((b) => {
-                const title = (lang === 'RU' ? b.marketTitleRu : b.marketTitleEn) || b.marketTitle;
-                const sideLabel = b.side === 'YES' ? yesLabel : noLabel;
-                const sideColor = b.side === 'YES' ? 'text-[rgba(36,182,255,1)]' : 'text-[rgba(201,37,28,1)]';
-                return (
-                  <button
-                    key={b.id}
-                    type="button"
-                    className="w-full text-left border border-zinc-900 bg-black rounded-2xl p-4 hover:bg-zinc-950/40 transition-colors"
-                    onClick={() => onMarketClick(b.marketId)}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold text-zinc-100 truncate">{title}</div>
-                        <div className="mt-1 text-xs text-zinc-500 flex items-center gap-2">
-                          <span className={`font-semibold ${sideColor}`}>{sideLabel}</span>
-                          <span className="text-zinc-600">•</span>
-                          <span className="font-mono text-zinc-300">
-                            {lang === 'RU' ? 'Куплено на' : 'Bought for'} {formatMoney(b.amount)}
-                          </span>
+            {/* Active */}
+            <div className="mb-6">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-3 px-1">
+                {lang === 'RU' ? 'Активные' : 'Active'}
+              </div>
+              {activeBets.length === 0 ? (
+                <div className="text-sm text-zinc-500 px-1">
+                  {lang === 'RU' ? 'Нет активных ставок' : 'No active bets'}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {activeBets.map((b) => {
+                    const title = (lang === 'RU' ? b.marketTitleRu : b.marketTitleEn) || b.marketTitle;
+                    const sideLabel = b.side === 'YES' ? yesLabel : noLabel;
+                    const sideColor = b.side === 'YES' ? 'text-[rgba(36,182,255,1)]' : 'text-[rgba(201,37,28,1)]';
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        className="w-full text-left border border-zinc-900 bg-black rounded-2xl p-4 hover:bg-zinc-950/40 transition-colors"
+                        onClick={() => onMarketClick(b.marketId)}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-zinc-100 truncate">{title}</div>
+                            <div className="mt-1 text-xs text-zinc-500 flex items-center gap-2">
+                              <span className={`font-semibold ${sideColor}`}>{sideLabel}</span>
+                              <span className="text-zinc-600">•</span>
+                              <span className="font-mono text-zinc-300">
+                                {lang === 'RU' ? 'Куплено на' : 'Bought for'} {formatMoney(b.amount)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-xs text-zinc-500 flex-shrink-0">
+                            {lang === 'RU' ? 'Открыта' : 'Open'}
+                          </div>
                         </div>
-                      </div>
-                      <div className="text-xs text-zinc-500 flex-shrink-0">
-                        {lang === 'RU' ? 'Открыта' : 'Open'}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Completed */}
-        <div>
+            {/* Completed */}
+            <div>
           <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-3 px-1">
             {lang === 'RU' ? 'Завершенные' : 'Completed'}
           </div>
@@ -509,7 +535,65 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
               })}
             </div>
           )}
-        </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'COMMENTS' && (
+          <div>
+            <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3 px-1">
+              {lang === 'RU' ? 'Ваши комментарии' : 'Your comments'}
+            </h2>
+            {comments.length === 0 ? (
+              <div className="text-sm text-zinc-500 px-1">
+                {lang === 'RU' ? 'Пока нет комментариев' : 'No comments yet'}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {comments.map((c) => {
+                  const title = (lang === 'RU' ? c.marketTitleRu : c.marketTitleEn) || c.marketId;
+                  const when = new Date(c.createdAt).toLocaleString(lang === 'RU' ? 'ru-RU' : 'en-US', {
+                    day: '2-digit',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  });
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className="w-full text-left border border-zinc-900 bg-black rounded-2xl p-4 hover:bg-zinc-950/40 transition-colors"
+                      onClick={() => onMarketClick(c.marketId)}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-zinc-100 truncate">{title}</div>
+                          <div className="mt-1 text-xs text-zinc-500 flex items-center gap-2">
+                            <span className="uppercase tracking-wider text-[10px]">{when}</span>
+                            {c.parentId && (
+                              <>
+                                <span className="text-zinc-600">•</span>
+                                <span className="text-[10px] uppercase tracking-wider text-zinc-400">
+                                  {lang === 'RU' ? 'Ответ' : 'Reply'}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                          <div className="mt-2 text-sm text-zinc-300 line-clamp-3">{c.body}</div>
+                        </div>
+                        <div className="text-xs text-zinc-500 flex-shrink-0">
+                          <span className="inline-flex items-center gap-1">
+                            {lang === 'RU' ? 'Лайки' : 'Likes'}: {c.likesCount}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

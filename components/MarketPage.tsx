@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Market, User, Position, PriceCandle, PublicTrade, Comment } from '../types';
 import Button from './Button';
-import { ChevronLeft, Clock, ShieldCheck, User as UserIcon, Send, ThumbsUp, CalendarDays, TrendingDown, Coins, MessageCircle } from 'lucide-react';
+import { ChevronLeft, Clock, ShieldCheck, User as UserIcon, Send, ThumbsUp, CalendarDays, TrendingDown, Coins, MessageCircle, X } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { formatTimeRemaining } from '../lib/time';
 
@@ -29,7 +29,8 @@ interface MarketPageProps {
   onSellPosition?: (params: { marketId: string; side: 'YES' | 'NO'; shares: number }) => Promise<void>;
   onResolveOutcome?: (params: { marketId: string; outcome: 'YES' | 'NO' }) => Promise<void>;
   comments: Comment[];
-  onPostComment: (params: { marketId: string; text: string }) => Promise<void>;
+  onPostComment: (params: { marketId: string; text: string; parentId?: string | null }) => Promise<void>;
+  onToggleCommentLike?: (commentId: string) => Promise<void>;
   userPositions?: Position[];
   lang?: 'RU' | 'EN';
   priceCandles?: PriceCandle[];
@@ -47,6 +48,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
   onResolveOutcome,
   comments,
   onPostComment,
+  onToggleCommentLike,
   userPositions = [],
   lang = 'RU',
   priceCandles = [],
@@ -64,6 +66,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
   const [sellError, setSellError] = useState<string | null>(null);
   const [resolvingOutcome, setResolvingOutcome] = useState<'YES' | 'NO' | null>(null);
   const [resolveError, setResolveError] = useState<string | null>(null);
+  const [replyTo, setReplyTo] = useState<{ id: string; label: string } | null>(null);
 
   // Use closesAt for trading deadline, expiresAt for event end
   const tradingDeadline = market.closesAt || market.expiresAt;
@@ -144,8 +147,28 @@ const MarketPage: React.FC<MarketPageProps> = ({
     }
     const text = commentText.trim();
     setCommentText('');
-    void onPostComment({ marketId: market.id, text });
+    void onPostComment({ marketId: market.id, text, parentId: replyTo?.id ?? null });
+    setReplyTo(null);
   };
+
+  type CommentNode = Comment & { children: CommentNode[] };
+  const threadedComments = useMemo(() => {
+    const byId = new Map<string, CommentNode>();
+    comments.forEach((c) => {
+      byId.set(c.id, { ...c, children: [] });
+    });
+    const roots: CommentNode[] = [];
+    comments.forEach((c) => {
+      const node = byId.get(c.id)!;
+      const parentId = c.parentId ?? null;
+      if (parentId && byId.has(parentId)) {
+        byId.get(parentId)!.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+    return roots;
+  }, [comments]);
 
   const numericAmount = Number(amount || 0);
   const currentPrice = tradeType === 'YES' ? market.yesPrice : market.noPrice;
@@ -718,6 +741,21 @@ const MarketPage: React.FC<MarketPageProps> = ({
                     <UserIcon size={16} className="text-zinc-500" />
                   </div>
                   <div className="flex-1 relative">
+                    {replyTo && (
+                      <div className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-zinc-900 bg-zinc-950/40 px-3 py-2 text-xs text-zinc-300">
+                        <div className="min-w-0 truncate">
+                          {lang === 'RU' ? 'Ответ на' : 'Replying to'}: <span className="text-white">{replyTo.label}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setReplyTo(null)}
+                          className="h-7 w-7 rounded-full border border-zinc-900 bg-black/40 hover:bg-black/60 flex items-center justify-center text-zinc-300"
+                          aria-label={lang === 'RU' ? 'Отменить' : 'Cancel'}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    )}
                     <input
                       type="text"
                       value={commentText}
@@ -737,25 +775,72 @@ const MarketPage: React.FC<MarketPageProps> = ({
 
                 {/* List */}
                 <div className="space-y-6">
-                  {comments.map((comment) => (
-                    <div key={comment.id} className="flex gap-4 animate-in fade-in group">
-                      <img
-                        src={comment.avatar}
-                        alt={comment.user}
-                        className="w-9 h-9 rounded-full bg-zinc-900 opacity-80 group-hover:opacity-100 transition-opacity"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                          <span className="font-semibold text-sm text-white">{comment.user}</span>
-                          <span className="text-[10px] uppercase text-zinc-500 tracking-wider">{comment.timestamp}</span>
+                  {threadedComments.map((root) => {
+                    const renderNode = (node: CommentNode, depth: number): React.ReactNode => {
+                      const canLike = Boolean(onToggleCommentLike && user);
+                      const liked = Boolean(node.likedByMe);
+                      const likeClasses = liked ? "text-[rgba(36,182,255,1)]" : "text-zinc-500 hover:text-white";
+
+                      return (
+                        <div key={node.id} className="animate-in fade-in">
+                          <div
+                            className={`flex gap-4 group ${depth > 0 ? "border-l border-zinc-900/60 pl-4" : ""}`}
+                            style={{ marginLeft: depth * 16 }}
+                          >
+                            <img
+                              src={node.avatar}
+                              alt={node.user}
+                              className="w-9 h-9 rounded-full bg-zinc-900 opacity-80 group-hover:opacity-100 transition-opacity"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-1">
+                                <span className="font-semibold text-sm text-white">{node.user}</span>
+                                <span className="text-[10px] uppercase text-zinc-500 tracking-wider">{node.timestamp}</span>
+                              </div>
+                              <p className="text-zinc-300 text-sm mb-2">{node.text}</p>
+                              <div className="flex items-center gap-4">
+                                <button
+                                  type="button"
+                                  disabled={!onToggleCommentLike}
+                                  onClick={() => {
+                                    if (!user) {
+                                      onLogin();
+                                      return;
+                                    }
+                                    void onToggleCommentLike?.(node.id);
+                                  }}
+                                  className={`flex items-center gap-1.5 text-xs transition-colors ${likeClasses} ${!canLike ? "opacity-70" : ""}`}
+                                >
+                                  <ThumbsUp size={12} />
+                                  {node.likes}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (!user) {
+                                      onLogin();
+                                      return;
+                                    }
+                                    setReplyTo({ id: node.id, label: node.user });
+                                  }}
+                                  className="text-xs text-zinc-500 hover:text-white transition-colors"
+                                >
+                                  {lang === 'RU' ? 'Ответить' : 'Reply'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                          {node.children.length > 0 && (
+                            <div className="mt-3 space-y-3">
+                              {node.children.map((child) => renderNode(child, depth + 1))}
+                            </div>
+                          )}
                         </div>
-                        <p className="text-zinc-300 text-sm mb-2">{comment.text}</p>
-                        <button className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white transition-colors">
-                          <ThumbsUp size={12} /> {comment.likes}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    };
+
+                    return renderNode(root, 0);
+                  })}
                 </div>
               </div>
             )}

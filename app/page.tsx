@@ -19,6 +19,7 @@ import { positionsSchema, tradesSchema } from "@/src/schemas/portfolio";
 import { priceCandlesSchema, publicTradesSchema } from "@/src/schemas/marketInsights";
 import { marketCommentsSchema } from "@/src/schemas/comments";
 import { marketCategoriesSchema } from "@/src/schemas/marketCategories";
+import { myCommentsSchema } from "@/src/schemas/myComments";
 import { buildInitialsAvatarDataUrl } from "@/lib/avatar";
 
 // VCOIN decimals for display
@@ -115,6 +116,16 @@ export default function HomePage() {
   type MarketCategoryStrict = { id: string; labelRu: string; labelEn: string };
   const [marketCategories, setMarketCategories] = useState<MarketCategoryStrict[]>([]);
   const [loadingMarketCategories, setLoadingMarketCategories] = useState(false);
+  const [myComments, setMyComments] = useState<Array<{
+    id: string;
+    marketId: string;
+    parentId: string | null;
+    body: string;
+    createdAt: string;
+    marketTitleRu: string;
+    marketTitleEn: string;
+    likesCount: number;
+  }>>([]);
 
   const requireValue = <T,>(v: T | null | undefined, code: string): T => {
     if (v === null || v === undefined) {
@@ -580,6 +591,18 @@ export default function HomePage() {
       setLoadingMarketCategories(false);
     }
   }, []);
+
+  const loadMyComments = useCallback(async () => {
+    if (!user) return;
+    try {
+      const raw = await trpcClient.market.myComments.query({ limit: 100 });
+      const parsed = myCommentsSchema.parse(raw);
+      setMyComments(parsed);
+    } catch (err) {
+      console.error("Failed to load my comments", err);
+      setMyComments([]);
+    }
+  }, [user]);
   useEffect(() => {
     if (!user) {
       setMyPositions([]);
@@ -774,7 +797,9 @@ export default function HomePage() {
             avatar,
             text: c.body,
             timestamp,
-            likes: 0,
+            likes: c.likesCount ?? 0,
+            likedByMe: c.likedByMe ?? false,
+            parentId: c.parentId ?? null,
           };
         });
 
@@ -914,10 +939,11 @@ export default function HomePage() {
   };
 
   const handlePostMarketComment = useCallback(
-    async (params: { marketId: string; text: string }) => {
+    async (params: { marketId: string; text: string; parentId?: string | null }) => {
       const created = await trpcClient.market.postMarketComment.mutate({
         marketId: params.marketId,
         body: params.text,
+        parentId: params.parentId ?? null,
       });
       const parsed = marketCommentsSchema.parse([created])[0];
       const userLabel = parsed.authorUsername ? `${parsed.authorName} (@${parsed.authorUsername})` : parsed.authorName;
@@ -928,11 +954,29 @@ export default function HomePage() {
         hour: "2-digit",
         minute: "2-digit",
       });
-      const ui: MarketComment = { id: parsed.id, user: userLabel, avatar, text: parsed.body, timestamp, likes: 0 };
+      const ui: MarketComment = {
+        id: parsed.id,
+        user: userLabel,
+        avatar,
+        text: parsed.body,
+        timestamp,
+        likes: parsed.likesCount ?? 0,
+        likedByMe: parsed.likedByMe ?? false,
+        parentId: parsed.parentId ?? null,
+      };
       setMarketComments((prev) => [ui, ...prev]);
     },
     [lang]
   );
+
+  const handleToggleMarketCommentLike = useCallback(async (commentId: string) => {
+    const res = await trpcClient.market.toggleMarketCommentLike.mutate({ commentId });
+    setMarketComments((prev) =>
+      prev.map((c) =>
+        c.id === res.commentId ? { ...c, likes: res.likesCount, likedByMe: res.likedByMe } : c
+      )
+    );
+  }, []);
 
   return (
     <div className="tg-scroll bg-black text-zinc-100 font-sans">
@@ -965,6 +1009,7 @@ export default function HomePage() {
               onSellPosition={handleSellPosition}
               comments={marketComments}
               onPostComment={handlePostMarketComment}
+              onToggleCommentLike={handleToggleMarketCommentLike}
               userPositions={myPositions.filter((p) => p.marketId === selectedMarket.id)}
               priceCandles={marketCandles}
               publicTrades={marketPublicTrades}
@@ -983,6 +1028,7 @@ export default function HomePage() {
               setCurrentView(view);
               if (view === "PROFILE") {
                 void loadMyBets();
+                void loadMyComments();
               }
             }}
           />
@@ -1070,6 +1116,7 @@ export default function HomePage() {
                 pnlMajor={realizedPnl}
                 bets={legacyBets}
                 soldTrades={soldTrades}
+                comments={myComments}
                 onMarketClick={(marketId) => setSelectedMarketId(marketId)}
               />
             )}
@@ -1084,6 +1131,7 @@ export default function HomePage() {
               setCurrentView(view);
               if (view === "PROFILE") {
                 void loadMyBets();
+                void loadMyComments();
               }
               if (view === "FRIENDS") {
                 void loadLeaderboard();

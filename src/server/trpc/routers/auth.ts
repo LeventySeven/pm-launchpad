@@ -35,6 +35,8 @@ const persistSupabaseSession = (session: Session, setCookie: (value: string) => 
 
 const DEFAULT_ASSET = "VCOIN";
 const VCOIN_DECIMALS = 6;
+const SIGNUP_BONUS_MAJOR = 1500;
+const SIGNUP_BONUS_MINOR = SIGNUP_BONUS_MAJOR * Math.pow(10, VCOIN_DECIMALS);
 
 const emailSchema = z.string().email().max(255);
 const usernameSchema = z
@@ -234,13 +236,15 @@ export const authRouter = router({
       // Initialize wallet balance for new user
       await supabaseService
         .from("wallet_balances")
-        .insert({
-          user_id: inserted.data.id,
-          asset_code: DEFAULT_ASSET,
-          balance_minor: 0,
-        } as WalletBalanceInsert)
-        .select()
-        .maybeSingle();
+        .upsert(
+          {
+            user_id: inserted.data.id,
+            asset_code: DEFAULT_ASSET,
+            balance_minor: SIGNUP_BONUS_MINOR,
+          } as WalletBalanceInsert,
+          // IMPORTANT: do not overwrite balances (or DB-trigger-based bonus) if row already exists.
+          { onConflict: "user_id,asset_code", ignoreDuplicates: true }
+        );
 
       // Fetch wallet balance (supports DB trigger-based initial credit)
       const { data: walletRow } = await supabaseService
@@ -510,6 +514,7 @@ export const authRouter = router({
           {
             user_id: upserted.data.id,
             asset_code: DEFAULT_ASSET,
+            balance_minor: SIGNUP_BONUS_MINOR,
           } as WalletBalanceInsert,
           // IMPORTANT: do not overwrite initial credit (1500 VCOIN) if your DB trigger already created it.
           { onConflict: "user_id,asset_code", ignoreDuplicates: true }

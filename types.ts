@@ -13,6 +13,19 @@ export interface Comment {
   text: string;
   timestamp: string;
   likes: number;
+  likedByMe?: boolean;
+  parentId?: string | null;
+}
+
+export interface UserCommentSummary {
+  id: string;
+  marketId: string;
+  parentId: string | null;
+  body: string;
+  createdAt: string;
+  marketTitleRu: string;
+  marketTitleEn: string;
+  likesCount: number;
 }
 
 export type MarketState = "open" | "closed" | "resolved" | "cancelled";

@@ -36,6 +36,7 @@ type SellPositionResult = Database["public"]["Functions"]["sell_position_tx"]["R
 type ResolveMarketResult = Database["public"]["Functions"]["resolve_market_service_tx"]["Returns"];
 type MarketCommentPublicRow = Database["public"]["Views"]["market_comments_public"]["Row"];
 type MarketCommentInsert = Database["public"]["Tables"]["market_comments"]["Insert"];
+type MarketCommentLikeRow = Database["public"]["Tables"]["market_comment_likes"]["Row"];
 type MarketCategoryRow = Database["public"]["Tables"]["market_categories"]["Row"];
 
 const deriveVolumeMajor = (amm: AmmStateRow | null, feeBps?: number | null) => {
@@ -145,11 +146,14 @@ const marketCommentOutput = z.object({
   id: z.string(),
   marketId: z.string(),
   userId: z.string(),
+  parentId: z.string().nullable(),
   body: z.string(),
   createdAt: z.string(),
   authorName: z.string(),
   authorUsername: z.string().nullable(),
   authorAvatarUrl: z.string().nullable(),
+  likesCount: z.number(),
+  likedByMe: z.boolean(),
 });
 
 const marketOutput = z.object({
@@ -782,10 +786,10 @@ export const marketRouter = router({
     )
     .output(z.array(marketCommentOutput))
     .query(async ({ ctx, input }) => {
-      const { supabaseService } = ctx;
+      const { supabaseService, supabase, authUser } = ctx;
       const { data, error } = await supabaseService
         .from("market_comments_public")
-        .select("id, market_id, user_id, body, created_at, author_name, author_username, author_avatar_url")
+        .select("id, market_id, user_id, parent_id, body, created_at, author_name, author_username, author_avatar_url, likes_count")
         .eq("market_id", input.marketId)
         .order("created_at", { ascending: false })
         .limit(input.limit);
@@ -798,15 +802,34 @@ export const marketRouter = router({
       }
 
       const rows = (data ?? []) as MarketCommentPublicRow[];
+
+      let likedSet = new Set<string>();
+      if (authUser && rows.length > 0) {
+        const ids = rows.map((r) => r.id);
+        const liked = await supabase
+          .from("market_comment_likes")
+          .select("comment_id")
+          .eq("user_id", authUser.id)
+          .in("comment_id", ids);
+
+        if (!liked.error && liked.data) {
+          const likeRows = liked.data as Pick<MarketCommentLikeRow, "comment_id">[];
+          likedSet = new Set(likeRows.map((r) => r.comment_id));
+        }
+      }
+
       return rows.map((c) => ({
         id: c.id,
         marketId: c.market_id,
         userId: c.user_id,
+        parentId: c.parent_id ?? null,
         body: c.body,
         createdAt: new Date(c.created_at).toISOString(),
         authorName: c.author_name,
         authorUsername: c.author_username,
         authorAvatarUrl: c.author_avatar_url,
+        likesCount: Number(c.likes_count ?? 0),
+        likedByMe: likedSet.has(c.id),
       }));
     }),
 
@@ -818,6 +841,7 @@ export const marketRouter = router({
       z.object({
         marketId: z.string().uuid(),
         body: z.string().trim().min(1).max(2000),
+        parentId: z.string().uuid().optional().nullable(),
       })
     )
     .output(marketCommentOutput)
@@ -827,10 +851,28 @@ export const marketRouter = router({
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
       }
 
+      if (input.parentId) {
+        const { data: parent, error: parentErr } = await supabase
+          .from("market_comments")
+          .select("id, market_id")
+          .eq("id", input.parentId)
+          .maybeSingle();
+
+        if (parentErr || !parent) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid parent comment" });
+        }
+
+        const parentMarketId = String((parent as { market_id: string }).market_id);
+        if (parentMarketId !== input.marketId) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Parent comment is from another market" });
+        }
+      }
+
       const payload: MarketCommentInsert = {
         market_id: input.marketId,
         user_id: authUser.id,
         body: input.body.trim(),
+        parent_id: input.parentId ?? null,
       };
 
       const inserted = await supabase
@@ -849,7 +891,7 @@ export const marketRouter = router({
       const { supabaseService } = ctx;
       const { data: row, error } = await supabaseService
         .from("market_comments_public")
-        .select("id, market_id, user_id, body, created_at, author_name, author_username, author_avatar_url")
+        .select("id, market_id, user_id, parent_id, body, created_at, author_name, author_username, author_avatar_url, likes_count")
         .eq("id", inserted.data.id)
         .single();
 
@@ -865,12 +907,152 @@ export const marketRouter = router({
         id: c.id,
         marketId: c.market_id,
         userId: c.user_id,
+        parentId: c.parent_id ?? null,
         body: c.body,
         createdAt: new Date(c.created_at).toISOString(),
         authorName: c.author_name,
         authorUsername: c.author_username,
         authorAvatarUrl: c.author_avatar_url,
+        likesCount: Number(c.likes_count ?? 0),
+        likedByMe: false,
       };
+    }),
+
+  toggleMarketCommentLike: publicProcedure
+    .input(
+      z.object({
+        commentId: z.string().uuid(),
+      })
+    )
+    .output(
+      z.object({
+        commentId: z.string(),
+        likesCount: z.number(),
+        likedByMe: z.boolean(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { supabase, supabaseService, authUser } = ctx;
+      if (!authUser) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
+      }
+
+      const exists = await supabaseService
+        .from("market_comments")
+        .select("id")
+        .eq("id", input.commentId)
+        .maybeSingle();
+
+      if (exists.error || !exists.data) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Comment not found" });
+      }
+
+      const current = await supabase
+        .from("market_comment_likes")
+        .select("comment_id")
+        .eq("comment_id", input.commentId)
+        .eq("user_id", authUser.id)
+        .maybeSingle();
+
+      const alreadyLiked = Boolean(current.data);
+
+      if (alreadyLiked) {
+        const del = await supabase
+          .from("market_comment_likes")
+          .delete()
+          .eq("comment_id", input.commentId)
+          .eq("user_id", authUser.id);
+        if (del.error) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: del.error.message });
+        }
+      } else {
+        const ins = await supabase
+          .from("market_comment_likes")
+          .insert({ comment_id: input.commentId, user_id: authUser.id } as Database["public"]["Tables"]["market_comment_likes"]["Insert"]);
+        if (ins.error) {
+          const msg = String(ins.error.message ?? "");
+          if (!msg.toLowerCase().includes("duplicate")) {
+            throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: msg });
+          }
+        }
+      }
+
+      const countRes = await supabaseService
+        .from("market_comment_likes")
+        .select("comment_id", { count: "exact", head: true })
+        .eq("comment_id", input.commentId);
+
+      return {
+        commentId: input.commentId,
+        likesCount: Number(countRes.count ?? 0),
+        likedByMe: !alreadyLiked,
+      };
+    }),
+
+  myComments: publicProcedure
+    .input(z.object({ limit: z.number().min(1).max(200).optional().default(50) }).optional())
+    .output(
+      z.array(
+        z.object({
+          id: z.string(),
+          marketId: z.string(),
+          parentId: z.string().nullable(),
+          body: z.string(),
+          createdAt: z.string(),
+          marketTitleRu: z.string(),
+          marketTitleEn: z.string(),
+          likesCount: z.number(),
+        })
+      )
+    )
+    .query(async ({ ctx, input }) => {
+      const { supabaseService, authUser } = ctx;
+      if (!authUser) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
+      }
+
+      const limit = input?.limit ?? 50;
+
+      const { data, error } = await supabaseService
+        .from("market_comments_public")
+        .select("id, market_id, parent_id, body, created_at, likes_count")
+        .eq("user_id", authUser.id)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      }
+
+      const rows = (data ?? []) as MarketCommentPublicRow[];
+      const marketIds = Array.from(new Set(rows.map((r) => r.market_id)));
+
+      const titlesById = new Map<string, Pick<MarketRow, "title_rus" | "title_eng">>();
+      if (marketIds.length > 0) {
+        const marketsRes = await supabaseService
+          .from("markets")
+          .select("id, title_rus, title_eng")
+          .in("id", marketIds);
+        if (!marketsRes.error && marketsRes.data) {
+          (marketsRes.data as Array<Pick<MarketRow, "id" | "title_rus" | "title_eng">>).forEach((m) => {
+            titlesById.set(m.id, { title_rus: m.title_rus, title_eng: m.title_eng });
+          });
+        }
+      }
+
+      return rows.map((r) => {
+        const titles = titlesById.get(r.market_id);
+        return {
+          id: r.id,
+          marketId: r.market_id,
+          parentId: r.parent_id ?? null,
+          body: r.body,
+          createdAt: new Date(r.created_at).toISOString(),
+          marketTitleRu: titles?.title_rus ?? "",
+          marketTitleEn: titles?.title_eng ?? "",
+          likesCount: Number(r.likes_count ?? 0),
+        };
+      });
     }),
 
   /**

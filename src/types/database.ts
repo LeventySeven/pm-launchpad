@@ -153,6 +153,7 @@ export interface Database {
           id: string;
           market_id: string;
           user_id: string;
+          parent_id: string | null;
           body: string;
           created_at: string;
         };
@@ -160,6 +161,7 @@ export interface Database {
           id?: string;
           market_id: string;
           user_id: string;
+          parent_id?: string | null;
           body: string;
           created_at?: string;
         };
@@ -167,12 +169,34 @@ export interface Database {
           id?: string;
           market_id?: string;
           user_id?: string;
+          parent_id?: string | null;
           body?: string;
           created_at?: string;
         };
         Relationships: [
           { foreignKeyName: "market_comments_market_id_fkey"; columns: ["market_id"]; referencedRelation: "markets"; referencedColumns: ["id"] },
           { foreignKeyName: "market_comments_user_id_fkey"; columns: ["user_id"]; referencedRelation: "users"; referencedColumns: ["id"] }
+        ];
+      };
+      market_comment_likes: {
+        Row: {
+          comment_id: string;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          comment_id: string;
+          user_id: string;
+          created_at?: string;
+        };
+        Update: {
+          comment_id?: string;
+          user_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          { foreignKeyName: "market_comment_likes_comment_id_fkey"; columns: ["comment_id"]; referencedRelation: "market_comments"; referencedColumns: ["id"] },
+          { foreignKeyName: "market_comment_likes_user_id_fkey"; columns: ["user_id"]; referencedRelation: "users"; referencedColumns: ["id"] }
         ];
       };
       market_categories: {
@@ -496,11 +520,13 @@ export interface Database {
           id: string;
           market_id: string;
           user_id: string;
+          parent_id: string | null;
           body: string;
           created_at: string;
           author_name: string;
           author_username: string | null;
           author_avatar_url: string | null;
+          likes_count: number;
         };
         Relationships: [];
       };
