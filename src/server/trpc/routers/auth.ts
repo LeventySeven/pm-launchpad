@@ -117,9 +117,17 @@ const parseTelegramInitData = (initData: string, botToken: string) => {
     throw new TRPCError({ code: "BAD_REQUEST", message: "TELEGRAM_INITDATA_MISSING_USER" });
   }
 
-  let userParsed: unknown;
+  type TelegramUserJson = {
+    id?: number;
+    username?: string;
+    first_name?: string;
+    last_name?: string;
+    photo_url?: string;
+  };
+
+  let userParsed: TelegramUserJson;
   try {
-    userParsed = JSON.parse(userJson);
+    userParsed = JSON.parse(userJson) as TelegramUserJson;
   } catch {
     throw new TRPCError({ code: "BAD_REQUEST", message: "TELEGRAM_INITDATA_BAD_USER" });
   }

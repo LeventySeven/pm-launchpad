@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { X, Mail, User, Lock, Send } from 'lucide-react';
 import Button from './Button';
 
@@ -90,43 +90,39 @@ const translateFieldError = (
   return opts.message ?? friendlyMessages[lang].genericError;
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
+type JsonPrimitive = string | number | boolean | null;
+type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 
-const isStringArray = (value: unknown): value is string[] =>
-  Array.isArray(value) && value.every((item) => typeof item === 'string');
-
-const getZodFieldErrors = (
-  error: unknown
-): Record<string, string[] | undefined> | undefined => {
-  if (!isRecord(error)) return undefined;
-  const data = error.data;
-  if (!isRecord(data)) return undefined;
-  const zodError = data.zodError;
-  if (!isRecord(zodError)) return undefined;
-  const fieldErrors = zodError.fieldErrors;
-  if (!isRecord(fieldErrors)) return undefined;
-  const result: Record<string, string[] | undefined> = {};
-  Object.entries(fieldErrors).forEach(([key, value]) => {
-    if (value === undefined) {
-      result[key] = undefined;
-    } else if (isStringArray(value)) {
-      result[key] = value;
+type ZodFieldErrors = Record<string, string[] | undefined>;
+type ErrorLike =
+  | string
+  | Error
+  | {
+      message?: string;
+      data?: {
+        zodError?: {
+          fieldErrors?: ZodFieldErrors;
+        };
+      };
     }
-  });
-  return result;
+  | null
+  | undefined;
+
+const getZodFieldErrors = (error: ErrorLike): ZodFieldErrors | undefined => {
+  if (!error || typeof error !== 'object') return undefined;
+  const data = (error as { data?: { zodError?: { fieldErrors?: ZodFieldErrors } } }).data;
+  const fieldErrors = data?.zodError?.fieldErrors;
+  return fieldErrors && typeof fieldErrors === 'object' ? fieldErrors : undefined;
 };
 
-const getMessageString = (error: unknown): string | undefined => {
+const getMessageString = (error: ErrorLike): string | undefined => {
+  if (!error) return undefined;
   if (typeof error === 'string') return error;
   if (error instanceof Error) return error.message;
-  if (isRecord(error) && typeof error.message === 'string') {
-    return error.message;
-  }
-  return undefined;
+  return typeof error.message === 'string' ? error.message : undefined;
 };
 
-const formatErrorMessage = (err: unknown, lang: 'RU' | 'EN'): string => {
+const formatErrorMessage = (err: ErrorLike, lang: 'RU' | 'EN'): string => {
   const t = friendlyMessages[lang];
   const zodErrors = getZodFieldErrors(err);
   if (zodErrors) {
@@ -143,17 +139,29 @@ const formatErrorMessage = (err: unknown, lang: 'RU' | 'EN'): string => {
   const messageString = getMessageString(err);
   if (messageString) {
     try {
-      const parsed = JSON.parse(messageString);
+      const parsed = JSON.parse(messageString) as JsonValue;
       if (Array.isArray(parsed)) {
         const parsedMessages = parsed
           .map((item) =>
             typeof item === 'object' && item !== null
               ? translateFieldError(lang, {
-                  field: Array.isArray(item.path) ? item.path[0] : undefined,
+                  field:
+                    Array.isArray((item as { path?: JsonValue }).path) &&
+                    typeof (item as { path?: JsonValue[] }).path?.[0] === 'string'
+                      ? String((item as { path?: JsonValue[] }).path?.[0])
+                      : undefined,
                   validation:
-                    typeof item.validation === 'string' ? item.validation : undefined,
-                  code: typeof item.code === 'string' ? item.code : undefined,
-                  message: typeof item.message === 'string' ? item.message : undefined,
+                    typeof (item as { validation?: string }).validation === 'string'
+                      ? (item as { validation?: string }).validation
+                      : undefined,
+                  code:
+                    typeof (item as { code?: string }).code === 'string'
+                      ? (item as { code?: string }).code
+                      : undefined,
+                  message:
+                    typeof (item as { message?: string }).message === 'string'
+                      ? (item as { message?: string }).message
+                      : undefined,
                 })
               : JSON.stringify(item)
           )
@@ -180,7 +188,7 @@ const AuthModal: React.FC<AuthModalProps> = ({
   lang = 'RU',
   initialMode,
 }) => {
-  const [mode, setMode] = useState<AuthMode>('SIGN_IN');
+  const [mode, setMode] = useState<AuthMode>(() => initialMode ?? 'SIGN_IN');
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
@@ -196,8 +204,7 @@ const AuthModal: React.FC<AuthModalProps> = ({
     if (typeof window === 'undefined') return null;
 
     // Prefer SDK-provided initData if available
-    const w = window as unknown as { Telegram?: { WebApp?: { initData?: unknown } } };
-    const initData = w.Telegram?.WebApp?.initData;
+    const initData = window.Telegram?.WebApp?.initData;
     if (typeof initData === 'string' && initData.trim().length > 0) {
       return initData;
     }
@@ -219,11 +226,6 @@ const AuthModal: React.FC<AuthModalProps> = ({
     }
   }, [isOpen]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    setMode(initialMode ?? 'SIGN_IN');
-  }, [isOpen, initialMode]);
-
   const handleTelegram = async () => {
     if (!telegramInitData || !onTelegramLogin) return;
     try {
@@ -231,7 +233,7 @@ const AuthModal: React.FC<AuthModalProps> = ({
       setLoading(true);
       await Promise.resolve(onTelegramLogin(telegramInitData));
       onClose();
-    } catch (err: unknown) {
+    } catch (err) {
       setError(formatErrorMessage(err, lang));
     } finally {
       setLoading(false);
@@ -266,7 +268,7 @@ const AuthModal: React.FC<AuthModalProps> = ({
         );
       }
       onClose();
-    } catch (err: unknown) {
+    } catch (err) {
       setError(formatErrorMessage(err, lang));
     } finally {
       setLoading(false);

@@ -15,6 +15,8 @@ import { Search, Plus } from "lucide-react";
 import BottomMenu, { type ViewType } from "@/components/BottomMenu";
 import FriendsPage from "@/components/FriendsPage";
 import { leaderboardUsersSchema } from "@/src/schemas/leaderboard";
+import { positionsSchema, tradesSchema } from "@/src/schemas/portfolio";
+import { priceCandlesSchema, publicTradesSchema } from "@/src/schemas/marketInsights";
 
 // VCOIN decimals for display
 const VCOIN_DECIMALS = 6;
@@ -28,7 +30,26 @@ export default function HomePage() {
   const [authInitialMode, setAuthInitialMode] = useState<AuthMode>("SIGN_IN");
   const [lang, setLang] = useState<"RU" | "EN">("RU");
   const [user, setUser] = useState<User | null>(null);
-  const [pendingReferralCode, setPendingReferralCode] = useState<string | null>(null);
+  const [pendingReferralCode, setPendingReferralCode] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const fromUrl = params.get("ref") || params.get("invite") || params.get("r");
+      const stored = localStorage.getItem("pending_referral_code");
+      const next = (fromUrl || stored || "").trim();
+      if (next) {
+        try {
+          localStorage.setItem("pending_referral_code", next);
+        } catch {
+          // ignore
+        }
+        return next;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  });
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loadingMarkets, setLoadingMarkets] = useState(false);
@@ -55,10 +76,7 @@ export default function HomePage() {
 
   const getTelegramInitData = () => {
     if (typeof window === "undefined") return null;
-    const w = window as unknown as {
-      Telegram?: { WebApp?: { initData?: unknown } };
-    };
-    const initData = w.Telegram?.WebApp?.initData;
+    const initData = window.Telegram?.WebApp?.initData;
     if (typeof initData === "string" && initData.trim().length > 0) return initData;
     return getTelegramInitDataFromUrl();
   };
@@ -82,21 +100,29 @@ export default function HomePage() {
   const [leaderboardUsers, setLeaderboardUsers] = useState<LeaderboardUser[]>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
 
-  const isRecord = (value: unknown): value is Record<string, unknown> =>
-    typeof value === "object" && value !== null;
+  const requireValue = <T,>(v: T | null | undefined, code: string): T => {
+    if (v === null || v === undefined) {
+      throw new Error(code);
+    }
+    return v;
+  };
 
-  const getUnknownErrorMessage = (error: unknown): string | undefined => {
+  type ErrorLike =
+    | string
+    | Error
+    | {
+        message?: string;
+        data?: { message?: string };
+      }
+    | null
+    | undefined;
+
+  const getErrorMessage = (error: ErrorLike): string | undefined => {
+    if (!error) return undefined;
     if (typeof error === "string") return error;
     if (error instanceof Error) return error.message;
-    if (isRecord(error)) {
-      if (typeof error.message === "string") {
-        return error.message;
-      }
-      const data = error.data;
-      if (isRecord(data) && typeof data.message === "string") {
-        return data.message;
-      }
-    }
+    if (typeof error.message === "string") return error.message;
+    if (error.data && typeof error.data.message === "string") return error.data.message;
     return undefined;
   };
 
@@ -153,21 +179,7 @@ export default function HomePage() {
     return undefined;
   }, []);
 
-  // Capture referral code from URL (e.g. ?ref=CODE) and keep it until signup completes.
-  useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const fromUrl = params.get("ref") || params.get("invite") || params.get("r");
-      const stored = localStorage.getItem("pending_referral_code");
-      const next = (fromUrl || stored || "").trim();
-      if (next) {
-        setPendingReferralCode(next);
-        localStorage.setItem("pending_referral_code", next);
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
+  // pendingReferralCode is captured once on mount (initializer) and cleared after signup completes.
 
   const handleCloseOnboarding = () => {
     setShowOnboarding(false);
@@ -285,7 +297,7 @@ export default function HomePage() {
         });
         return me;
       }
-    } catch (err: unknown) {
+    } catch (err) {
       console.error("Failed to refresh session user", err);
     }
     return null;
@@ -325,26 +337,8 @@ export default function HomePage() {
   }, []);
 
   const handleCreateReferralLink = useCallback(async () => {
-    const res = await trpcClient.user.createReferralLink.mutate();
-
-    const isReferralLinkResult = (
-      value: unknown
-    ): value is { referralCode: string; referralCommissionRate: number; referralEnabled: boolean } => {
-      if (!isRecord(value)) return false;
-      return (
-        typeof value.referralCode === "string" &&
-        value.referralCode.length > 0 &&
-        typeof value.referralCommissionRate === "number" &&
-        Number.isFinite(value.referralCommissionRate) &&
-        typeof value.referralEnabled === "boolean"
-      );
-    };
-
-    if (!isReferralLinkResult(res)) {
-      throw new Error("INVALID_REFERRAL_RESPONSE");
-    }
-
-    const { referralCode, referralCommissionRate, referralEnabled } = res;
+    const { referralCode, referralCommissionRate, referralEnabled } =
+      await trpcClient.user.createReferralLink.mutate();
 
     setUser((prev) =>
       prev
@@ -363,7 +357,7 @@ export default function HomePage() {
   const handleLogout = useCallback(async () => {
     try {
       await trpcClient.auth.logout.mutate();
-    } catch (err: unknown) {
+    } catch (err) {
       console.error("logout failed", err);
     } finally {
       setUser(null);
@@ -419,14 +413,51 @@ export default function HomePage() {
   const loadMyBets = useCallback(async () => {
     if (!user) return;
     try {
-      const [positions, trades] = await Promise.all([
+      const [positionsRaw, tradesRaw] = await Promise.all([
         trpcClient.market.myPositions.query(),
         trpcClient.market.myTrades.query(),
       ]);
 
-      setMyPositions(positions as Position[]);
-      setMyTrades(trades as Trade[]);
-    } catch (err: unknown) {
+      const positionsParsed = positionsSchema.parse(positionsRaw);
+      const tradesParsed = tradesSchema.parse(tradesRaw);
+
+      const positions: Position[] = positionsParsed.map((p) => ({
+        marketId: requireValue(p.marketId, "POSITION_MARKET_ID_MISSING"),
+        outcome: requireValue(p.outcome, "POSITION_OUTCOME_MISSING"),
+        shares: requireValue(p.shares, "POSITION_SHARES_MISSING"),
+        avgEntryPrice: p.avgEntryPrice ?? null,
+        marketTitleRu: requireValue(p.marketTitleRu, "POSITION_TITLE_RU_MISSING"),
+        marketTitleEn: requireValue(p.marketTitleEn, "POSITION_TITLE_EN_MISSING"),
+        marketState: requireValue(p.marketState, "POSITION_STATE_MISSING"),
+        marketOutcome: p.marketOutcome ?? null,
+        closesAt: p.closesAt ?? null,
+        expiresAt: p.expiresAt ?? null,
+      }));
+
+      const trades: Trade[] = tradesParsed.map((t) => ({
+        id: requireValue(t.id, "TRADE_ID_MISSING"),
+        marketId: requireValue(t.marketId, "TRADE_MARKET_ID_MISSING"),
+        action: requireValue(t.action, "TRADE_ACTION_MISSING"),
+        outcome: requireValue(t.outcome, "TRADE_OUTCOME_MISSING"),
+        collateralGross: requireValue(t.collateralGross, "TRADE_GROSS_MISSING"),
+        fee: requireValue(t.fee, "TRADE_FEE_MISSING"),
+        collateralNet: requireValue(t.collateralNet, "TRADE_NET_MISSING"),
+        sharesDelta: requireValue(t.sharesDelta, "TRADE_SHARES_MISSING"),
+        priceBefore: requireValue(t.priceBefore, "TRADE_PRICE_BEFORE_MISSING"),
+        priceAfter: requireValue(t.priceAfter, "TRADE_PRICE_AFTER_MISSING"),
+        createdAt: requireValue(t.createdAt, "TRADE_CREATED_AT_MISSING"),
+        marketTitleRu: requireValue(t.marketTitleRu, "TRADE_TITLE_RU_MISSING"),
+        marketTitleEn: requireValue(t.marketTitleEn, "TRADE_TITLE_EN_MISSING"),
+        marketState: requireValue(t.marketState, "TRADE_STATE_MISSING"),
+        marketOutcome: t.marketOutcome ?? null,
+        avgEntryPrice: t.avgEntryPrice ?? null,
+        avgExitPrice: t.avgExitPrice ?? null,
+        realizedPnl: t.realizedPnl ?? null,
+      }));
+
+      setMyPositions(positions);
+      setMyTrades(trades);
+    } catch (err) {
       console.error("Failed to load positions/trades", err);
     }
   }, [user]);
@@ -446,7 +477,7 @@ export default function HomePage() {
         if (initData) {
           try {
             await handleTelegramLogin(initData);
-          } catch (err: unknown) {
+          } catch (err) {
             console.error("Telegram auto-login failed", err);
           }
         }
@@ -499,7 +530,7 @@ export default function HomePage() {
         };
       }) ?? [];
       setMarkets(mapped);
-    } catch (err: unknown) {
+    } catch (err) {
       console.error("Failed to load markets", err);
       setMarketsLoadingMessage(lang === "RU" ? "Не удалось загрузить рынки, попробуйте позже." : "Failed to load markets.");
       setMarkets([]);
@@ -618,15 +649,7 @@ export default function HomePage() {
     [user, loadMarkets, loadMyBets, refreshUser]
   );
 
-  // Refresh positions/trades periodically while Profile screen is open (it contains bet history now)
-  useEffect(() => {
-    if (currentView !== "PROFILE" || !user) return;
-    void loadMyBets();
-    const id = setInterval(() => {
-      void loadMyBets();
-    }, 15000);
-    return () => clearInterval(id);
-  }, [currentView, user, loadMyBets]);
+  // We load profile bets on navigation and after mutations; no periodic polling needed.
 
   const filteredMarkets = useMemo(
     () =>
@@ -660,14 +683,39 @@ export default function HomePage() {
     const fetchInsights = async () => {
       setMarketInsightsLoading(true);
       try {
-        const [candles, trades] = await Promise.all([
+        const [candlesRaw, tradesRaw] = await Promise.all([
           trpcClient.market.getPriceCandles.query({ marketId: selectedMarketId, limit: 200 }),
           trpcClient.market.getPublicTrades.query({ marketId: selectedMarketId, limit: 50 }),
         ]);
         if (cancelled) return;
-        setMarketCandles(candles as PriceCandle[]);
-        setMarketPublicTrades(trades as PublicTrade[]);
-      } catch (err: unknown) {
+        const candlesParsed = priceCandlesSchema.parse(candlesRaw);
+        const tradesParsed = publicTradesSchema.parse(tradesRaw);
+
+        const candles: PriceCandle[] = candlesParsed.map((c) => ({
+          bucket: requireValue(c.bucket, "CANDLE_BUCKET_MISSING"),
+          open: requireValue(c.open, "CANDLE_OPEN_MISSING"),
+          high: requireValue(c.high, "CANDLE_HIGH_MISSING"),
+          low: requireValue(c.low, "CANDLE_LOW_MISSING"),
+          close: requireValue(c.close, "CANDLE_CLOSE_MISSING"),
+          volume: requireValue(c.volume, "CANDLE_VOLUME_MISSING"),
+          tradesCount: requireValue(c.tradesCount, "CANDLE_TRADES_COUNT_MISSING"),
+        }));
+
+        const trades: PublicTrade[] = tradesParsed.map((t) => ({
+          id: requireValue(t.id, "PUBLIC_TRADE_ID_MISSING"),
+          marketId: requireValue(t.marketId, "PUBLIC_TRADE_MARKET_ID_MISSING"),
+          action: requireValue(t.action, "PUBLIC_TRADE_ACTION_MISSING"),
+          outcome: requireValue(t.outcome, "PUBLIC_TRADE_OUTCOME_MISSING"),
+          collateralGross: requireValue(t.collateralGross, "PUBLIC_TRADE_GROSS_MISSING"),
+          sharesDelta: requireValue(t.sharesDelta, "PUBLIC_TRADE_SHARES_MISSING"),
+          priceBefore: requireValue(t.priceBefore, "PUBLIC_TRADE_PRICE_BEFORE_MISSING"),
+          priceAfter: requireValue(t.priceAfter, "PUBLIC_TRADE_PRICE_AFTER_MISSING"),
+          createdAt: requireValue(t.createdAt, "PUBLIC_TRADE_CREATED_AT_MISSING"),
+        }));
+
+        setMarketCandles(candles);
+        setMarketPublicTrades(trades);
+      } catch (err) {
         console.error("Failed to load market insights", err);
         if (!cancelled) {
           setMarketCandles([]);
@@ -743,9 +791,9 @@ export default function HomePage() {
         newBalance: newBalanceMajor,
         errorMessage: null,
       });
-    } catch (err: unknown) {
+    } catch (err) {
       console.error("placeBet failed", err);
-      const friendly = formatBetError(getUnknownErrorMessage(err));
+      const friendly = formatBetError(getErrorMessage(err));
       await loadMarkets();
       await refreshUser();
       await loadMyBets();
@@ -789,7 +837,7 @@ export default function HomePage() {
       await loadMarkets();
       await refreshUser();
       await loadMyBets();
-    } catch (err: unknown) {
+    } catch (err) {
       console.error("sellPosition failed", err);
       await loadMarkets();
       await refreshUser();
@@ -799,7 +847,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100 font-sans">
+    <div className="tg-scroll bg-black text-zinc-100 font-sans">
       {selectedMarket ? (
         <>
           <Header
@@ -815,7 +863,7 @@ export default function HomePage() {
             lang={lang}
             onToggleLang={handleToggleLang}
           />
-          <main>
+          <main className="pb-24">
             <MarketPage
               market={selectedMarket}
               user={user}
@@ -971,6 +1019,7 @@ export default function HomePage() {
         onToggleLang={handleToggleLang}
       />
       <AuthModal
+        key={`${showAuth ? "open" : "closed"}:${authInitialMode}`}
         isOpen={showAuth}
         onClose={() => setShowAuth(false)}
         onSignUp={handleSignUp}
@@ -996,7 +1045,7 @@ export default function HomePage() {
             await trpcClient.market.createMarket.mutate(payload);
             await loadMarkets();
             setShowAdminModal(false);
-          } catch (err: unknown) {
+          } catch (err) {
             console.error("Failed to create market", err);
             throw err;
           }

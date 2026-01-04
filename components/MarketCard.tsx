@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Market } from '../types';
 import { Clock } from 'lucide-react';
 import { formatTimeRemaining } from '../lib/time';
@@ -10,7 +10,6 @@ interface MarketCardProps {
 }
 
 const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, lang = 'RU' }) => {
-  const [timeLeft, setTimeLeft] = useState('');
   const localizedTitle =
     lang === 'RU'
       ? market.titleRu ?? market.titleEn ?? market.title
@@ -25,19 +24,9 @@ const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, lang = 'RU' })
 
   // Use closesAt for trading deadline, fall back to expiresAt
   const deadline = market.closesAt || market.expiresAt;
-
-  useEffect(() => {
-    const update = () => {
-      if (isResolved) {
-        setTimeLeft(lang === 'RU' ? 'Завершено' : 'Resolved');
-        return;
-      }
-      setTimeLeft(formatTimeRemaining(deadline, 'hours', lang));
-    };
-    update();
-    const timer = setInterval(update, 60000);
-    return () => clearInterval(timer);
-  }, [deadline, lang, isResolved]);
+  const timeLeft = isResolved
+    ? (lang === 'RU' ? 'Завершено' : 'Resolved')
+    : (deadline ? formatTimeRemaining(deadline, 'hours', lang) : '—');
 
   return (
     <div 

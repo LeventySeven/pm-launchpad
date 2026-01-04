@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import type { LeaderboardUser } from '../types';
 import { Trophy } from 'lucide-react';
 
@@ -9,15 +9,6 @@ interface LeaderboardProps {
 }
 
 const Leaderboard: React.FC<LeaderboardProps> = ({ users, onUserClick, lang }) => {
-  const [glow, setGlow] = useState(false);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-        setGlow(prev => !prev);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
   const formatPnl = (value: number) =>
     `$${value.toLocaleString(undefined, {
       maximumFractionDigits: 3,
@@ -29,11 +20,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, onUserClick, lang }) =
         <div className="pt-0.5">
           <Trophy
             size={20}
-            className={`transition-all duration-1000 ${
-              glow
-                ? 'text-[rgba(36,182,255,1)] drop-shadow-[0_0_8px_rgba(36,182,255,0.35)]'
-                : 'text-neutral-600'
-            }`}
+            className="trophy-glow"
           />
         </div>
         <div>

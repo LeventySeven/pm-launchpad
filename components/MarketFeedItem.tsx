@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Clock } from 'lucide-react';
 import type { Market } from '../types';
 import { formatTimeRemaining } from '../lib/time';
@@ -17,8 +17,6 @@ const formatPrice = (value: number) => {
 };
 
 const MarketFeedItem: React.FC<MarketFeedItemProps> = ({ market, onClick, lang = 'RU' }) => {
-  const [timeLeft, setTimeLeft] = useState('');
-
   const localizedTitle = useMemo(
     () => (lang === 'RU' ? market.titleRu ?? market.titleEn ?? market.title : market.titleEn ?? market.titleRu ?? market.title),
     [lang, market.title, market.titleEn, market.titleRu]
@@ -33,19 +31,9 @@ const MarketFeedItem: React.FC<MarketFeedItemProps> = ({ market, onClick, lang =
   const volumeLabel = lang === 'RU' ? 'Объем' : 'Volume';
 
   const deadline = market.closesAt || market.expiresAt;
-
-  useEffect(() => {
-    const update = () => {
-      if (isResolved) {
-        setTimeLeft(lang === 'RU' ? 'Завершено' : 'Resolved');
-        return;
-      }
-      setTimeLeft(formatTimeRemaining(deadline, 'hours', lang));
-    };
-    update();
-    const timer = setInterval(update, 60000);
-    return () => clearInterval(timer);
-  }, [deadline, lang, isResolved]);
+  const timeLeft = isResolved
+    ? (lang === 'RU' ? 'Завершено' : 'Resolved')
+    : (deadline ? formatTimeRemaining(deadline, 'hours', lang) : '—');
 
   return (
     <button

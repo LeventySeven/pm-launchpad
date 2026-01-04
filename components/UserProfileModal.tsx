@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { User, Bet, Trade } from '../types';
 import { X, TrendingUp, TrendingDown, Clock, Wallet, DollarSign } from 'lucide-react';
 import Button from './Button';
+import { formatTimeRemaining } from '../lib/time';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -22,7 +23,6 @@ interface PortfolioItemProps {
 }
 
 const PortfolioItem: React.FC<PortfolioItemProps> = ({ item, lang, onClick }) => {
-    const [timer, setTimer] = useState('');
     const isSettled = item.status === 'won' || item.status === 'lost';
     const shares =
       typeof item.shares === 'number'
@@ -48,32 +48,12 @@ const PortfolioItem: React.FC<PortfolioItemProps> = ({ item, lang, onClick }) =>
     const displayPercent = item.amount > 0 ? (displayPnL / item.amount) * 100 : 0;
     const isProfit = displayPnL >= 0;
 
-    useEffect(() => {
-        const tick = () => {
-            if (!item.expiresAt && !item.marketOutcome) {
-                 setTimer('—');
-                 return;
-            }
-            if (isSettled || item.marketOutcome) {
-                setTimer(lang === 'RU' ? 'ЗАВЕРШЕНО' : 'ENDED');
-                return;
-            }
-            
-            const endDate = item.expiresAt ? new Date(item.expiresAt) : new Date();
-            const diff = +endDate - +new Date();
-            if (diff <= 0) {
-                setTimer(lang === 'RU' ? 'ЗАВЕРШЕНО' : 'ENDED');
-                return;
-            }
-            const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
-            const m = Math.floor((diff / 1000 / 60) % 60);
-            setTimer(`${d}D ${h}H ${m}M`);
-        };
-        const t = setInterval(tick, 1000);
-        tick();
-        return () => clearInterval(t);
-    }, [item.expiresAt, item.status, item.marketOutcome, lang, isSettled]);
+    const timer =
+      isSettled || item.marketOutcome
+        ? (lang === 'RU' ? 'ЗАВЕРШЕНО' : 'ENDED')
+        : item.expiresAt
+        ? formatTimeRemaining(item.expiresAt, 'minutes', lang)
+        : '—';
 
     return (
         <div 

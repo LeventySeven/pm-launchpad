@@ -1,22 +1,21 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Market, User, Position, PriceCandle, PublicTrade } from '../types';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Market, User, Position, PriceCandle, PublicTrade, Comment } from '../types';
 import Button from './Button';
 import { ChevronLeft, Clock, ShieldCheck, User as UserIcon, Send, ThumbsUp, CalendarDays, TrendingDown, Coins, MessageCircle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { formatTimeRemaining } from '../lib/time';
 
-const getErrorMessage = (error: unknown, fallbackRu: string, fallbackEn: string, lang: 'RU' | 'EN') => {
+type ErrorLike = string | Error | { message?: string } | null | undefined;
+
+const getErrorMessage = (error: ErrorLike, fallbackRu: string, fallbackEn: string, lang: 'RU' | 'EN') => {
   if (typeof error === 'string') {
     return error;
   }
   if (error instanceof Error) {
     return error.message;
   }
-  if (typeof error === 'object' && error !== null && 'message' in error) {
-    const possible = (error as { message?: unknown }).message;
-    if (typeof possible === 'string') {
-      return possible;
-    }
+  if (error && typeof error === 'object' && typeof (error as { message?: string }).message === 'string') {
+    return String((error as { message?: string }).message);
   }
   return lang === 'RU' ? fallbackRu : fallbackEn;
 };
@@ -52,7 +51,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'COMMENTS' | 'ACTIVITY'>('COMMENTS');
   const [commentText, setCommentText] = useState('');
-  const [comments, setComments] = useState(market.comments);
+  const [localCommentsByMarket, setLocalCommentsByMarket] = useState<Record<string, Comment[]>>({});
   const [tradeType, setTradeType] = useState<'YES' | 'NO'>('YES');
   const [amount, setAmount] = useState('');
   const [timeLeft, setTimeLeft] = useState('');
@@ -63,9 +62,8 @@ const MarketPage: React.FC<MarketPageProps> = ({
   const [resolvingOutcome, setResolvingOutcome] = useState<'YES' | 'NO' | null>(null);
   const [resolveError, setResolveError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setComments(market.comments);
-  }, [market]);
+  const localComments = localCommentsByMarket[market.id] ?? [];
+  const comments = useMemo(() => [...localComments, ...market.comments], [localComments, market.comments]);
 
   // Use closesAt for trading deadline, expiresAt for event end
   const tradingDeadline = market.closesAt || market.expiresAt;
@@ -149,7 +147,10 @@ const MarketPage: React.FC<MarketPageProps> = ({
       timestamp: lang === 'RU' ? 'Только что' : 'Just now',
       likes: 0
     };
-    setComments([newComment, ...comments]);
+    setLocalCommentsByMarket((prev) => {
+      const current = prev[market.id] ?? [];
+      return { ...prev, [market.id]: [newComment, ...current] };
+    });
     setCommentText('');
   };
 
@@ -205,7 +206,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
         marketTitle: market.title,
       });
       setAmount('');
-    } catch (error: unknown) {
+    } catch (error) {
       setPlaceError(
         getErrorMessage(
           error,
@@ -233,7 +234,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
         side: tradeType,
         shares: userShares,
       });
-    } catch (error: unknown) {
+    } catch (error) {
       setSellError(
         getErrorMessage(
           error,
@@ -253,7 +254,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
     setResolvingOutcome(side);
     try {
       await onResolveOutcome({ marketId: market.id, outcome: side });
-    } catch (error: unknown) {
+    } catch (error) {
       setResolveError(
         getErrorMessage(
           error,

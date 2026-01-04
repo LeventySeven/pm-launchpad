@@ -31,12 +31,9 @@ type RpcResponse<T> = {
   error: PostgrestError | null;
 };
 
-const callPlaceBetTx = (params: PlaceBetArgs) => {
-  const rpc = supabase.rpc as unknown as (
-    fn: "place_bet_tx",
-    rpcParams: PlaceBetArgs
-  ) => Promise<RpcResponse<PlaceBetResult>>;
-  return rpc("place_bet_tx", params);
+const callPlaceBetTx = async (params: PlaceBetArgs): Promise<RpcResponse<PlaceBetResult>> => {
+  const { data, error } = await supabase.rpc("place_bet_tx", params);
+  return { data: data as PlaceBetResult | null, error };
 };
 
 async function main() {

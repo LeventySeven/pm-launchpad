@@ -44,12 +44,13 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
 
   if (!isOpen) return null;
 
-  const getErrorMessage = (error: unknown) => {
+  type ErrorLike = string | Error | { message?: string } | null | undefined;
+
+  const getErrorMessage = (error: ErrorLike) => {
     if (typeof error === "string") return error;
     if (error instanceof Error) return error.message;
-    if (typeof error === "object" && error !== null && "message" in error) {
-      const possible = (error as { message?: unknown }).message;
-      if (typeof possible === "string") return possible;
+    if (error && typeof error === "object" && typeof (error as { message?: string }).message === "string") {
+      return String((error as { message?: string }).message);
     }
     return "Не удалось создать рынок";
   };
@@ -74,7 +75,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
       setPoolYes("0");
       setPoolNo("0");
       onClose();
-    } catch (error: unknown) {
+    } catch (error) {
       setError(getErrorMessage(error));
     } finally {
       setLoading(false);

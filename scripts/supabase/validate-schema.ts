@@ -3,12 +3,15 @@ import path from "node:path";
 
 type OpenApi = {
   swagger?: string;
-  paths?: Record<string, unknown>;
-  definitions?: Record<string, unknown>;
+  paths?: Record<string, JsonValue>;
+  definitions?: Record<string, JsonValue>;
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
+type JsonPrimitive = string | number | boolean | null;
+type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+
+const isRecord = (value: JsonValue | undefined): value is Record<string, JsonValue> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const env = (key: string) => {
   const v = process.env[key];
@@ -26,7 +29,7 @@ const normalizeBaseUrl = (raw: string) => raw.replace(/\/+$/, "");
 
 const tryFetchOpenApi = async (baseUrl: string, apiKey: string) => {
   const candidates = [`${baseUrl}/rest/v1/`, `${baseUrl}/rest/v1`];
-  let lastErr: unknown = null;
+  let lastErr: Error | null = null;
 
   for (const url of candidates) {
     try {
@@ -46,7 +49,7 @@ const tryFetchOpenApi = async (baseUrl: string, apiKey: string) => {
       }
       return (await res.json()) as OpenApi;
     } catch (err) {
-      lastErr = err;
+      lastErr = err instanceof Error ? err : new Error("Failed to fetch OpenAPI schema");
     }
   }
 
@@ -65,8 +68,10 @@ const extractResourceNames = (openapi: OpenApi) => {
 const extractResourceColumnsFromOpenApi = (openapi: OpenApi, resource: string) => {
   const defs = openapi.definitions ?? {};
   const def = isRecord(defs) ? defs[resource] : undefined;
-  const props: Record<string, unknown> =
-    isRecord(def) && isRecord(def.properties) ? (def.properties as Record<string, unknown>) : {};
+  const props: Record<string, JsonValue> =
+    isRecord(def) && isRecord((def as { properties?: JsonValue }).properties)
+      ? ((def as { properties?: Record<string, JsonValue> }).properties as Record<string, JsonValue>)
+      : {};
   return Object.keys(props).sort();
 };
 

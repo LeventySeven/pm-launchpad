@@ -370,7 +370,7 @@ export const marketRouter = router({
         });
       }
 
-      const normalizeNumber = (value: unknown): number | null => {
+      const normalizeNumber = (value: string | number | bigint | null | undefined): number | null => {
         if (typeof value === "number" && Number.isFinite(value)) return value;
         if (typeof value === "string" && value.length > 0) {
           const parsed = Number(value);
@@ -382,12 +382,19 @@ export const marketRouter = router({
         return null;
       };
 
+      type SellPositionResultLoose = SellPositionResult & {
+        payout_net_minor?: string | number | bigint | null;
+        received_minor?: string | number | bigint | null;
+        shares_sold?: string | number | bigint | null;
+      };
+      const loose = result as SellPositionResultLoose;
+
       const payoutRaw =
-        normalizeNumber((result as { payout_net_minor?: unknown }).payout_net_minor) ??
-        normalizeNumber((result as { received_minor?: unknown }).received_minor);
+        normalizeNumber(loose.payout_net_minor) ??
+        normalizeNumber(loose.received_minor);
       const balanceRaw = normalizeNumber(result.new_balance_minor);
       const sharesRaw =
-        normalizeNumber((result as { shares_sold?: unknown }).shares_sold) ?? normalizeNumber(shares) ?? 0;
+        normalizeNumber(loose.shares_sold) ?? normalizeNumber(shares) ?? 0;
       const priceBeforeRaw = normalizeNumber(result.price_before);
       const priceAfterRaw = normalizeNumber(result.price_after);
 

@@ -4,9 +4,9 @@ import path from "node:path";
 type OpenApi = {
   openapi?: string;
   swagger?: string;
-  info?: unknown;
-  paths?: Record<string, unknown>;
-  definitions?: Record<string, unknown>;
+  info?: JsonValue;
+  paths?: Record<string, JsonValue>;
+  definitions?: Record<string, JsonValue>;
 };
 
 type ColumnSnapshot = {
@@ -44,9 +44,12 @@ const getSupabaseApiKey = () =>
 
 const normalizeBaseUrl = (raw: string) => raw.replace(/\/+$/, "");
 
+type JsonPrimitive = string | number | boolean | null;
+type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+
 const tryFetchOpenApi = async (baseUrl: string, apiKey: string) => {
   const candidates = [`${baseUrl}/rest/v1/`, `${baseUrl}/rest/v1`];
-  let lastErr: unknown = null;
+  let lastErr: Error | null = null;
 
   for (const url of candidates) {
     try {
@@ -66,7 +69,7 @@ const tryFetchOpenApi = async (baseUrl: string, apiKey: string) => {
 
       return (await res.json()) as OpenApi;
     } catch (err) {
-      lastErr = err;
+      lastErr = err instanceof Error ? err : new Error("Failed to fetch OpenAPI schema");
     }
   }
 
@@ -82,11 +85,11 @@ const refNameFromRef = (ref?: string) => {
   return null;
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
+const isRecord = (value: JsonValue | undefined): value is Record<string, JsonValue> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
-const getNested = (value: unknown, keys: string[]): unknown => {
-  let cur: unknown = value;
+const getNested = (value: JsonValue | undefined, keys: string[]): JsonValue | undefined => {
+  let cur: JsonValue | undefined = value;
   for (const k of keys) {
     if (!isRecord(cur)) return undefined;
     cur = cur[k];
@@ -94,9 +97,12 @@ const getNested = (value: unknown, keys: string[]): unknown => {
   return cur;
 };
 
-const formatType = (prop: unknown) => {
-  const t = isRecord(prop) && typeof prop.type === "string" ? prop.type : "unknown";
-  const f = isRecord(prop) && typeof prop.format === "string" ? prop.format : null;
+const formatType = (prop: JsonValue | undefined) => {
+  const t =
+    isRecord(prop) && typeof (prop as { type?: string }).type === "string"
+      ? String((prop as { type?: string }).type)
+      : "n/a";
+  const f = isRecord(prop) && typeof (prop as { format?: string }).format === "string" ? String((prop as { format?: string }).format) : null;
   return f ? `${t}(${f})` : t;
 };
 
@@ -122,17 +128,21 @@ const buildSnapshot = (openapi: OpenApi, baseUrl: string): SchemaSnapshot => {
     const schemaName = typeof schemaRef === "string" ? refNameFromRef(schemaRef) : null;
     const schema = schemaName && isRecord(definitions) ? definitions[schemaName] : null;
 
-    const props: Record<string, unknown> =
-      isRecord(schema) && isRecord(schema.properties) ? (schema.properties as Record<string, unknown>) : {};
+    const props: Record<string, JsonValue> =
+      isRecord(schema) && isRecord((schema as { properties?: JsonValue }).properties)
+        ? ((schema as { properties?: Record<string, JsonValue> }).properties as Record<string, JsonValue>)
+        : {};
     const required: string[] =
-      isRecord(schema) && Array.isArray(schema.required) ? (schema.required.filter((v) => typeof v === "string") as string[]) : [];
+      isRecord(schema) && Array.isArray((schema as { required?: JsonValue }).required)
+        ? ((schema as { required?: JsonValue[] }).required ?? []).filter((v) => typeof v === "string") as string[]
+        : [];
     const requiredSet = new Set(required);
 
     const columns: ColumnSnapshot[] = Object.entries(props).map(([name, prop]) => ({
       name,
       type: formatType(prop),
-      nullable: isRecord(prop) && prop.nullable === true ? true : !requiredSet.has(name),
-      description: isRecord(prop) && typeof prop.description === "string" ? prop.description : undefined,
+      nullable: isRecord(prop) && (prop as { nullable?: boolean }).nullable === true ? true : !requiredSet.has(name),
+      description: isRecord(prop) && typeof (prop as { description?: string }).description === "string" ? String((prop as { description?: string }).description) : undefined,
     }));
 
     tables[table] = { name: table, columns };

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Button from './Button';
 import { Globe } from 'lucide-react';
 
@@ -43,17 +43,6 @@ const contentByLang = {
 
 const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, lang, onToggleLang }) => {
   const [step, setStep] = useState(1);
-  const [animateButton, setAnimateButton] = useState<'YES' | 'NO'>('YES');
-
-  // Animation effect for Step 2
-  useEffect(() => {
-    if (step === 2) {
-      const interval = setInterval(() => {
-        setAnimateButton(prev => prev === 'YES' ? 'NO' : 'YES');
-      }, 1500);
-      return () => clearInterval(interval);
-    }
-  }, [step]);
 
   if (!isOpen) return null;
 
@@ -99,13 +88,19 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, lang
         case 2: // Buttons Animation
             return (
                 <div className="w-full flex gap-3 mb-6">
-                    <div className={`flex-1 p-3 rounded-lg border flex flex-col items-center justify-center transition-all duration-500 ${animateButton === 'YES' ? 'bg-[rgba(36,182,255,1)] border-[rgba(36,182,255,1)] scale-105 shadow-[0_0_20px_rgba(36,182,255,0.25)]' : 'bg-neutral-900 border-neutral-800 opacity-50'}`}>
-                        <span className={`text-lg font-bold mb-1 ${animateButton === 'YES' ? 'text-black' : 'text-neutral-500'}`}>{lang === 'RU' ? 'ДА' : 'YES'}</span>
-                        <span className={`text-xs ${animateButton === 'YES' ? 'text-black' : 'text-neutral-600'}`}>$0.72</span>
+                    <div
+                      className="flex-1 p-3 rounded-lg border flex flex-col items-center justify-center bg-[rgba(36,182,255,1)] border-[rgba(36,182,255,1)] shadow-[0_0_20px_rgba(36,182,255,0.25)] animate-pulse"
+                      style={{ animationDuration: '1.5s' }}
+                    >
+                        <span className="text-lg font-bold mb-1 text-black">{lang === 'RU' ? 'ДА' : 'YES'}</span>
+                        <span className="text-xs text-black">$0.72</span>
                     </div>
-                    <div className={`flex-1 p-3 rounded-lg border flex flex-col items-center justify-center transition-all duration-500 ${animateButton === 'NO' ? 'bg-[rgba(201,37,28,1)] border-[rgba(201,37,28,1)] scale-105 shadow-[0_0_20px_rgba(201,37,28,0.25)]' : 'bg-neutral-900 border-neutral-800 opacity-50'}`}>
-                        <span className={`text-lg font-bold mb-1 ${animateButton === 'NO' ? 'text-black' : 'text-neutral-500'}`}>{lang === 'RU' ? 'НЕТ' : 'NO'}</span>
-                        <span className={`text-xs ${animateButton === 'NO' ? 'text-black' : 'text-neutral-600'}`}>$0.28</span>
+                    <div
+                      className="flex-1 p-3 rounded-lg border flex flex-col items-center justify-center bg-[rgba(201,37,28,1)] border-[rgba(201,37,28,1)] shadow-[0_0_20px_rgba(201,37,28,0.25)] animate-pulse"
+                      style={{ animationDuration: '1.5s', animationDelay: '750ms' }}
+                    >
+                        <span className="text-lg font-bold mb-1 text-black">{lang === 'RU' ? 'НЕТ' : 'NO'}</span>
+                        <span className="text-xs text-black">$0.28</span>
                     </div>
                 </div>
             );
