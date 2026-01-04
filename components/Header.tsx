@@ -69,7 +69,7 @@ const Header: React.FC<HeaderProps> = ({
             <YallaIcon size={24} />
           </div>
           <div>
-            <h1 className="text-sm font-bold tracking-tight text-white leading-none uppercase group-hover:text-[rgba(36,182,255,1)] transition-colors">
+            <h1 className="text-sm font-bold tracking-tight text-white leading-none uppercase group-hover:text-[#BEFF1D] transition-colors">
               YALLA MARKET
             </h1>
           </div>
@@ -110,7 +110,7 @@ const Header: React.FC<HeaderProps> = ({
           )}
 
           {!user && onAuthClick && (
-            <Button onClick={onAuthClick} className="flex items-center gap-2 text-sm">
+            <Button type="button" onClick={onAuthClick} className="flex items-center gap-2 text-sm">
               <Wallet size={16} />
               <span>{t.registration}</span>
             </Button>

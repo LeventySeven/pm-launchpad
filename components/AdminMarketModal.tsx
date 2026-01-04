@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { X, Calendar, Clock, Info, Sparkles } from "lucide-react";
+import { X, Calendar, Clock, Info, Sparkles, HelpCircle } from "lucide-react";
 import Button from "./Button";
 
 type MarketCategory = { id?: string; labelRu?: string; labelEn?: string };
@@ -39,6 +39,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
   const [liquidityB, setLiquidityB] = useState("50");
   const [categoryId, setCategoryId] = useState<string>("");
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -134,13 +135,18 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
             <Sparkles size={14} />
             {t("Новый рынок", "New market")}
           </div>
-          <h2 className="text-2xl font-bold text-white">{t("Создать рынок", "Create market")}</h2>
-          <p className="text-sm text-neutral-400">
-            {t(
-              "Категории помогают держать ленту аккуратной, а ликвидность B задаёт чувствительность цены (меньше B — сильнее скачки).",
-              "Categories keep the feed organized, and liquidity B controls price sensitivity (lower B = more volatile)."
-            )}
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-2xl font-bold text-white">{t("Создать рынок", "Create market")}</h2>
+            <button
+              type="button"
+              onClick={() => setHelpOpen(true)}
+              className="h-9 w-9 rounded-full border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60 flex items-center justify-center text-zinc-300"
+              aria-label={t("Подсказка", "Help")}
+              title={t("Подсказка", "Help")}
+            >
+              <HelpCircle size={16} />
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 text-sm text-neutral-200">
@@ -257,7 +263,20 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-neutral-400 mb-1">{t("Ликвидность B (LMSR)", "Liquidity B (LMSR)")}</label>
+                <label className="block text-xs text-neutral-400 mb-1">
+                  <span className="inline-flex items-center gap-2">
+                    {t("Ликвидность B (LMSR)", "Liquidity B (LMSR)")}
+                    <button
+                      type="button"
+                      onClick={() => setHelpOpen(true)}
+                      className="h-6 w-6 rounded-full border border-zinc-900 bg-black/40 hover:bg-black/60 inline-flex items-center justify-center text-zinc-300"
+                      aria-label={t("Что такое B?", "What is B?")}
+                      title={t("Что такое B?", "What is B?")}
+                    >
+                      <Info size={12} />
+                    </button>
+                  </span>
+                </label>
                 <input
                   type="number"
                   min={1}
@@ -265,24 +284,17 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
                   onChange={(e) => setLiquidityB(e.target.value)}
                   className="w-full bg-zinc-950/40 border border-zinc-900 rounded-xl p-3 text-white focus:border-zinc-700 focus:outline-none"
                 />
-                <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
-                  {t(
-                    "B влияет на волатильность цены: меньше B — цена двигается сильнее от каждой ставки.",
-                    "B controls volatility: lower B means price moves more per bet."
-                  )}
-                </p>
               </div>
-              <div className="bg-zinc-950/40 border border-zinc-900 rounded-2xl p-4 text-xs text-zinc-500">
-                <div className="flex items-center gap-2 text-zinc-300 font-semibold mb-1">
-                  <Info size={14} />
-                  {t("Зачем это нужно?", "Why do we need this?")}
-                </div>
-                <p>
-                  {t(
-                    "Категория и описание нужны, чтобы событие было понятно всем и легко находилось в ленте.",
-                    "Category + description help everyone understand the event and discover it in the feed."
-                  )}
-                </p>
+              <div className="flex items-center justify-center sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setHelpOpen(true)}
+                  className="h-11 w-11 rounded-full border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60 flex items-center justify-center text-zinc-300"
+                  aria-label={t("Подсказка", "Help")}
+                  title={t("Подсказка", "Help")}
+                >
+                  <HelpCircle size={18} />
+                </button>
               </div>
             </div>
           </div>
@@ -313,12 +325,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
                 </p>
               </div>
             </div>
-            <div className="text-xs text-neutral-500">
-              {t(
-                'Рынок будет сохранён в Supabase и появится в списке после нажатия "Создать".',
-                'The market will be saved to Supabase and will appear in the list after you click "Create".'
-              )}
-            </div>
+            {/* (explanations moved into the help popup) */}
           </div>
         </div>
 
@@ -377,7 +384,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
                       }}
                       className={`w-full text-left rounded-xl border px-3 py-3 text-sm transition ${
                         isSelected
-                          ? "border-[rgba(36,182,255,1)] bg-[rgba(36,182,255,0.08)] text-zinc-100"
+                          ? "border-[#BEFF1D] bg-[rgba(190,255,29,0.10)] text-zinc-100"
                           : "border-zinc-900 bg-zinc-950/40 text-zinc-200 hover:border-zinc-700"
                       }`}
                     >
@@ -386,7 +393,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
                           <div className="font-medium truncate">{label}</div>
                         </div>
                         {isSelected && (
-                          <div className="text-[10px] font-bold uppercase tracking-widest text-[rgba(36,182,255,1)]">
+                          <div className="text-[10px] font-bold uppercase tracking-widest text-[#BEFF1D]">
                             {t("Выбрано", "Selected")}
                           </div>
                         )}
@@ -396,6 +403,60 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
                 })}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {helpOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={() => setHelpOpen(false)}
+          />
+          <div className="relative w-full max-w-lg rounded-2xl border border-zinc-900 bg-black p-5 shadow-2xl">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="text-sm font-semibold text-zinc-100">
+                {t("Подсказка", "Help")}
+              </div>
+              <button
+                type="button"
+                onClick={() => setHelpOpen(false)}
+                className="h-9 w-9 rounded-full border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60 flex items-center justify-center text-zinc-300"
+                aria-label={t("Закрыть", "Close")}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-sm text-zinc-300">
+              <div className="rounded-xl border border-zinc-900 bg-zinc-950/30 p-4">
+                <div className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">
+                  {t("Что такое Liquidity B?", "What is Liquidity B?")}
+                </div>
+                <p className="text-zinc-300">
+                  {t(
+                    "B — параметр LMSR, который управляет чувствительностью цены. Меньше B → цена двигается сильнее от каждой ставки (больше волатильность). Больше B → цена двигается плавнее.",
+                    "B is an LMSR parameter that controls price sensitivity. Lower B → price moves more per bet (more volatility). Higher B → smoother price movement."
+                  )}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-zinc-900 bg-zinc-950/30 p-4">
+                <div className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">
+                  {t("Зачем категории?", "Why categories?")}
+                </div>
+                <p className="text-zinc-300">
+                  {t(
+                    "Категории помогают держать ленту событий аккуратной и улучшают поиск.",
+                    "Categories keep the feed organized and improve discovery/search."
+                  )}
+                </p>
+              </div>
+
+              <div className="text-xs text-zinc-500">
+                {t("Совет: начните с B = 20–80 для тестов.", "Tip: start with B = 20–80 for testing.")}
+              </div>
+            </div>
           </div>
         </div>
       )}

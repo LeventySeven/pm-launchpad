@@ -271,7 +271,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                 )}
               </div>
 
-              {editError && <div className="text-xs text-[rgba(201,37,28,1)]">{editError}</div>}
+              {editError && <div className="text-xs text-[#F544A6]">{editError}</div>}
 
               <div className="grid grid-cols-2 gap-2">
                 <Button
@@ -358,7 +358,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
           </div>
           <div
             className={`text-2xl font-mono font-bold ${
-              pnlIsPositive ? 'text-[rgba(36,182,255,1)]' : 'text-[rgba(201,37,28,1)]'
+              pnlIsPositive ? 'text-[#BEFF1D]' : 'text-[#F544A6]'
             }`}
           >
             {pnlIsPositive ? '+' : '-'}${Math.abs(pnlMajor).toFixed(2)}
@@ -410,7 +410,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                   {activeBets.map((b) => {
                     const title = (lang === 'RU' ? b.marketTitleRu : b.marketTitleEn) || b.marketTitle;
                     const sideLabel = b.side === 'YES' ? yesLabel : noLabel;
-                    const sideColor = b.side === 'YES' ? 'text-[rgba(36,182,255,1)]' : 'text-[rgba(201,37,28,1)]';
+                    const sideColor = b.side === 'YES' ? 'text-[#BEFF1D]' : 'text-[#F544A6]';
                     return (
                       <button
                         key={b.id}
@@ -456,7 +456,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                 const title = (lang === 'RU' ? b.marketTitleRu : b.marketTitleEn) || b.marketTitle;
                 const won = b.status === 'won';
                 const resultLabel = lang === 'RU' ? (won ? 'ВЫИГРЫШ' : 'ПОТЕРЯ') : (won ? 'WON' : 'LOST');
-                const resultColor = won ? 'text-[rgba(36,182,255,1)]' : 'text-[rgba(201,37,28,1)]';
+                const resultColor = won ? 'text-[#BEFF1D]' : 'text-[#F544A6]';
                 const redeem = b.payout ?? 0;
                 return (
                   <button
@@ -493,7 +493,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                 const boughtFor = avgEntry !== null ? avgEntry * sharesSold : null;
                 const soldFor = Math.abs(t.collateralNet);
                 const sideLabel = t.outcome === 'YES' ? yesLabel : noLabel;
-                const sideColor = t.outcome === 'YES' ? 'text-[rgba(36,182,255,1)]' : 'text-[rgba(201,37,28,1)]';
+                const sideColor = t.outcome === 'YES' ? 'text-[#BEFF1D]' : 'text-[#F544A6]';
                 const resolvedOutcome = t.marketOutcome ? String(t.marketOutcome) : null;
                 const outcomeText =
                   resolvedOutcome === 'YES' ? yesLabel : resolvedOutcome === 'NO' ? noLabel : null;

@@ -65,13 +65,13 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, lang
             return (
                 <div className="w-full bg-black border border-neutral-800 rounded-lg p-4 mb-6 relative overflow-hidden flex flex-col justify-center">
                     <div className="flex justify-between items-end mb-4">
-                        <span className="text-3xl font-bold text-[rgba(36,182,255,1)]">72%</span>
+                        <span className="text-3xl font-bold text-[#BEFF1D]">72%</span>
                         <span className="text-[10px] uppercase text-neutral-500 tracking-widest">{lang === 'RU' ? 'Вероятность' : 'Chance'}</span>
                     </div>
                     {/* Fake Bar */}
                     <div className="w-full h-2 bg-neutral-900 rounded-full flex mb-4">
-                        <div className="w-[72%] h-full bg-[rgba(36,182,255,1)] shadow-[0_0_10px_rgba(36,182,255,0.35)]"></div>
-                        <div className="w-[28%] h-full bg-[rgba(201,37,28,1)]"></div>
+                        <div className="w-[72%] h-full bg-[#BEFF1D] shadow-[0_0_10px_rgba(190,255,29,0.35)]"></div>
+                        <div className="w-[28%] h-full bg-[#F544A6]"></div>
                     </div>
                      <div className="flex justify-between items-center">
                         <div className="flex flex-col">
@@ -89,14 +89,14 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, lang
             return (
                 <div className="w-full flex gap-3 mb-6">
                     <div
-                      className="flex-1 p-3 rounded-lg border flex flex-col items-center justify-center bg-[rgba(36,182,255,1)] border-[rgba(36,182,255,1)] shadow-[0_0_20px_rgba(36,182,255,0.25)] animate-pulse"
+                      className="flex-1 p-3 rounded-lg border flex flex-col items-center justify-center bg-[#BEFF1D] border-[#BEFF1D] shadow-[0_0_20px_rgba(190,255,29,0.25)] animate-pulse"
                       style={{ animationDuration: '1.5s' }}
                     >
                         <span className="text-lg font-bold mb-1 text-black">{lang === 'RU' ? 'ДА' : 'YES'}</span>
                         <span className="text-xs text-black">$0.72</span>
                     </div>
                     <div
-                      className="flex-1 p-3 rounded-lg border flex flex-col items-center justify-center bg-[rgba(201,37,28,1)] border-[rgba(201,37,28,1)] shadow-[0_0_20px_rgba(201,37,28,0.25)] animate-pulse"
+                      className="flex-1 p-3 rounded-lg border flex flex-col items-center justify-center bg-[#F544A6] border-[#F544A6] shadow-[0_0_20px_rgba(245,68,166,0.25)] animate-pulse"
                       style={{ animationDuration: '1.5s', animationDelay: '750ms' }}
                     >
                         <span className="text-lg font-bold mb-1 text-black">{lang === 'RU' ? 'НЕТ' : 'NO'}</span>
@@ -107,7 +107,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, lang
         case 3: // Profit Card
             return (
                 <div className="w-full bg-neutral-900/30 border border-neutral-800 rounded-lg p-4 mb-6 relative">
-                     <div className="absolute -top-2 -right-2 bg-[rgba(36,182,255,1)] text-black text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                     <div className="absolute -top-2 -right-2 bg-[#BEFF1D] text-black text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
                         {lang === 'RU' ? 'Победа' : 'Win'}
                      </div>
                     <div className="flex justify-between items-center mb-2">
@@ -116,10 +116,10 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, lang
                     </div>
                     <div className="flex justify-between items-center pt-2 border-t border-neutral-800">
                         <span className="text-xs text-neutral-400">{lang === 'RU' ? 'Выигрыш' : 'Redeem'}</span>
-                        <span className="text-xl font-bold text-[rgba(36,182,255,1)] font-mono">$138.00</span>
+                        <span className="text-xl font-bold text-[#BEFF1D] font-mono">$138.00</span>
                     </div>
                      <div className="mt-2 text-right">
-                        <span className="text-[10px] text-[rgba(36,182,255,1)] font-bold bg-[rgba(36,182,255,0.12)] px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] text-[#BEFF1D] font-bold bg-[rgba(190,255,29,0.12)] px-1.5 py-0.5 rounded">
                             +38% {lang === 'RU' ? 'ПРИБЫЛЬ' : 'PROFIT'}
                         </span>
                     </div>

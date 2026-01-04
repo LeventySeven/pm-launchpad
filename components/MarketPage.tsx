@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Market, User, Position, PriceCandle, PublicTrade, Comment } from '../types';
 import Button from './Button';
-import { ChevronLeft, Clock, ShieldCheck, User as UserIcon, Send, ThumbsUp, CalendarDays, TrendingDown, Coins, MessageCircle, X } from 'lucide-react';
+import { ChevronLeft, Clock, ShieldCheck, User as UserIcon, Send, ThumbsUp, CalendarDays, TrendingDown, Coins, MessageCircle, X, Info } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { formatTimeRemaining } from '../lib/time';
 
@@ -25,6 +25,7 @@ interface MarketPageProps {
   user: User | null;
   onBack: () => void;
   onLogin: () => void;
+  onRequireBetAuth?: (params: { marketId: string; side: 'YES' | 'NO'; amount: number; marketTitle: string }) => void;
   onPlaceBet: (params: { side: 'YES' | 'NO'; amount: number; marketId: string; marketTitle: string }) => Promise<void>;
   onSellPosition?: (params: { marketId: string; side: 'YES' | 'NO'; shares: number }) => Promise<void>;
   onResolveOutcome?: (params: { marketId: string; outcome: 'YES' | 'NO' }) => Promise<void>;
@@ -43,6 +44,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
   user,
   onBack,
   onLogin,
+  onRequireBetAuth,
   onPlaceBet,
   onSellPosition,
   onResolveOutcome,
@@ -67,6 +69,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
   const [resolvingOutcome, setResolvingOutcome] = useState<'YES' | 'NO' | null>(null);
   const [resolveError, setResolveError] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<{ id: string; label: string } | null>(null);
+  const [disclaimerOpen, setDisclaimerOpen] = useState(false);
 
   // Use closesAt for trading deadline, expiresAt for event end
   const tradingDeadline = market.closesAt || market.expiresAt;
@@ -203,13 +206,23 @@ const MarketPage: React.FC<MarketPageProps> = ({
       setPlaceError(lang === 'RU' ? 'Торги закрыты.' : 'Trading closed.');
       return;
     }
-    if (!user) {
-      onLogin();
-      return;
-    }
     const numeric = Number(amount);
     if (!numeric || Number.isNaN(numeric) || numeric <= 0) {
       setPlaceError(lang === 'RU' ? 'Введите сумму числом больше 0' : 'Enter a numeric amount greater than 0');
+      return;
+    }
+    if (!user) {
+      setPlaceError(null);
+      if (onRequireBetAuth) {
+        onRequireBetAuth({
+          marketId: market.id,
+          side: tradeType,
+          amount: numeric,
+          marketTitle: market.title,
+        });
+      } else {
+        onLogin();
+      }
       return;
     }
     setPlaceError(null);
@@ -460,8 +473,8 @@ const MarketPage: React.FC<MarketPageProps> = ({
                     onClick={() => setTradeType('YES')}
                     className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-full transition-all ${
                       tradeType === 'YES'
-                        ? 'bg-white text-[rgba(36,182,255,1)] shadow-sm'
-                        : 'text-[rgba(36,182,255,1)]/70 hover:text-[rgba(36,182,255,1)]'
+                        ? 'bg-white text-[#BEFF1D] shadow-sm'
+                        : 'text-[rgba(190,255,29,0.7)] hover:text-[#BEFF1D]'
                     }`}
                   >
                     {lang === 'RU' ? 'ДА' : 'YES'} ${market.yesPrice.toFixed(2)}
@@ -470,8 +483,8 @@ const MarketPage: React.FC<MarketPageProps> = ({
                     onClick={() => setTradeType('NO')}
                     className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-full transition-all ${
                       tradeType === 'NO'
-                        ? 'bg-white text-[rgba(201,37,28,1)] shadow-sm'
-                        : 'text-[rgba(201,37,28,1)]/70 hover:text-[rgba(201,37,28,1)]'
+                        ? 'bg-white text-[#F544A6] shadow-sm'
+                        : 'text-[rgba(245,68,166,0.7)] hover:text-[#F544A6]'
                     }`}
                   >
                     {lang === 'RU' ? 'НЕТ' : 'NO'} ${market.noPrice.toFixed(2)}
@@ -523,19 +536,19 @@ const MarketPage: React.FC<MarketPageProps> = ({
                     </div>
                     <div className="flex justify-between text-xs text-zinc-500 uppercase font-medium">
                       <span>{lang === 'RU' ? 'Прибыль' : 'Profit'}</span>
-                      <span className="text-[rgba(36,182,255,1)] font-mono">+${potentialProfit}</span>
+                      <span className="text-[#BEFF1D] font-mono">+${potentialProfit}</span>
                     </div>
                   </div>
 
                   <Button
                     fullWidth
                     onClick={handlePlaceBetClick}
-                    disabled={!user || placing}
+                    disabled={placing}
                   >
                     {!user
                       ? lang === 'RU'
-                        ? 'Войдите чтобы торговать'
-                        : 'Log In to Trade'
+                        ? 'Зарегистрируйтесь, чтобы торговать'
+                        : 'Sign up to trade'
                       : lang === 'RU'
                       ? `Купить ${tradeType === 'YES' ? 'ДА' : 'НЕТ'}`
                       : `BUY ${tradeType}`}
@@ -592,8 +605,8 @@ const MarketPage: React.FC<MarketPageProps> = ({
                               <span
                                 className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm ${
                                   position.outcome === 'YES'
-                                    ? 'bg-[rgba(36,182,255,1)] text-black'
-                                    : 'bg-[rgba(201,37,28,1)] text-white'
+                                    ? 'bg-[#BEFF1D] text-black'
+                                    : 'bg-[#F544A6] text-white'
                                 }`}
                               >
                                 {position.outcome}
@@ -658,7 +671,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                         fullWidth
                         onClick={() => handleResolveOutcomeClick('YES')}
                         disabled={Boolean(resolvingOutcome)}
-                        className="!bg-[rgba(36,182,255,1)] !text-black hover:!opacity-90"
+                        className="!bg-[#BEFF1D] !text-black hover:!opacity-90"
                       >
                         {lang === 'RU' ? 'Завершить как ДА' : 'Resolve as YES'}
                       </Button>
@@ -666,7 +679,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                         fullWidth
                         onClick={() => handleResolveOutcomeClick('NO')}
                         disabled={Boolean(resolvingOutcome)}
-                        className="!bg-[rgba(201,37,28,1)] !text-white hover:!opacity-90"
+                        className="!bg-[#F544A6] !text-white hover:!opacity-90"
                       >
                         {lang === 'RU' ? 'Завершить как НЕТ' : 'Resolve as NO'}
                       </Button>
@@ -679,14 +692,17 @@ const MarketPage: React.FC<MarketPageProps> = ({
               </div>
             )}
 
-            {/* Disclaimer Footnote */}
-            <div className="mt-6 pt-4 border-t border-zinc-900/50">
-              <p className="text-[10px] leading-relaxed text-zinc-500 text-justify">
-                <span className="text-zinc-400 font-semibold">Disclaimer:</span>{' '}
-                {lang === 'RU'
-                  ? `Если ваш прогноз верен, каждая акция погашается по цене $1.00. Если неверен — акции сгорают. Рынки прогнозов сопряжены с высоким риском потери средств.`
-                  : `If your prediction is correct, each share is redeemed for $1.00. If incorrect — shares expire worthless. Prediction markets involve a high risk of total loss.`}
-              </p>
+            {/* Disclaimer (hidden behind info) */}
+            <div className="mt-6 pt-4 border-t border-zinc-900/50 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setDisclaimerOpen(true)}
+                className="h-9 w-9 rounded-full border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60 flex items-center justify-center text-zinc-300"
+                aria-label={lang === 'RU' ? 'Информация' : 'Info'}
+                title={lang === 'RU' ? 'Информация' : 'Info'}
+              >
+                <Info size={16} />
+              </button>
             </div>
             </div>
 
@@ -779,7 +795,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                     const renderNode = (node: CommentNode, depth: number): React.ReactNode => {
                       const canLike = Boolean(onToggleCommentLike && user);
                       const liked = Boolean(node.likedByMe);
-                      const likeClasses = liked ? "text-[rgba(36,182,255,1)]" : "text-zinc-500 hover:text-white";
+                      const likeClasses = liked ? "text-[#BEFF1D]" : "text-zinc-500 hover:text-white";
 
                       return (
                         <div key={node.id} className="animate-in fade-in">
@@ -916,6 +932,31 @@ const MarketPage: React.FC<MarketPageProps> = ({
           </div>
         </div>
       </div>
+
+      {disclaimerOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setDisclaimerOpen(false)} />
+          <div className="relative w-full max-w-lg rounded-2xl border border-zinc-900 bg-black p-5 shadow-2xl">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="text-sm font-semibold text-zinc-100">{lang === 'RU' ? 'Информация' : 'Info'}</div>
+              <button
+                type="button"
+                onClick={() => setDisclaimerOpen(false)}
+                className="h-9 w-9 rounded-full border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60 flex items-center justify-center text-zinc-300"
+                aria-label={lang === 'RU' ? 'Закрыть' : 'Close'}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="text-sm text-zinc-300 leading-relaxed">
+              {lang === 'RU'
+                ? `Если ваш прогноз верен, каждая акция погашается по цене $1.00. Если неверен — акции сгорают. Рынки прогнозов сопряжены с высоким риском потери средств.`
+                : `If your prediction is correct, each share is redeemed for $1.00. If incorrect — shares expire worthless. Prediction markets involve a high risk of total loss.`}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

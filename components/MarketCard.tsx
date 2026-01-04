@@ -87,12 +87,12 @@ const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, lang = 'RU' })
         {/* Inline info instead of buttons */}
         <div className="flex items-center justify-between gap-3 text-xs text-zinc-400 tabular-nums">
           <span className="flex items-center gap-1">
-            <span className="font-semibold text-[rgba(36,182,255,1)]">{yesLabel}</span>
-            <span className="text-[rgba(36,182,255,1)]">${market.yesPrice}</span>
+            <span className="font-semibold text-[#BEFF1D]">{yesLabel}</span>
+            <span className="text-[#BEFF1D]">${market.yesPrice}</span>
           </span>
           <span className="flex items-center gap-1">
-            <span className="font-semibold text-[rgba(201,37,28,1)]">{noLabel}</span>
-            <span className="text-[rgba(201,37,28,1)]">${market.noPrice}</span>
+            <span className="font-semibold text-[#F544A6]">{noLabel}</span>
+            <span className="text-[#F544A6]">${market.noPrice}</span>
           </span>
         </div>
       </div>

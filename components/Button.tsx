@@ -15,22 +15,15 @@ const Button: React.FC<ButtonProps> = ({
   ...props 
 }) => {
   // shadcn/ui inspired base styles
-  const baseStyles = "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(36,182,255,1)] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
+  const baseStyles =
+    "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BEFF1D] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
   
   const variants = {
-    // Primary matches shadcn 'default' but with our green accent logic or neutral inverse
-    primary: "bg-[#f4f4f5] text-black hover:bg-[#f4f4f5]/90", 
-    // We can also treat 'primary' as our brand green if preferred, but usually shadcn primary is foreground color. 
-    // Let's stick to the previous active gray/white feel for main actions or use Brand Green for emphasis.
-    // Actually, let's map 'primary' to a solid white/gray interaction to stand out on dark bg.
-    
-    // For specific "Brand" buttons we might use inline styles or specific classes in parent. 
-    // Let's keep primary as the high-contrast option.
-    
+    primary: "bg-[#BEFF1D] text-black hover:opacity-95",
     secondary: "bg-zinc-800 text-zinc-50 hover:bg-zinc-800/80",
     outline: "border border-zinc-800 bg-black hover:bg-zinc-800 hover:text-zinc-50",
     ghost: "hover:bg-zinc-800 hover:text-zinc-50",
-    destructive: "bg-red-900 text-red-50 hover:bg-red-900/90",
+    destructive: "bg-[#F544A6] text-white hover:opacity-95",
   };
 
   const sizes = {

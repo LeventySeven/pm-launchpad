@@ -32,6 +32,11 @@ export default function HomePage() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState<AuthMode>("SIGN_IN");
+  type PostAuthAction =
+    | { type: "OPEN_CREATE_MARKET" }
+    | { type: "PLACE_BET"; marketId: string; side: "YES" | "NO"; amount: number; marketTitle: string }
+    | null;
+  const [postAuthAction, setPostAuthAction] = useState<PostAuthAction>(null);
   const [lang, setLang] = useState<"RU" | "EN">(() => {
     if (typeof window === "undefined") return "EN";
     try {
@@ -232,6 +237,29 @@ export default function HomePage() {
     setAuthInitialMode(mode);
     setShowAuth(true);
   }, []);
+
+  useEffect(() => {
+    if (!user || !postAuthAction) return;
+    if (postAuthAction.type === "OPEN_CREATE_MARKET") {
+      setPostAuthAction(null);
+      if (marketCategories.length === 0 && !loadingMarketCategories) {
+        void loadMarketCategories();
+      }
+      setShowAdminModal(true);
+      return;
+    }
+    if (postAuthAction.type === "PLACE_BET") {
+      const action = postAuthAction;
+      setPostAuthAction(null);
+      setSelectedMarketId(action.marketId);
+      void handlePlaceBet({
+        amount: action.amount,
+        marketId: action.marketId,
+        side: action.side,
+        marketTitle: action.marketTitle,
+      });
+    }
+  }, [user, postAuthAction, marketCategories.length, loadingMarketCategories, loadMarketCategories, handlePlaceBet]);
 
   const handleSignUp = async (payload: {
     email: string;
@@ -1011,6 +1039,16 @@ export default function HomePage() {
               user={user}
               onBack={() => setSelectedMarketId(null)}
               onLogin={() => openAuth("SIGN_IN")}
+              onRequireBetAuth={(params) => {
+                setPostAuthAction({
+                  type: "PLACE_BET",
+                  marketId: params.marketId,
+                  side: params.side,
+                  amount: params.amount,
+                  marketTitle: params.marketTitle,
+                });
+                openAuth("SIGN_UP");
+              }}
               lang={lang}
               onResolveOutcome={
                 user && selectedMarket.createdBy && selectedMarket.createdBy === user.id ? resolveMarketOutcome : undefined
@@ -1154,6 +1192,10 @@ export default function HomePage() {
               type="button"
               onClick={() => {
                 if (!user) {
+                  setPostAuthAction({ type: "OPEN_CREATE_MARKET" });
+                  if (marketCategories.length === 0 && !loadingMarketCategories) {
+                    void loadMarketCategories();
+                  }
                   openAuth("SIGN_IN");
                   return;
                 }
@@ -1162,7 +1204,7 @@ export default function HomePage() {
                 }
                 setShowAdminModal(true);
               }}
-              className="fixed bottom-20 right-4 h-14 w-14 rounded-full bg-[rgba(36,182,255,1)] text-black flex items-center justify-center shadow-xl shadow-black/30 ring-1 ring-white/10 hover:opacity-95 active:scale-[0.98] transition"
+              className="fixed bottom-20 right-4 h-14 w-14 rounded-full bg-[#BEFF1D] text-black flex items-center justify-center shadow-xl shadow-black/30 ring-1 ring-white/10 hover:opacity-95 active:scale-[0.98] transition"
               aria-label={lang === "RU" ? "Создать рынок" : "Create market"}
               title={lang === "RU" ? "Создать рынок" : "Create market"}
             >
@@ -1181,7 +1223,13 @@ export default function HomePage() {
       <AuthModal
         key={`${showAuth ? "open" : "closed"}:${authInitialMode}`}
         isOpen={showAuth}
-        onClose={() => setShowAuth(false)}
+        onClose={() => {
+          setShowAuth(false);
+          // If user dismissed auth without logging in, clear deferred actions.
+          if (!user) {
+            setPostAuthAction(null);
+          }
+        }}
         onSignUp={handleSignUp}
         onLogin={handleLoginSubmit}
         onTelegramLogin={handleTelegramLogin}
