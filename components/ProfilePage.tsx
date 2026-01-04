@@ -75,6 +75,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   const handle = user.username ? `@${user.username}` : null;
   const joined = formatDate(user.createdAt, lang);
   const pnlIsPositive = (pnlMajor ?? 0) >= 0;
+  const isTelegramPlaceholderEmail = (email?: string) =>
+    Boolean(email && email.trim().toLowerCase().endsWith('@telegram.local'));
   const yesLabel = lang === 'RU' ? 'Да' : 'Yes';
   const noLabel = lang === 'RU' ? 'Нет' : 'No';
   const [isEditingName, setIsEditingName] = useState(false);
@@ -166,7 +168,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             )}
             {handle && <div className="text-sm text-zinc-500 truncate">{handle}</div>}
             <div className="mt-2 space-y-1 text-sm text-zinc-400">
-              {user.email && (
+              {user.email && !isTelegramPlaceholderEmail(user.email) && (
                 <div className="flex items-center gap-2">
                   <Mail size={14} className="text-zinc-600" />
                   <span className="truncate">{user.email}</span>

@@ -36,9 +36,7 @@ const friendlyMessages = {
     signupRequired: 'Заполните email, username и пароль.',
     genericError: 'Не удалось выполнить запрос',
     loadingText: 'Пожалуйста, подождите...',
-    telegramButton: 'Продолжить через Telegram',
-    telegramHint: '1 клик • без пароля',
-    orDivider: 'или',
+    telegramButton: 'Войти через Telegram',
   },
   EN: {
     loginTitle: 'Log in to Yalla Market',
@@ -61,9 +59,7 @@ const friendlyMessages = {
     genericError: 'Request failed',
     placeholderEmailOrUsername: 'you@example.com / yalla_trader',
     loadingText: 'Please wait...',
-    telegramButton: 'Continue with Telegram',
-    telegramHint: '1 click • no password',
-    orDivider: 'or',
+    telegramButton: 'Login via Telegram',
   },
 };
 
@@ -318,17 +314,11 @@ const AuthModal: React.FC<AuthModalProps> = ({
               type="button"
               onClick={handleTelegram}
               disabled={loading}
-              className="w-full h-11 rounded-lg border border-zinc-800 bg-black text-white hover:bg-zinc-950 transition-colors flex items-center justify-center gap-2 font-semibold"
+              className="w-full h-11 rounded-lg border border-zinc-800 bg-black text-white hover:bg-zinc-950 transition-colors inline-flex items-center justify-center gap-2 font-semibold"
             >
-              <Send size={16} className="text-[rgba(36,182,255,1)]" />
+              <Send size={16} className="text-[rgba(36,182,255,1)] relative top-[0.5px]" />
               <span>{t.telegramButton}</span>
-              <span className="text-xs text-zinc-400 font-medium">{t.telegramHint}</span>
             </button>
-            <div className="my-5 flex items-center gap-3">
-              <div className="h-px flex-1 bg-zinc-900" />
-              <span className="text-[10px] uppercase tracking-wider text-zinc-600">{t.orDivider}</span>
-              <div className="h-px flex-1 bg-zinc-900" />
-            </div>
           </>
         )}
 

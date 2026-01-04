@@ -232,6 +232,17 @@ export const authRouter = router({
         .select()
         .maybeSingle();
 
+      // Fetch wallet balance (supports DB trigger-based initial credit)
+      const { data: walletRow } = await supabaseService
+        .from("wallet_balances")
+        .select("balance_minor")
+        .eq("user_id", inserted.data.id)
+        .eq("asset_code", DEFAULT_ASSET)
+        .maybeSingle();
+
+      const wallet = walletRow as WalletBalanceRow | null;
+      const balanceMinor = wallet ? Number(wallet.balance_minor ?? 0) : 0;
+
       // Attach referral (optional). We don't block signup if the code is invalid.
       if (referralCode) {
         const { data: referrerRow } = await supabaseService
@@ -276,7 +287,7 @@ export const authRouter = router({
       });
       setCookie(authCookie(token));
 
-      return { user: toPublicUser(inserted.data as DbUserRow, 0) };
+      return { user: toPublicUser(inserted.data as DbUserRow, balanceMinor) };
     }),
 
   login: publicProcedure
@@ -477,9 +488,9 @@ export const authRouter = router({
           {
             user_id: upserted.data.id,
             asset_code: DEFAULT_ASSET,
-            balance_minor: 0,
           } as WalletBalanceInsert,
-          { onConflict: "user_id,asset_code" }
+          // IMPORTANT: do not overwrite initial credit (1500 VCOIN) if your DB trigger already created it.
+          { onConflict: "user_id,asset_code", ignoreDuplicates: true }
         );
 
       // Create a Supabase session for this user (required for auth.uid() in RPCs).
