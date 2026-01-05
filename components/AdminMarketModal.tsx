@@ -40,6 +40,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
   const [categoryId, setCategoryId] = useState<string>("");
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [validationOpen, setValidationOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,16 +63,57 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
     [categoriesStrict, categoryId]
   );
 
-  const isValid =
-    titleRu.trim().length >= 3 &&
-    titleEn.trim().length >= 3 &&
-    expiresAt.trim().length > 0 &&
-    categoryId.trim().length > 0;
-
   const parsedLiquidityB = useMemo(() => {
     const n = Number(liquidityB);
     return Number.isFinite(n) && n > 0 ? n : null;
   }, [liquidityB]);
+
+  const validationIssues = useMemo(() => {
+    const issues: string[] = [];
+
+    if (titleRu.trim().length < 3) {
+      issues.push(t("Название (RU) — минимум 3 символа", "Title (RU) — at least 3 characters"));
+    }
+    if (titleEn.trim().length < 3) {
+      issues.push(t("Название (EN) — минимум 3 символа", "Title (EN) — at least 3 characters"));
+    }
+
+    const expiresAtMs = Date.parse(expiresAt);
+    if (!expiresAt.trim()) {
+      issues.push(t("Окончание события — обязательно", "Event end time — required"));
+    } else if (!Number.isFinite(expiresAtMs)) {
+      issues.push(t("Окончание события — некорректная дата", "Event end time — invalid date"));
+    }
+
+    if (closesAt.trim()) {
+      const closesAtMs = Date.parse(closesAt);
+      if (!Number.isFinite(closesAtMs)) {
+        issues.push(t("Торги закрываются — некорректная дата", "Trading close time — invalid date"));
+      } else if (Number.isFinite(expiresAtMs) && closesAtMs > expiresAtMs) {
+        issues.push(t("Торги должны закрываться не позже окончания события", "Trading close must be <= event end time"));
+      }
+    }
+
+    if (parsedLiquidityB === null) {
+      issues.push(t("Ликвидность B — должна быть числом > 0", "Liquidity B — must be a number > 0"));
+    }
+
+    if (categoriesLoading) {
+      issues.push(t("Категории загружаются — подождите", "Categories are loading — please wait"));
+    } else if (categoriesStrict.length === 0) {
+      issues.push(t("Категории не загружены — обновите список", "Categories not loaded — reload the list"));
+    }
+
+    if (!categoryId.trim()) {
+      issues.push(t("Категория — обязательна", "Category — required"));
+    } else if (categoriesStrict.length > 0 && !categoriesStrict.some((c) => c.id === categoryId)) {
+      issues.push(t("Выбрана некорректная категория", "Selected category is invalid"));
+    }
+
+    return issues;
+  }, [titleRu, titleEn, expiresAt, closesAt, parsedLiquidityB, categoryId, categoriesLoading, categoriesStrict, t]);
+
+  const canSubmit = validationIssues.length === 0 && !loading;
 
   if (!isOpen) return null;
 
@@ -87,14 +129,13 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!isValid) return;
+    if (validationIssues.length > 0) {
+      setValidationOpen(true);
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
-      if (parsedLiquidityB === null) {
-        throw new Error(t("Некорректная ликвидность", "Invalid liquidity"));
-      }
-
       await onCreate({
         titleRu: titleRu.trim(),
         titleEn: titleEn.trim(),
@@ -337,11 +378,57 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
           <Button variant="ghost" onClick={onClose}>
             {t("Отмена", "Cancel")}
           </Button>
-          <Button onClick={handleSubmit} disabled={!isValid || loading}>
+          <Button
+            onClick={handleSubmit}
+            disabled={loading}
+            aria-disabled={!canSubmit}
+            className={!canSubmit ? "opacity-60 hover:opacity-60" : ""}
+          >
             {loading ? t("Создание...", "Creating...") : t("Создать", "Create")}
           </Button>
         </div>
       </div>
+
+      {validationOpen && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={() => setValidationOpen(false)}
+          />
+          <div className="relative w-full max-w-md rounded-2xl border border-zinc-900 bg-black p-5 shadow-2xl">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="text-sm font-semibold text-zinc-100">
+                {t("Что нужно заполнить", "What’s missing")}
+              </div>
+              <button
+                type="button"
+                onClick={() => setValidationOpen(false)}
+                className="h-9 w-9 rounded-full border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60 flex items-center justify-center text-zinc-300"
+                aria-label={t("Закрыть", "Close")}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="text-sm text-zinc-300">
+              <ul className="space-y-2">
+                {validationIssues.map((msg) => (
+                  <li key={msg} className="flex items-start gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[#F544A6] flex-shrink-0" />
+                    <span>{msg}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <Button variant="outline" onClick={() => setValidationOpen(false)}>
+                {t("Понятно", "Got it")}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {categoryPickerOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
