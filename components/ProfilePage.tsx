@@ -61,6 +61,65 @@ const accentPairFromSeed = (seed: string) => {
   };
 };
 
+const accentPairFromHue = (hueA: number) => {
+  const hueB = (hueA + 28) % 360;
+  return {
+    a: `hsla(${hueA}, 85%, 58%, 0.20)`,
+    b: `hsla(${hueB}, 85%, 58%, 0.16)`,
+    edgeA: `hsla(${hueA}, 85%, 58%, 0.75)`,
+    edgeB: `hsla(${hueB}, 85%, 58%, 0.65)`,
+  };
+};
+
+const hueFromRgb = (r: number, g: number, b: number) => {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const d = max - min;
+  if (d < 1e-9) return 0;
+  let h = 0;
+  if (max === rn) h = ((gn - bn) / d) % 6;
+  else if (max === gn) h = (bn - rn) / d + 2;
+  else h = (rn - gn) / d + 4;
+  h *= 60;
+  if (h < 0) h += 360;
+  return h;
+};
+
+const sampleAvatarHue = async (src: string): Promise<number | null> => {
+  try {
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.decoding = "async";
+    img.referrerPolicy = "no-referrer";
+
+    const loaded = new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("AVATAR_LOAD_FAILED"));
+    });
+
+    img.src = src;
+    await loaded;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0, 1, 1);
+    const data = ctx.getImageData(0, 0, 1, 1).data;
+    const r = data[0] ?? 0;
+    const g = data[1] ?? 0;
+    const b = data[2] ?? 0;
+    return hueFromRgb(r, g, b);
+  } catch {
+    // If the image is cross-origin without CORS, canvas read will fail (tainted).
+    return null;
+  }
+};
+
 const buildSparklinePath = (values: number[]) => {
   // viewBox: 0 0 100 40
   const W = 100;
@@ -159,7 +218,27 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   const formatSignedMoney = (value: number) => `${value >= 0 ? '+' : '-'}$${Math.abs(value).toFixed(2)}`;
 
   const accentSeed = String(user.avatarUrl ?? user.telegramPhotoUrl ?? user.id ?? displayName);
-  const accent = useMemo(() => accentPairFromSeed(accentSeed), [accentSeed]);
+  const [accent, setAccent] = useState(() => accentPairFromSeed(accentSeed));
+  const avatarForAccent = avatarPreviewUrl ?? user.avatar ?? null;
+
+  useEffect(() => {
+    const src = typeof avatarForAccent === "string" && avatarForAccent.trim().length > 0 ? avatarForAccent : null;
+    if (!src) {
+      setAccent(accentPairFromSeed(accentSeed));
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const hue = await sampleAvatarHue(src);
+      if (cancelled) return;
+      setAccent(hue === null ? accentPairFromSeed(accentSeed) : accentPairFromHue(hue));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [avatarForAccent, accentSeed]);
 
   const pnlSparkline = useMemo(() => {
     const trades = [...soldTrades].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
