@@ -1238,7 +1238,10 @@ export default function HomePage() {
                         <MarketCard
                           key={market.id}
                           market={market}
-                          onClick={() => setSelectedMarketId(market.id)}
+                          onClick={() => {
+                            setMarketBetIntent(null); // Clear bet intent when clicking card normally
+                            setSelectedMarketId(market.id);
+                          }}
                           onQuickBet={(side) => handleOpenMarketBet(market, side)}
                           lang={lang}
                         />
@@ -1279,7 +1282,10 @@ export default function HomePage() {
                 bets={legacyBets}
                 soldTrades={soldTrades}
                 comments={myComments}
-                onMarketClick={(marketId) => setSelectedMarketId(marketId)}
+                onMarketClick={(marketId) => {
+                  setMarketBetIntent(null); // Clear bet intent when clicking from profile
+                  setSelectedMarketId(marketId);
+                }}
               />
             )}
           </main>

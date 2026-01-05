@@ -380,7 +380,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
               className="flex-1 h-11 rounded-full border border-zinc-900 bg-black px-4 text-xs font-bold uppercase tracking-wider text-zinc-200 hover:bg-zinc-950/60 transition-colors inline-flex items-center justify-center gap-2"
             >
               <Coins size={16} className="text-zinc-400" />
-              <span>{lang === 'RU' ? 'Ставка' : 'Bid'}</span>
+              <span>{lang === 'RU' ? 'Ставка' : 'Bet'}</span>
             </button>
             <button
               type="button"
@@ -451,7 +451,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
           </div>
         </div>
 
-        {/* Bid (trade card) */}
+        {/* Bet (trade card) */}
         <div
           id="bid-section"
           className="scroll-mt-24 lg:col-span-4 lg:col-start-9 lg:row-start-1 lg:row-span-2"
