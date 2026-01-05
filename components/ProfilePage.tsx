@@ -174,23 +174,14 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   }, [soldTrades]);
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-6 pb-24 animate-in fade-in duration-300 relative">
-      {/* subtle personalized header gradient */}
+    <div className="max-w-xl mx-auto px-4 py-6 pb-24 animate-in fade-in duration-300">
+      {/* Profile header */}
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-40 rounded-b-[32px] blur-[2px]"
+        className="relative overflow-hidden border border-zinc-900 bg-black rounded-2xl p-5"
         style={{
           backgroundImage: `radial-gradient(700px 220px at 0% 0%, ${accent.a}, transparent 60%), radial-gradient(520px 180px at 100% 0%, ${accent.b}, transparent 55%)`,
         }}
-      />
-
-      <div className="relative">
-      {/* Profile header */}
-      <div className="relative overflow-hidden border border-zinc-900 bg-black rounded-2xl p-5">
-        {/* Accent outline strip */}
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-[2px]"
-          style={{ backgroundImage: `linear-gradient(90deg, ${accent.edgeA}, ${accent.edgeB})` }}
-        />
+      >
         <div className="flex items-start gap-4">
           <div className="h-14 w-14 rounded-full bg-zinc-950/40 border border-zinc-900 overflow-hidden flex items-center justify-center text-zinc-100 font-bold">
             {avatarPreviewUrl ? (
@@ -755,7 +746,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             )}
           </div>
         )}
-      </div>
       </div>
     </div>
   );
