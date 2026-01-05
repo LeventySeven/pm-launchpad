@@ -56,6 +56,8 @@ const accentPairFromSeed = (seed: string) => {
   return {
     a: `hsla(${hueA}, 85%, 58%, 0.20)`,
     b: `hsla(${hueB}, 85%, 58%, 0.16)`,
+    edgeA: `hsla(${hueA}, 85%, 58%, 0.75)`,
+    edgeB: `hsla(${hueB}, 85%, 58%, 0.65)`,
   };
 };
 
@@ -175,7 +177,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
     <div className="max-w-xl mx-auto px-4 py-6 pb-24 animate-in fade-in duration-300 relative">
       {/* subtle personalized header gradient */}
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-32 rounded-b-[32px] blur-[2px]"
+        className="pointer-events-none absolute inset-x-0 top-0 h-40 rounded-b-[32px] blur-[2px]"
         style={{
           backgroundImage: `radial-gradient(700px 220px at 0% 0%, ${accent.a}, transparent 60%), radial-gradient(520px 180px at 100% 0%, ${accent.b}, transparent 55%)`,
         }}
@@ -183,7 +185,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
 
       <div className="relative">
       {/* Profile header */}
-      <div className="border border-zinc-900 bg-black rounded-2xl p-5">
+      <div className="relative overflow-hidden border border-zinc-900 bg-black rounded-2xl p-5">
+        {/* Accent outline strip */}
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-[2px]"
+          style={{ backgroundImage: `linear-gradient(90deg, ${accent.edgeA}, ${accent.edgeB})` }}
+        />
         <div className="flex items-start gap-4">
           <div className="h-14 w-14 rounded-full bg-zinc-950/40 border border-zinc-900 overflow-hidden flex items-center justify-center text-zinc-100 font-bold">
             {avatarPreviewUrl ? (
@@ -416,12 +423,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
 
       {/* PnL graph (lightweight sparkline) */}
       <div className="mt-4 border border-zinc-900 bg-black rounded-2xl overflow-hidden">
-        <div
-          className="relative p-4"
-          style={{
-            backgroundImage: `radial-gradient(600px 220px at 20% 0%, ${accent.a}, transparent 60%), radial-gradient(520px 200px at 80% 0%, ${accent.b}, transparent 60%)`,
-          }}
-        >
+        <div className="relative p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
@@ -440,15 +442,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
           </div>
 
           <svg viewBox="0 0 100 40" className="mt-4 h-16 w-full">
-            <defs>
-              <linearGradient id="pnlFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={pnlIsPositive ? "#BEFF1D" : "#F544A6"} stopOpacity="0.20" />
-                <stop offset="100%" stopColor={pnlIsPositive ? "#BEFF1D" : "#F544A6"} stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            {pnlSparkline.areaD && (
-              <path d={pnlSparkline.areaD} fill="url(#pnlFill)" />
-            )}
             {pnlSparkline.lineD && (
               <path
                 d={pnlSparkline.lineD}
