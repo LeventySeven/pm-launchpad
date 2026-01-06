@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import AuthModal, { type AuthMode } from "@/components/AuthModal";
 import Header from "@/components/Header";
 import MarketCard from "@/components/MarketCard";
@@ -11,7 +11,7 @@ import AdminMarketModal from "@/components/AdminMarketModal";
 import ProfilePage from "@/components/ProfilePage";
 import type { Market, User, Bet, Position, Trade, PriceCandle, PublicTrade, LeaderboardUser, Comment as MarketComment } from "@/types";
 import { trpcClient } from "@/src/utils/trpcClient";
-import { Search, Plus } from "lucide-react";
+import { Search } from "lucide-react";
 import BottomMenu, { type ViewType } from "@/components/BottomMenu";
 import FriendsPage from "@/components/FriendsPage";
 import { leaderboardUsersSchema } from "@/src/schemas/leaderboard";
@@ -99,6 +99,9 @@ export default function HomePage() {
     return getTelegramInitDataFromUrl();
   };
   const [currentView, setCurrentView] = useState<ViewType>("EVENTS");
+  type EventsPanelPage = "FEED" | "CATALOG";
+  const [eventsPanelPage, setEventsPanelPage] = useState<EventsPanelPage>("CATALOG");
+  const eventsSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const [myPositions, setMyPositions] = useState<Position[]>([]);
   const [myTrades, setMyTrades] = useState<Trade[]>([]);
@@ -774,10 +777,54 @@ export default function HomePage() {
     [activeCategoryId, searchQuery, markets, lang]
   );
 
+  // Events "Feed" page - for now this is just a market list (recommendations/bookmarks come later).
+  const feedMarkets = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return markets.filter((market) => {
+      const targetTitle = (lang === "RU" ? market.titleRu : market.titleEn) ?? market.title;
+      if (!q) return true;
+      return targetTitle.toLowerCase().includes(q);
+    });
+  }, [markets, searchQuery, lang]);
+
   const selectedMarket = useMemo(
     () => markets.find((market) => market.id === selectedMarketId),
     [selectedMarketId, markets]
   );
+
+  const handleEventsTouchStart = useCallback((e: TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length !== 1) return;
+    const rawTarget = e.target;
+    if (rawTarget instanceof HTMLElement && rawTarget.closest('[data-events-swipe-ignore="true"]')) {
+      return;
+    }
+    const t = e.touches[0];
+    if (!t) return;
+    eventsSwipeStartRef.current = { x: t.clientX, y: t.clientY };
+  }, []);
+
+  const handleEventsTouchEnd = useCallback((e: TouchEvent<HTMLDivElement>) => {
+    const start = eventsSwipeStartRef.current;
+    eventsSwipeStartRef.current = null;
+    if (!start) return;
+    const t = e.changedTouches[0];
+    if (!t) return;
+
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+
+    // Only treat as page swipe if mostly horizontal and large enough.
+    if (absX < 60 || absX < absY * 1.2) return;
+
+    // Swipe left -> next (Catalog), swipe right -> previous (Feed).
+    if (dx < 0) {
+      setEventsPanelPage((prev) => (prev === "FEED" ? "CATALOG" : prev));
+    } else {
+      setEventsPanelPage((prev) => (prev === "CATALOG" ? "FEED" : prev));
+    }
+  }, []);
 
   useEffect(() => {
     if (!selectedMarketId) {
@@ -1178,86 +1225,161 @@ export default function HomePage() {
 
           <main className="mx-auto w-full max-w-7xl pb-24">
             {currentView === "EVENTS" && (
-              <>
-                {/* Mobile search (desktop search is in Header) */}
-                <div className="px-4 pt-4 pb-3 md:hidden">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder={lang === "RU" ? "Поиск..." : "Search..."}
-                      className="w-full h-10 rounded-full bg-zinc-950 border border-zinc-900 px-4 pl-10 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700"
-                    />
-                    <Search size={16} className="absolute left-3.5 top-3 text-zinc-600" />
+              <div onTouchStart={handleEventsTouchStart} onTouchEnd={handleEventsTouchEnd}>
+                {/* Events pages switcher (Feed / Catalog) */}
+                <div className="px-4 pt-3 pb-2">
+                  <div
+                    className="mx-auto w-24 flex gap-2"
+                    role="tablist"
+                    aria-label={lang === "RU" ? "Разделы событий" : "Event sections"}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setEventsPanelPage("FEED")}
+                      className="flex-1 py-2"
+                      aria-label={lang === "RU" ? "Лента" : "Feed"}
+                    >
+                      <div
+                        className={`h-1 rounded-full ${
+                          eventsPanelPage === "FEED" ? "bg-[rgba(245,68,166,1)]" : "bg-white/10"
+                        }`}
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEventsPanelPage("CATALOG")}
+                      className="flex-1 py-2"
+                      aria-label={lang === "RU" ? "Каталог" : "Catalog"}
+                    >
+                      <div
+                        className={`h-1 rounded-full ${
+                          eventsPanelPage === "CATALOG" ? "bg-[rgba(245,68,166,1)]" : "bg-white/10"
+                        }`}
+                      />
+                    </button>
                   </div>
                 </div>
 
-                {/* Categories */}
-                <div className="px-4 pb-3 border-b border-zinc-900">
-                  <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1">
-                    <button
-                      type="button"
-                      onClick={() => setActiveCategoryId("all")}
-                      className={`shrink-0 px-3 py-1.5 rounded-full border text-xs font-semibold uppercase tracking-wider transition ${
-                        activeCategoryId === "all"
-                          ? "border-[rgba(245,68,166,1)] bg-black text-[rgba(245,68,166,1)] hover:bg-[rgba(245,68,166,0.10)]"
-                          : "border-zinc-900 bg-black text-zinc-400 hover:text-white hover:border-zinc-700"
-                      }`}
-                    >
-                      {lang === "RU" ? "Все" : "All"}
-                    </button>
-                    {marketCategories.map((c) => {
-                      const label = lang === "RU" ? c.labelRu : c.labelEn;
-                      const selected = activeCategoryId === c.id;
-                      return (
+                {eventsPanelPage === "FEED" ? (
+                  <>
+                    <div className="px-4 pb-2">
+                      <div className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+                        {lang === "RU" ? "Рекомендовано" : "Recommended"}
+                      </div>
+                    </div>
+                    <div className="px-4 pt-2">
+                      {loadingMarkets ? (
+                        <div className="text-center py-10 text-zinc-500">
+                          {marketsLoadingMessage || (lang === "RU" ? "Загрузка рынков..." : "Loading markets...")}
+                        </div>
+                      ) : feedMarkets.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-4">
+                          {feedMarkets.map((market) => (
+                            <MarketCard
+                              key={market.id}
+                              market={market}
+                              onClick={() => {
+                                setMarketBetIntent(null);
+                                setSelectedMarketId(market.id);
+                              }}
+                              onQuickBet={(side) => handleOpenMarketBet(market, side)}
+                              lang={lang}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-20 text-zinc-500 px-4">
+                          <p className="text-lg mb-2">{lang === "RU" ? "Ничего не найдено" : "Nothing found"}</p>
+                          <p className="text-sm">{lang === "RU" ? "Попробуйте другой запрос" : "Try a different search"}</p>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Mobile search (desktop search is in Header) */}
+                    <div className="px-4 pt-2 pb-3 md:hidden">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder={lang === "RU" ? "Поиск..." : "Search..."}
+                          className="w-full h-10 rounded-full bg-zinc-950 border border-zinc-900 px-4 pl-10 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700"
+                        />
+                        <Search size={16} className="absolute left-3.5 top-3 text-zinc-600" />
+                      </div>
+                    </div>
+
+                    {/* Categories */}
+                    <div className="px-4 pb-3 border-b border-zinc-900">
+                      <div
+                        className="flex gap-2 overflow-x-auto custom-scrollbar pb-1"
+                        data-events-swipe-ignore="true"
+                      >
                         <button
-                          key={c.id}
                           type="button"
-                          onClick={() => setActiveCategoryId(c.id)}
+                          onClick={() => setActiveCategoryId("all")}
                           className={`shrink-0 px-3 py-1.5 rounded-full border text-xs font-semibold uppercase tracking-wider transition ${
-                            selected
+                            activeCategoryId === "all"
                               ? "border-[rgba(245,68,166,1)] bg-black text-[rgba(245,68,166,1)] hover:bg-[rgba(245,68,166,0.10)]"
                               : "border-zinc-900 bg-black text-zinc-400 hover:text-white hover:border-zinc-700"
                           }`}
                         >
-                          {label}
+                          {lang === "RU" ? "Все" : "All"}
                         </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                        {marketCategories.map((c) => {
+                          const label = lang === "RU" ? c.labelRu : c.labelEn;
+                          const selected = activeCategoryId === c.id;
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => setActiveCategoryId(c.id)}
+                              className={`shrink-0 px-3 py-1.5 rounded-full border text-xs font-semibold uppercase tracking-wider transition ${
+                                selected
+                                  ? "border-[rgba(245,68,166,1)] bg-black text-[rgba(245,68,166,1)] hover:bg-[rgba(245,68,166,0.10)]"
+                                  : "border-zinc-900 bg-black text-zinc-400 hover:text-white hover:border-zinc-700"
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-                <div className="px-4 pt-4">
-                  {loadingMarkets ? (
-                    <div className="text-center py-10 text-zinc-500">
-                      {marketsLoadingMessage || (lang === "RU" ? "Загрузка рынков..." : "Loading markets...")}
+                    <div className="px-4 pt-4">
+                      {loadingMarkets ? (
+                        <div className="text-center py-10 text-zinc-500">
+                          {marketsLoadingMessage || (lang === "RU" ? "Загрузка рынков..." : "Loading markets...")}
+                        </div>
+                      ) : filteredMarkets.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-4">
+                          {filteredMarkets.map((market) => (
+                            <MarketCard
+                              key={market.id}
+                              market={market}
+                              onClick={() => {
+                                // Always clear bet intent when clicking card normally to ensure we start at top
+                                setMarketBetIntent(null);
+                                setSelectedMarketId(market.id);
+                              }}
+                              onQuickBet={(side) => handleOpenMarketBet(market, side)}
+                              lang={lang}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-20 text-zinc-500 px-4">
+                          <p className="text-lg mb-2">{lang === "RU" ? "Ничего не найдено" : "Nothing found"}</p>
+                          <p className="text-sm">{lang === "RU" ? "Попробуйте другой запрос" : "Try a different search"}</p>
+                        </div>
+                      )}
                     </div>
-                  ) : filteredMarkets.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-4">
-                      {filteredMarkets.map((market) => (
-                        <MarketCard
-                          key={market.id}
-                          market={market}
-                          onClick={() => {
-                            // Always clear bet intent when clicking card normally to ensure we start at top
-                            // Clear it first, then set the market ID
-                            setMarketBetIntent(null);
-                            setSelectedMarketId(market.id);
-                          }}
-                          onQuickBet={(side) => handleOpenMarketBet(market, side)}
-                          lang={lang}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-20 text-zinc-500 px-4">
-                      <p className="text-lg mb-2">{lang === "RU" ? "Ничего не найдено" : "Nothing found"}</p>
-                      <p className="text-sm">{lang === "RU" ? "Попробуйте другой запрос" : "Try a different search"}</p>
-                    </div>
-                  )}
-                </div>
-              </>
+                  </>
+                )}
+              </div>
             )}
 
             {currentView === "FRIENDS" && (
