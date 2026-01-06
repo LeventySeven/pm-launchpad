@@ -557,13 +557,16 @@ export const authRouter = router({
     }),
 
   me: publicProcedure.query(async ({ ctx }) => {
-    const { supabase, cookies } = ctx;
+    const { supabaseService, cookies } = ctx;
     const token = cookies?.auth_token;
     if (!token) return null;
 
     try {
       const payload = await verifyAuthToken(token);
-      const { data, error } = await supabase
+      // NOTE: we lock down direct reads on public.users for anon/authenticated to prevent email leakage.
+      // This endpoint is server-side, authenticated via our own JWT cookie, so it's safe to use service_role
+      // to fetch the current user row.
+      const { data, error } = await supabaseService
         .from("users")
         .select(publicColumns)
         .eq("id", payload.sub)
@@ -572,7 +575,7 @@ export const authRouter = router({
       const currentUser = data as DbUserRow;
 
       // Fetch wallet balance
-      const { data: walletRow } = await supabase
+      const { data: walletRow } = await supabaseService
         .from("wallet_balances")
         .select("balance_minor")
         .eq("user_id", currentUser.id)

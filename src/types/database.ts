@@ -533,12 +533,10 @@ export interface Database {
           id: string;
           user_id: string;
           kind: WalletTxKind;
-          asset_code: string;
           amount_minor: number;
           market_id: string | null;
           market_title_rus: string | null;
           market_title_eng: string | null;
-          trade_id: string | null;
           created_at: string;
         };
         Relationships: [];

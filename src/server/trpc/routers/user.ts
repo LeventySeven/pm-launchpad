@@ -469,7 +469,7 @@ export const userRouter = router({
 
       const { data, error } = await supabase
         .from("wallet_transactions_public")
-        .select("id, user_id, kind, asset_code, amount_minor, market_id, market_title_rus, market_title_eng, created_at")
+        .select("id, user_id, kind, amount_minor, market_id, market_title_rus, market_title_eng, created_at")
         .eq("user_id", input.userId)
         .order("created_at", { ascending: false })
         .limit(limit);

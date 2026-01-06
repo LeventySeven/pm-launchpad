@@ -51,11 +51,17 @@ const deriveVolumeMajor = (amm: AmmStateRow | null, feeBps?: number | null) => {
   return toMajorUnits(volumeMinor, VCOIN_DECIMALS);
 };
 
-const mapMarketRow = (row: MarketWithAmm) => {
+const mapMarketRow = (
+  row: MarketWithAmm,
+  categoryLabelsById?: Map<string, Pick<MarketCategoryRow, "label_ru" | "label_en">>
+) => {
   const amm = row.market_amm_state;
   const { priceYes, priceNo } = amm
     ? calculateLMSRPrices(Number(amm.q_yes), Number(amm.q_no), Number(amm.b))
     : { priceYes: 0.5, priceNo: 0.5 };
+
+  const categoryId = row.category_id ?? null;
+  const categoryLabels = categoryId ? categoryLabelsById?.get(categoryId) : undefined;
 
   return {
     id: row.id,
@@ -67,9 +73,11 @@ const mapMarketRow = (row: MarketWithAmm) => {
     expiresAt: new Date(row.expires_at).toISOString(),
     outcome: row.resolve_outcome,
     createdBy: row.created_by ?? null,
-    categoryId: row.category_id ?? null,
-    categoryLabelRu: row.category_label_ru ?? null,
-    categoryLabelEn: row.category_label_en ?? null,
+    categoryId,
+    // Some DBs may not have category_label_* columns (they were referenced in code but not migrated).
+    // Prefer current labels from market_categories; fall back to existing columns if present.
+    categoryLabelRu: categoryLabels?.label_ru ?? row.category_label_ru ?? null,
+    categoryLabelEn: categoryLabels?.label_en ?? row.category_label_en ?? null,
     settlementAsset: row.settlement_asset_code,
     feeBps: row.fee_bps,
     liquidityB: Number(row.liquidity_b),
@@ -219,7 +227,7 @@ export const marketRouter = router({
     .input(z.object({ onlyOpen: z.boolean().optional() }).optional())
     .output(z.array(marketOutput))
     .query(async ({ ctx, input }) => {
-      const { supabase } = ctx;
+      const { supabase, supabaseService } = ctx;
       const onlyOpen = input?.onlyOpen ?? false;
 
       let query = supabase
@@ -227,7 +235,7 @@ export const marketRouter = router({
         .select(`
           id, title_rus, title_eng, description, state, closes_at, expires_at, created_by,
           resolve_outcome, settlement_asset_code, fee_bps, liquidity_b, amm_type, created_at,
-          category_id, category_label_ru, category_label_en,
+          category_id,
           market_amm_state (market_id, b, q_yes, q_no, last_price_yes, fee_accumulated_minor, updated_at)
         `)
         .order("created_at", { ascending: false });
@@ -245,21 +253,39 @@ export const marketRouter = router({
       }
 
       const rows: MarketWithAmm[] = data ?? [];
-      return rows.map(mapMarketRow);
+
+      // Derive category labels from market_categories to avoid relying on category_label_* columns.
+      const categoryIds = Array.from(
+        new Set(rows.map((r) => r.category_id).filter((v): v is string => typeof v === "string" && v.length > 0))
+      );
+
+      const labelsById = new Map<string, Pick<MarketCategoryRow, "label_ru" | "label_en">>();
+      if (categoryIds.length > 0) {
+        const { data: cats, error: catsError } = await supabaseService
+          .from("market_categories")
+          .select("id, label_ru, label_en")
+          .in("id", categoryIds);
+        if (!catsError) {
+          const typed = (cats ?? []) as Array<Pick<MarketCategoryRow, "id" | "label_ru" | "label_en">>;
+          typed.forEach((c) => labelsById.set(c.id, { label_ru: c.label_ru, label_en: c.label_en }));
+        }
+      }
+
+      return rows.map((r) => mapMarketRow(r, labelsById));
     }),
 
   getMarket: publicProcedure
     .input(z.object({ marketId: z.string().uuid() }))
     .output(marketOutput)
     .query(async ({ ctx, input }) => {
-      const { supabase } = ctx;
+      const { supabase, supabaseService } = ctx;
 
       const { data, error } = await supabase
         .from("markets")
         .select(`
           id, title_rus, title_eng, description, state, closes_at, expires_at, created_by,
           resolve_outcome, settlement_asset_code, fee_bps, liquidity_b, amm_type, created_at,
-          category_id, category_label_ru, category_label_en,
+          category_id,
           market_amm_state (market_id, b, q_yes, q_no, last_price_yes, fee_accumulated_minor, updated_at)
         `)
         .eq("id", input.marketId)
@@ -270,7 +296,21 @@ export const marketRouter = router({
       }
 
       const row: MarketWithAmm = data;
-      return mapMarketRow(row);
+      const labelsById = new Map<string, Pick<MarketCategoryRow, "label_ru" | "label_en">>();
+      const categoryId = row.category_id;
+      if (typeof categoryId === "string" && categoryId.length > 0) {
+        const { data: cat, error: catError } = await supabaseService
+          .from("market_categories")
+          .select("label_ru, label_en")
+          .eq("id", categoryId)
+          .maybeSingle();
+        if (!catError && cat) {
+          const typed = cat as Pick<MarketCategoryRow, "label_ru" | "label_en">;
+          labelsById.set(categoryId, typed);
+        }
+      }
+
+      return mapMarketRow(row, labelsById);
     }),
 
   /**
@@ -1205,8 +1245,6 @@ export const marketRouter = router({
           liquidity_b: input.liquidityB,
           amm_type: "lmsr",
           category_id: cat.id,
-          category_label_ru: cat.label_ru,
-          category_label_en: cat.label_en,
         })
         .select("id, title_rus, title_eng")
         .single();

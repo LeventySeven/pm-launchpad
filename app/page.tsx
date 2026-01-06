@@ -110,6 +110,7 @@ export default function HomePage() {
   type MarketBookmark = { marketId: string; createdAt: string };
   const [myBookmarks, setMyBookmarks] = useState<MarketBookmark[]>([]);
   const [marketsLoadingMessage, setMarketsLoadingMessage] = useState<string | null>(null);
+  const [marketsError, setMarketsError] = useState<string | null>(null);
   const [betConfirm, setBetConfirm] = useState<{
     open: boolean;
     marketTitle: string;
@@ -582,6 +583,7 @@ export default function HomePage() {
 
   const loadMarkets = useCallback(async () => {
     setLoadingMarkets(true);
+    setMarketsError(null);
     setMarketsLoadingMessage(lang === "RU" ? "Загрузка рынков..." : "Loading markets...");
     try {
       const response = await trpcClient.market.listMarkets.query({
@@ -621,7 +623,9 @@ export default function HomePage() {
       setMarkets(mapped);
     } catch (err) {
       console.error("Failed to load markets", err);
-      setMarketsLoadingMessage(lang === "RU" ? "Не удалось загрузить рынки, попробуйте позже." : "Failed to load markets.");
+      setMarketsError(
+        lang === "RU" ? "Не удалось загрузить рынки, попробуйте позже." : "Failed to load markets."
+      );
       setMarkets([]);
     } finally {
       setLoadingMarkets(false);
@@ -1490,6 +1494,10 @@ export default function HomePage() {
                                 />
                               ))}
                           </div>
+                        ) : marketsError ? (
+                          <div className="text-center py-20 text-zinc-500 px-4">
+                            <p className="text-sm">{marketsError}</p>
+                          </div>
                         ) : (
                           <div className="text-center py-20 text-zinc-500 px-4">
                             <p className="text-lg mb-2">{lang === "RU" ? "Ничего не найдено" : "Nothing found"}</p>
@@ -1575,6 +1583,10 @@ export default function HomePage() {
                                 lang={lang}
                               />
                             ))}
+                          </div>
+                        ) : marketsError ? (
+                          <div className="text-center py-20 text-zinc-500 px-4">
+                            <p className="text-sm">{marketsError}</p>
                           </div>
                         ) : (
                           <div className="text-center py-20 text-zinc-500 px-4">

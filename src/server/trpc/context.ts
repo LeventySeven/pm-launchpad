@@ -19,7 +19,19 @@ export const createContext = async (opts: { req: Request }) => {
   const cookies = parseCookies(opts.req);
   const supabaseAccessToken = cookies["sb_access_token"];
   const supabase: SupabaseClient<Database, "public"> = createSupabaseUserClient(supabaseAccessToken);
-  const supabaseService = getSupabaseServiceClient();
+  // IMPORTANT:
+  // Some environments (preview/dev) may not have SUPABASE_SERVICE_ROLE_KEY configured.
+  // If we throw here, *every* tRPC request (including public reads like markets/leaderboard)
+  // fails and the frontend appears "dead".
+  //
+  // We fall back to the user client in that case. Procedures that truly require service-role
+  // privileges will still fail with a clear DB/RLS error, but the app stays usable for public pages.
+  let supabaseService: SupabaseClient<Database, "public"> = supabase;
+  try {
+    supabaseService = getSupabaseServiceClient();
+  } catch (err) {
+    console.warn("Supabase service client unavailable; falling back to anon/user client.", err);
+  }
   let authUser: { id: string; email: string; username: string; isAdmin: boolean } | null = null;
 
   const token = cookies["auth_token"];
