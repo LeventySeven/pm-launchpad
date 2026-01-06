@@ -1381,10 +1381,9 @@ export default function HomePage() {
             }
             setShowAdminModal(true);
           }}
-          className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-[60] w-14 h-14 rounded-full border-2 border-[rgba(245,68,166,1)] bg-black text-[rgba(245,68,166,1)] hover:bg-[rgba(245,68,166,0.10)] transition-all shadow-lg flex items-center justify-center"
-          aria-label={lang === "RU" ? "Создать рынок" : "Create market"}
+          className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-[60] rounded-full border-2 border-[rgba(245,68,166,1)] bg-black text-[rgba(245,68,166,1)] hover:bg-[rgba(245,68,166,0.10)] transition-all shadow-lg flex items-center justify-center px-4 py-2 text-sm font-semibold"
         >
-          <Plus size={24} />
+          {lang === "RU" ? "Создать рынок" : "Create market"}
         </button>
       )}
     </div>
