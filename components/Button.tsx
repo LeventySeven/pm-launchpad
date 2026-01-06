@@ -19,12 +19,12 @@ const Button: React.FC<ButtonProps> = ({
     "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(245,68,166,1)] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
   
   const variants = {
-    // Red background with white text for less aggressive look
-    primary: "bg-[rgba(245,68,166,1)] border border-[rgba(245,68,166,1)] text-white hover:opacity-90",
+    // Stroke style with transparent background
+    primary: "bg-black border border-[rgba(245,68,166,1)] text-[rgba(245,68,166,1)] hover:bg-[rgba(245,68,166,0.10)]",
     secondary: "bg-zinc-800 text-zinc-50 hover:bg-zinc-800/80",
     outline: "border border-zinc-800 bg-black hover:bg-zinc-800 hover:text-zinc-50",
     ghost: "hover:bg-zinc-800 hover:text-zinc-50",
-    destructive: "bg-[rgba(245,68,166,1)] border border-[rgba(245,68,166,1)] text-white hover:opacity-90",
+    destructive: "bg-black border border-[rgba(245,68,166,1)] text-[rgba(245,68,166,1)] hover:bg-[rgba(245,68,166,0.10)]",
   };
 
   const sizes = {

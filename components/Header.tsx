@@ -58,13 +58,13 @@ const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
         {/* Logo */}
         <div
-          className={`flex items-center gap-2 group ${onLogoClick ? 'cursor-pointer' : 'cursor-default'}`}
+          className={`flex items-center gap-2 ${onLogoClick ? 'cursor-pointer' : 'cursor-default'}`}
           onClick={onLogoClick}
           role={onLogoClick ? 'button' : undefined}
           aria-label={onLogoClick ? t.home : undefined}
         >
-          <div className="transition-transform group-hover:rotate-90 duration-500 text-white">
-            <YallaIcon size={24} />
+          <div className="text-white flex items-center" style={{ height: '0.875rem' }}>
+            <YallaIcon size={14} />
           </div>
           <div>
             <h1 className="text-sm font-bold tracking-tight text-white leading-none uppercase transition-colors">

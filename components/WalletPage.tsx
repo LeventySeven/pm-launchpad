@@ -65,7 +65,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
             </h1>
 
             <div className="flex gap-4 justify-center">
-                <button className="flex-1 bg-[rgba(245,68,166,1)] hover:opacity-90 text-white font-semibold py-2.5 px-4 rounded-md flex items-center justify-center gap-2 transition-colors text-sm shadow-sm">
+                <button className="flex-1 bg-black hover:bg-[rgba(245,68,166,0.10)] text-[rgba(245,68,166,1)] font-semibold py-2.5 px-4 rounded-md flex items-center justify-center gap-2 transition-colors border border-[rgba(245,68,166,1)] text-sm shadow-sm">
                     <ArrowDownLeft size={16} />
                     {lang === 'RU' ? 'Пополнить' : 'Deposit'}
                 </button>
