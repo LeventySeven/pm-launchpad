@@ -558,6 +558,17 @@ export interface Database {
         };
         Relationships: [];
       };
+      user_market_bets_public: {
+        Row: {
+          user_id: string;
+          market_id: string;
+          outcome: OutcomeSide;
+          last_bet_at: string;
+          is_active: boolean;
+          position_updated_at: string | null;
+        };
+        Relationships: [];
+      };
       trades_public: {
         Row: {
           id: string;

@@ -152,7 +152,7 @@ export default function HomePage() {
     avatarUrl: string | null;
     telegramPhotoUrl: string | null;
   };
-  type PublicProfileVote = { marketId: string; outcome: "YES" | "NO"; lastBetAt: string };
+  type PublicProfileVote = { marketId: string; outcome: "YES" | "NO"; lastBetAt: string; isActive: boolean };
   type PublicProfileComment = {
     id: string;
     marketId: string;
@@ -1147,6 +1147,7 @@ export default function HomePage() {
             marketId: requireValue(v.marketId, "PUBLIC_VOTE_MARKET_ID_MISSING"),
             outcome: requireValue(v.outcome, "PUBLIC_VOTE_OUTCOME_MISSING"),
             lastBetAt: requireValue(v.lastBetAt, "PUBLIC_VOTE_TIME_MISSING"),
+            isActive: Boolean((v as { isActive?: boolean }).isActive),
           }))
         );
         setPublicProfileComments(

@@ -5,7 +5,9 @@ begin;
 -- - Excludes deposits/withdrawals and any external refs
 -- - Does not expose asset_code/trade_id to reduce correlation surface
 drop view if exists public.wallet_transactions_public;
-create view public.wallet_transactions_public as
+create view public.wallet_transactions_public
+with (security_barrier = true)
+as
 select
   t.id,
   t.user_id,

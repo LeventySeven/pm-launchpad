@@ -12,7 +12,9 @@ drop view if exists public.leaderboard_public;
 
 -- Public identity surface (PII-free)
 drop view if exists public.users_public;
-create view public.users_public as
+create view public.users_public
+with (security_barrier = true)
+as
 select
   id,
   username,
@@ -31,7 +33,9 @@ revoke all on table public.users from anon;
 revoke all on table public.users from authenticated;
 
 -- Public comments view (PII-free)
-create view public.market_comments_public as
+create view public.market_comments_public
+with (security_barrier = true)
+as
 select
   c.id,
   c.market_id,
@@ -56,7 +60,9 @@ grant select on public.market_comments_public to authenticated;
 grant select on public.market_comments_public to service_role;
 
 -- Public leaderboard view (PII-free; uses users_public for identity)
-create view public.leaderboard_public as
+create view public.leaderboard_public
+with (security_barrier = true)
+as
 with
   pnl as (
     select

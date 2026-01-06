@@ -26,6 +26,7 @@ type LeaderboardRow = Database["public"]["Views"]["leaderboard_public"]["Row"];
 type UsersPublicRow = Database["public"]["Views"]["users_public"]["Row"];
 type UserPnlDailyRow = Database["public"]["Views"]["user_pnl_daily_public"]["Row"];
 type UserMarketVoteRow = Database["public"]["Views"]["user_market_votes_public"]["Row"];
+type UserMarketBetRow = Database["public"]["Views"]["user_market_bets_public"]["Row"];
 type MarketCommentPublicRow = Database["public"]["Views"]["market_comments_public"]["Row"];
 type WalletTxPublicRow = Database["public"]["Views"]["wallet_transactions_public"]["Row"];
 
@@ -372,6 +373,7 @@ export const userRouter = router({
           marketId: z.string(),
           outcome: z.enum(["YES", "NO"]),
           lastBetAt: z.string(),
+          isActive: z.boolean(),
         })
       )
     )
@@ -380,8 +382,8 @@ export const userRouter = router({
       const limit = input.limit ?? 100;
 
       const { data, error } = await supabase
-        .from("user_market_votes_public")
-        .select("user_id, market_id, outcome, last_bet_at")
+        .from("user_market_bets_public")
+        .select("user_id, market_id, outcome, last_bet_at, is_active, position_updated_at")
         .eq("user_id", input.userId)
         .order("last_bet_at", { ascending: false })
         .limit(limit);
@@ -390,11 +392,12 @@ export const userRouter = router({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
       }
 
-      const rows = (data ?? []) as UserMarketVoteRow[];
+      const rows = (data ?? []) as UserMarketBetRow[];
       return rows.map((r) => ({
         marketId: r.market_id,
         outcome: r.outcome as "YES" | "NO",
         lastBetAt: new Date(r.last_bet_at).toISOString(),
+        isActive: Boolean((r as { is_active?: boolean }).is_active),
       }));
     }),
 
