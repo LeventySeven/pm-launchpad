@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Market, User, Position, PriceCandle, PublicTrade, Comment } from '../types';
 import Button from './Button';
 import { ChevronLeft, Clock, ShieldCheck, User as UserIcon, Send, ThumbsUp, CalendarDays, Coins, MessageCircle, X, Info } from 'lucide-react';
@@ -72,22 +72,13 @@ const MarketPage: React.FC<MarketPageProps> = ({
   const [resolveError, setResolveError] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<{ id: string; label: string } | null>(null);
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
-  const betSectionRef = useRef<HTMLDivElement | null>(null);
-  const lastBetIntentNonce = useRef<number | null>(null);
 
-  // Handle bet intent scrolling - use useEffect to avoid side effects in render
   useEffect(() => {
     if (!betIntent) return;
-    const currentNonce = betIntent.nonce;
-    if (currentNonce !== lastBetIntentNonce.current) {
-      lastBetIntentNonce.current = currentNonce;
-      setTradeType(betIntent.side);
-      // Use requestAnimationFrame to ensure DOM is ready
-      requestAnimationFrame(() => {
-        betSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    }
-  }, [betIntent?.nonce, betIntent]);
+    setTradeType(betIntent.side);
+    const el = document.getElementById("bid-section");
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [betIntent?.nonce]);
 
   // Use closesAt for trading deadline, expiresAt for event end
   const tradingDeadline = market.closesAt || market.expiresAt;
@@ -462,7 +453,6 @@ const MarketPage: React.FC<MarketPageProps> = ({
 
         {/* Bet (trade card) */}
         <div
-          ref={betSectionRef}
           id="bid-section"
           className="scroll-mt-24 lg:col-span-4 lg:col-start-9 lg:row-start-1 lg:row-span-2"
         >

@@ -241,7 +241,7 @@ export default function HomePage() {
     setShowAuth(true);
   }, []);
 
-  const handleSignUp = useCallback(async (payload: {
+  const handleSignUp = async (payload: {
     email: string;
     username: string;
     password: string;
@@ -254,7 +254,7 @@ export default function HomePage() {
       displayName: payload.displayName,
       referralCode: pendingReferralCode ?? undefined,
     });
-    const newUser = {
+    setUser({
       id: String(me.user.id),
       email: me.user.email,
       username: me.user.username,
@@ -268,9 +268,7 @@ export default function HomePage() {
       referralCode: me.user.referralCode,
       referralCommissionRate: me.user.referralCommissionRate,
       referralEnabled: me.user.referralEnabled,
-    };
-    setUser(newUser);
-    void loadMyBets(true);
+    });
 
     setPendingReferralCode(null);
     try {
@@ -278,32 +276,9 @@ export default function HomePage() {
     } catch {
       // ignore
     }
-
-    // Handle post-auth actions
-    const action = postAuthAction;
-    if (action) {
-      setPostAuthAction(null);
-      if (action.type === "OPEN_CREATE_MARKET") {
-        if (marketCategories.length === 0 && !loadingMarketCategories) {
-          void loadMarketCategories();
-        }
-        setShowAdminModal(true);
-      } else if (action.type === "OPEN_MARKET_BET") {
-        setSelectedMarketId(action.marketId);
-        setMarketBetIntent({ marketId: action.marketId, side: action.side, nonce: Date.now() });
-      } else if (action.type === "PLACE_BET") {
-        setSelectedMarketId(action.marketId);
-        void handlePlaceBet({
-          amount: action.amount,
-          marketId: action.marketId,
-          side: action.side,
-          marketTitle: action.marketTitle,
-        });
-      }
-    }
   };
 
-  const handleLoginSubmit = useCallback(async (payload: {
+  const handleLoginSubmit = async (payload: {
     emailOrUsername: string;
     password: string;
   }) => {
@@ -311,7 +286,7 @@ export default function HomePage() {
       emailOrUsername: payload.emailOrUsername,
       password: payload.password,
     });
-    const newUser = {
+    setUser({
       id: String(me.user.id),
       email: me.user.email,
       username: me.user.username,
@@ -325,33 +300,8 @@ export default function HomePage() {
       referralCode: me.user.referralCode,
       referralCommissionRate: me.user.referralCommissionRate,
       referralEnabled: me.user.referralEnabled,
-    };
-    setUser(newUser);
-    void loadMyBets(true);
-
-    // Handle post-auth actions
-    const action = postAuthAction;
-    if (action) {
-      setPostAuthAction(null);
-      if (action.type === "OPEN_CREATE_MARKET") {
-        if (marketCategories.length === 0 && !loadingMarketCategories) {
-          void loadMarketCategories();
-        }
-        setShowAdminModal(true);
-      } else if (action.type === "OPEN_MARKET_BET") {
-        setSelectedMarketId(action.marketId);
-        setMarketBetIntent({ marketId: action.marketId, side: action.side, nonce: Date.now() });
-      } else if (action.type === "PLACE_BET") {
-        setSelectedMarketId(action.marketId);
-        void handlePlaceBet({
-          amount: action.amount,
-          marketId: action.marketId,
-          side: action.side,
-          marketTitle: action.marketTitle,
-        });
-      }
-    }
-  }, [loadMyBets, postAuthAction, marketCategories.length, loadingMarketCategories, loadMarketCategories, handlePlaceBet]);
+    });
+  };
 
   const handleTelegramLogin = useCallback(async (initData: string) => {
     const res = await trpcClient.auth.telegramLogin.mutate({ initData });
@@ -370,9 +320,7 @@ export default function HomePage() {
       referralCommissionRate: res.user.referralCommissionRate,
       referralEnabled: res.user.referralEnabled,
     });
-    // Load bets directly when user is set
-    void loadMyBets(true);
-  }, [loadMyBets]);
+  }, []);
 
   const refreshUser = useCallback(async () => {
     try {
@@ -393,19 +341,13 @@ export default function HomePage() {
           referralCommissionRate: me.referralCommissionRate,
           referralEnabled: me.referralEnabled,
         });
-        // Load bets directly when user is set
-        void loadMyBets(true);
         return me;
-      } else {
-        // Clear positions/trades when no user
-        setMyPositions([]);
-        setMyTrades([]);
       }
     } catch (err) {
       console.error("Failed to refresh session user", err);
     }
     return null;
-  }, [loadMyBets]);
+  }, []);
 
   const handleUpdateDisplayName = useCallback(
     async (nextDisplayName: string) => {
@@ -515,8 +457,8 @@ export default function HomePage() {
   /**
    * Load user positions and trades
    */
-  const loadMyBets = useCallback(async (forceLoad = false) => {
-    if (!user && !forceLoad) return;
+  const loadMyBets = useCallback(async () => {
+    if (!user) return;
     try {
       const [positionsRaw, tradesRaw] = await Promise.all([
         trpcClient.market.myPositions.query(),
@@ -682,6 +624,14 @@ export default function HomePage() {
       setMyComments([]);
     }
   }, [user]);
+  useEffect(() => {
+    if (!user) {
+      setMyPositions([]);
+      setMyTrades([]);
+      return;
+    }
+    void loadMyBets();
+  }, [user, loadMyBets]);
 
   useEffect(() => {
     void loadMarkets();
@@ -1007,6 +957,35 @@ export default function HomePage() {
   );
 
   // Post-auth actions (run only after user becomes available).
+  useEffect(() => {
+    if (!user || !postAuthAction) return;
+    if (postAuthAction.type === "OPEN_CREATE_MARKET") {
+      setPostAuthAction(null);
+      if (marketCategories.length === 0 && !loadingMarketCategories) {
+        void loadMarketCategories();
+      }
+      setShowAdminModal(true);
+      return;
+    }
+    if (postAuthAction.type === "OPEN_MARKET_BET") {
+      const action = postAuthAction;
+      setPostAuthAction(null);
+      setSelectedMarketId(action.marketId);
+      setMarketBetIntent({ marketId: action.marketId, side: action.side, nonce: Date.now() });
+      return;
+    }
+    if (postAuthAction.type === "PLACE_BET") {
+      const action = postAuthAction;
+      setPostAuthAction(null);
+      setSelectedMarketId(action.marketId);
+      void handlePlaceBet({
+        amount: action.amount,
+        marketId: action.marketId,
+        side: action.side,
+        marketTitle: action.marketTitle,
+      });
+    }
+  }, [user, postAuthAction, marketCategories.length, loadingMarketCategories, loadMarketCategories]);
 
   /**
    * Handle selling a position (cash out)
