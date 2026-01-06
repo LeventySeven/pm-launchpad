@@ -23,6 +23,11 @@ type WalletTransactionRow = Pick<
 >;
 
 type LeaderboardRow = Database["public"]["Views"]["leaderboard_public"]["Row"];
+type UsersPublicRow = Database["public"]["Views"]["users_public"]["Row"];
+type UserPnlDailyRow = Database["public"]["Views"]["user_pnl_daily_public"]["Row"];
+type UserMarketVoteRow = Database["public"]["Views"]["user_market_votes_public"]["Row"];
+type MarketCommentPublicRow = Database["public"]["Views"]["market_comments_public"]["Row"];
+type WalletTxPublicRow = Database["public"]["Views"]["wallet_transactions_public"]["Row"];
 
 const userShape = {
   id: z.string(),
@@ -244,6 +249,244 @@ export const userRouter = router({
         marketId: tx.market_id,
         tradeId: tx.trade_id,
         createdAt: new Date(tx.created_at).toISOString(),
+      }));
+    }),
+
+  /**
+   * Public user identity (PII-free) for opening profiles from comments/leaderboard.
+   */
+  publicUser: publicProcedure
+    .input(z.object({ userId: z.string().uuid() }))
+    .output(
+      z.object({
+        id: z.string(),
+        username: z.string(),
+        displayName: z.string().nullable(),
+        avatarUrl: z.string().nullable(),
+        telegramPhotoUrl: z.string().nullable(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { supabase } = ctx;
+      const { data, error } = await supabase
+        .from("users_public")
+        .select("id, username, display_name, avatar_url, telegram_photo_url")
+        .eq("id", input.userId)
+        .maybeSingle();
+
+      if (error) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      }
+      if (!data) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+      }
+
+      const row = data as UsersPublicRow;
+      return {
+        id: row.id,
+        username: row.username,
+        displayName: row.display_name ?? null,
+        avatarUrl: row.avatar_url ?? null,
+        telegramPhotoUrl: row.telegram_photo_url ?? null,
+      };
+    }),
+
+  /**
+   * Public user summary stats (PII-free): PnL and rank data from leaderboard_public.
+   */
+  publicUserStats: publicProcedure
+    .input(z.object({ userId: z.string().uuid() }))
+    .output(
+      z.object({
+        pnlMajor: z.number(),
+        betCount: z.number(),
+        rank: z.number(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { supabase } = ctx;
+      const { data, error } = await supabase
+        .from("leaderboard_public")
+        .select("pnl_minor, bet_count, rank")
+        .eq("user_id", input.userId)
+        .maybeSingle();
+
+      if (error) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      }
+      if (!data) {
+        return { pnlMajor: 0, betCount: 0, rank: 0 };
+      }
+
+      const row = data as Pick<LeaderboardRow, "pnl_minor" | "bet_count" | "rank">;
+      return {
+        pnlMajor: toMajorUnits(Number(row.pnl_minor ?? 0), VCOIN_DECIMALS),
+        betCount: Number(row.bet_count ?? 0),
+        rank: Number(row.rank ?? 0),
+      };
+    }),
+
+  /**
+   * Public PnL series (daily deltas, aggregated; no raw transactions).
+   */
+  publicUserPnlSeries: publicProcedure
+    .input(z.object({ userId: z.string().uuid(), limitDays: z.number().min(1).max(365).optional() }))
+    .output(
+      z.array(
+        z.object({
+          day: z.string(),
+          pnlMajor: z.number(),
+        })
+      )
+    )
+    .query(async ({ ctx, input }) => {
+      const { supabase } = ctx;
+      const limitDays = input.limitDays ?? 90;
+
+      const { data, error } = await supabase
+        .from("user_pnl_daily_public")
+        .select("user_id, day, pnl_minor")
+        .eq("user_id", input.userId)
+        .order("day", { ascending: true })
+        .limit(limitDays);
+
+      if (error) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      }
+
+      const rows = (data ?? []) as UserPnlDailyRow[];
+      return rows.map((r) => ({
+        day: new Date(r.day).toISOString(),
+        pnlMajor: toMajorUnits(Number(r.pnl_minor ?? 0), VCOIN_DECIMALS),
+      }));
+    }),
+
+  /**
+   * Public list of markets the user voted for (no wallet amounts).
+   */
+  publicUserVotes: publicProcedure
+    .input(z.object({ userId: z.string().uuid(), limit: z.number().min(1).max(500).optional() }))
+    .output(
+      z.array(
+        z.object({
+          marketId: z.string(),
+          outcome: z.enum(["YES", "NO"]),
+          lastBetAt: z.string(),
+        })
+      )
+    )
+    .query(async ({ ctx, input }) => {
+      const { supabase } = ctx;
+      const limit = input.limit ?? 100;
+
+      const { data, error } = await supabase
+        .from("user_market_votes_public")
+        .select("user_id, market_id, outcome, last_bet_at")
+        .eq("user_id", input.userId)
+        .order("last_bet_at", { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      }
+
+      const rows = (data ?? []) as UserMarketVoteRow[];
+      return rows.map((r) => ({
+        marketId: r.market_id,
+        outcome: r.outcome as "YES" | "NO",
+        lastBetAt: new Date(r.last_bet_at).toISOString(),
+      }));
+    }),
+
+  /**
+   * Public comments by user (PII-free; content is already public).
+   */
+  publicUserComments: publicProcedure
+    .input(z.object({ userId: z.string().uuid(), limit: z.number().min(1).max(200).optional() }))
+    .output(
+      z.array(
+        z.object({
+          id: z.string(),
+          marketId: z.string(),
+          parentId: z.string().nullable(),
+          body: z.string(),
+          createdAt: z.string(),
+          likesCount: z.number(),
+        })
+      )
+    )
+    .query(async ({ ctx, input }) => {
+      const { supabase } = ctx;
+      const limit = input.limit ?? 50;
+
+      const { data, error } = await supabase
+        .from("market_comments_public")
+        .select("id, market_id, parent_id, body, created_at, likes_count")
+        .eq("user_id", input.userId)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      }
+
+      const rows = (data ?? []) as Pick<
+        MarketCommentPublicRow,
+        "id" | "market_id" | "parent_id" | "body" | "created_at" | "likes_count"
+      >[];
+
+      return rows.map((c) => ({
+        id: c.id,
+        marketId: c.market_id,
+        parentId: c.parent_id ?? null,
+        body: c.body,
+        createdAt: new Date(c.created_at).toISOString(),
+        likesCount: Number(c.likes_count ?? 0),
+      }));
+    }),
+
+  /**
+   * Public (sanitized) transaction feed for a user: only trading-related kinds.
+   */
+  publicUserTransactions: publicProcedure
+    .input(z.object({ userId: z.string().uuid(), limit: z.number().min(1).max(200).optional() }))
+    .output(
+      z.array(
+        z.object({
+          id: z.string(),
+          kind: z.string(),
+          amountMajor: z.number(),
+          marketId: z.string().nullable(),
+          marketTitleRu: z.string().nullable(),
+          marketTitleEn: z.string().nullable(),
+          createdAt: z.string(),
+        })
+      )
+    )
+    .query(async ({ ctx, input }) => {
+      const { supabase } = ctx;
+      const limit = input.limit ?? 100;
+
+      const { data, error } = await supabase
+        .from("wallet_transactions_public")
+        .select("id, user_id, kind, asset_code, amount_minor, market_id, market_title_rus, market_title_eng, created_at")
+        .eq("user_id", input.userId)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      }
+
+      const rows = (data ?? []) as WalletTxPublicRow[];
+      return rows.map((r) => ({
+        id: r.id,
+        kind: String(r.kind),
+        amountMajor: toMajorUnits(Number(r.amount_minor ?? 0), VCOIN_DECIMALS),
+        marketId: r.market_id ?? null,
+        marketTitleRu: r.market_title_rus ?? null,
+        marketTitleEn: r.market_title_eng ?? null,
+        createdAt: new Date(r.created_at).toISOString(),
       }));
     }),
 

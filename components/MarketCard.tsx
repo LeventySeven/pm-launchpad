@@ -103,8 +103,7 @@ const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, onQuickBet, bo
               swipeAnim.dir === 'RIGHT' ? 'left-4' : 'right-4'
             } inline-flex items-center gap-2 rounded-full border border-[rgba(245,68,166,1)] bg-black/70 px-3 py-1 text-xs font-semibold text-[rgba(245,68,166,1)]`}
           >
-            <Bookmark size={14} />
-            {bookmarked ? (lang === 'RU' ? 'Удалено' : 'Removed') : (lang === 'RU' ? 'Сохранено' : 'Saved')}
+            <Bookmark size={16} />
           </div>
         </div>
       )}
@@ -116,13 +115,14 @@ const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, onQuickBet, bo
           </div>
       )}
       {bookmarked && (
-        <div className="absolute top-3 right-3 z-10 inline-flex items-center gap-1 rounded-full border border-[rgba(245,68,166,1)] bg-black/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[rgba(245,68,166,1)]">
-          <Bookmark size={12} />
-          {lang === 'RU' ? 'Сохранено' : 'Saved'}
+        <div className="absolute top-3 right-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border border-[rgba(245,68,166,1)] bg-black/70 text-[rgba(245,68,166,1)]">
+          <Bookmark size={14} />
         </div>
       )}
       {isResolved && (
-          <div className={`absolute top-3 ${bookmarked ? "right-3 mt-7" : "right-3"} border border-zinc-800 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider text-zinc-200 bg-black/60`}>
+          <div
+            className={`absolute ${bookmarked ? "top-12 right-3" : "top-3 right-3"} border border-zinc-800 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider text-zinc-200 bg-black/60`}
+          >
               {lang === 'RU' ? `Исход: ${winningYes ? 'ДА' : 'НЕТ'}` : `Outcome: ${winningYes ? 'YES' : 'NO'}`}
           </div>
       )}

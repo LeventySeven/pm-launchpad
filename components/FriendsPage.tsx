@@ -12,6 +12,7 @@ type FriendsPageProps = {
   leaderboardLoading: boolean;
   leaderboardError: string | null;
   onLogin: () => void;
+  onUserClick: (user: LeaderboardUser) => void;
   onCreateReferralLink: () => Promise<{
     referralCode: string;
     referralCommissionRate: number;
@@ -19,7 +20,7 @@ type FriendsPageProps = {
   }>;
 };
 
-const FriendsPage: React.FC<FriendsPageProps> = ({ lang, user, leaderboardUsers, leaderboardLoading, leaderboardError, onLogin, onCreateReferralLink }) => {
+const FriendsPage: React.FC<FriendsPageProps> = ({ lang, user, leaderboardUsers, leaderboardLoading, leaderboardError, onLogin, onUserClick, onCreateReferralLink }) => {
   const [tab, setTab] = useState<'LEADERBOARD' | 'REFERRALS'>('LEADERBOARD');
 
   const t = useMemo(
@@ -71,7 +72,7 @@ const FriendsPage: React.FC<FriendsPageProps> = ({ lang, user, leaderboardUsers,
             {lang === 'RU' ? 'Пока нет данных' : 'No data yet'}
           </div>
         ) : (
-          <Leaderboard users={leaderboardUsers} lang={lang} onUserClick={() => {}} />
+          <Leaderboard users={leaderboardUsers} lang={lang} onUserClick={onUserClick} />
         )
       ) : (
         <Referrals user={user} onLogin={onLogin} lang={lang} onCreateReferralLink={onCreateReferralLink} />

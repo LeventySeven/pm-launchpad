@@ -528,6 +528,38 @@ export interface Database {
         };
         Relationships: [];
       };
+      wallet_transactions_public: {
+        Row: {
+          id: string;
+          user_id: string;
+          kind: WalletTxKind;
+          asset_code: string;
+          amount_minor: number;
+          market_id: string | null;
+          market_title_rus: string | null;
+          market_title_eng: string | null;
+          trade_id: string | null;
+          created_at: string;
+        };
+        Relationships: [];
+      };
+      user_pnl_daily_public: {
+        Row: {
+          user_id: string;
+          day: string;
+          pnl_minor: number;
+        };
+        Relationships: [];
+      };
+      user_market_votes_public: {
+        Row: {
+          user_id: string;
+          market_id: string;
+          outcome: OutcomeSide;
+          last_bet_at: string;
+        };
+        Relationships: [];
+      };
       trades_public: {
         Row: {
           id: string;

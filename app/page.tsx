@@ -9,6 +9,7 @@ import OnboardingModal from "@/components/OnboardingModal";
 import BetConfirmModal from "@/components/BetConfirmModal";
 import AdminMarketModal from "@/components/AdminMarketModal";
 import ProfilePage from "@/components/ProfilePage";
+import PublicUserProfileModal from "@/components/PublicUserProfileModal";
 import type { Market, User, Bet, Position, Trade, PriceCandle, PublicTrade, LeaderboardUser, Comment as MarketComment } from "@/types";
 import { trpcClient } from "@/src/utils/trpcClient";
 import { Search } from "lucide-react";
@@ -127,6 +128,41 @@ export default function HomePage() {
   const [leaderboardUsers, setLeaderboardUsers] = useState<LeaderboardUser[]>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
   const [leaderboardError, setLeaderboardError] = useState<string | null>(null);
+  type PublicProfileUser = {
+    id: string;
+    username: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    telegramPhotoUrl: string | null;
+  };
+  type PublicProfileVote = { marketId: string; outcome: "YES" | "NO"; lastBetAt: string };
+  type PublicProfileComment = {
+    id: string;
+    marketId: string;
+    parentId: string | null;
+    body: string;
+    createdAt: string;
+    likesCount: number;
+  };
+  type PublicProfilePnlPoint = { day: string; pnlMajor: number };
+  type PublicProfileTx = {
+    id: string;
+    kind: string;
+    amountMajor: number;
+    marketId: string | null;
+    marketTitleRu: string | null;
+    marketTitleEn: string | null;
+    createdAt: string;
+  };
+  const [publicProfileOpen, setPublicProfileOpen] = useState(false);
+  const [publicProfileLoading, setPublicProfileLoading] = useState(false);
+  const [publicProfileError, setPublicProfileError] = useState<string | null>(null);
+  const [publicProfileUser, setPublicProfileUser] = useState<PublicProfileUser | null>(null);
+  const [publicProfilePnl, setPublicProfilePnl] = useState(0);
+  const [publicProfilePnlSeries, setPublicProfilePnlSeries] = useState<PublicProfilePnlPoint[]>([]);
+  const [publicProfileVotes, setPublicProfileVotes] = useState<PublicProfileVote[]>([]);
+  const [publicProfileComments, setPublicProfileComments] = useState<PublicProfileComment[]>([]);
+  const [publicProfileTxs, setPublicProfileTxs] = useState<PublicProfileTx[]>([]);
   type MarketCategoryStrict = { id: string; labelRu: string; labelEn: string };
   const [marketCategories, setMarketCategories] = useState<MarketCategoryStrict[]>([]);
   const [loadingMarketCategories, setLoadingMarketCategories] = useState(false);
@@ -895,6 +931,8 @@ export default function HomePage() {
           });
           return {
             id: c.id,
+            userId: c.userId,
+            username: c.authorUsername ?? null,
             user: userLabel,
             avatar,
             text: c.body,
@@ -1044,6 +1082,84 @@ export default function HomePage() {
     [openAuth, user]
   );
 
+  const openPublicProfile = useCallback(
+    async (userId: string) => {
+      setPublicProfileOpen(true);
+      setPublicProfileLoading(true);
+      setPublicProfileError(null);
+      setPublicProfileUser(null);
+      setPublicProfilePnl(0);
+      setPublicProfilePnlSeries([]);
+      setPublicProfileVotes([]);
+      setPublicProfileComments([]);
+      setPublicProfileTxs([]);
+
+      try {
+        const [u, stats, series, votes, comments, txs] = await Promise.all([
+          trpcClient.user.publicUser.query({ userId }),
+          trpcClient.user.publicUserStats.query({ userId }),
+          trpcClient.user.publicUserPnlSeries.query({ userId, limitDays: 90 }),
+          trpcClient.user.publicUserVotes.query({ userId, limit: 100 }),
+          trpcClient.user.publicUserComments.query({ userId, limit: 50 }),
+          trpcClient.user.publicUserTransactions.query({ userId, limit: 100 }),
+        ]);
+
+        setPublicProfileUser({
+          id: requireValue(u.id, "PUBLIC_USER_ID_MISSING"),
+          username: requireValue(u.username, "PUBLIC_USER_USERNAME_MISSING"),
+          displayName: u.displayName ?? null,
+          avatarUrl: u.avatarUrl ?? null,
+          telegramPhotoUrl: u.telegramPhotoUrl ?? null,
+        });
+        setPublicProfilePnl(Number(stats.pnlMajor ?? 0));
+        setPublicProfilePnlSeries(
+          (series ?? []).map((p) => ({
+            day: requireValue(p.day, "PUBLIC_PNL_DAY_MISSING"),
+            pnlMajor: Number(requireValue(p.pnlMajor, "PUBLIC_PNL_VALUE_MISSING")),
+          }))
+        );
+        setPublicProfileVotes(
+          (votes ?? []).map((v) => ({
+            marketId: requireValue(v.marketId, "PUBLIC_VOTE_MARKET_ID_MISSING"),
+            outcome: requireValue(v.outcome, "PUBLIC_VOTE_OUTCOME_MISSING"),
+            lastBetAt: requireValue(v.lastBetAt, "PUBLIC_VOTE_TIME_MISSING"),
+          }))
+        );
+        setPublicProfileComments(
+          (comments ?? []).map((c) => ({
+            id: requireValue(c.id, "PUBLIC_COMMENT_ID_MISSING"),
+            marketId: requireValue(c.marketId, "PUBLIC_COMMENT_MARKET_ID_MISSING"),
+            parentId: c.parentId ?? null,
+            body: requireValue(c.body, "PUBLIC_COMMENT_BODY_MISSING"),
+            createdAt: requireValue(c.createdAt, "PUBLIC_COMMENT_CREATED_MISSING"),
+            likesCount: Number(c.likesCount ?? 0),
+          }))
+        );
+        setPublicProfileTxs(
+          (txs ?? []).map((t) => ({
+            id: requireValue(t.id, "PUBLIC_TX_ID_MISSING"),
+            kind: requireValue(t.kind, "PUBLIC_TX_KIND_MISSING"),
+            amountMajor: Number(requireValue(t.amountMajor, "PUBLIC_TX_AMOUNT_MISSING")),
+            marketId: t.marketId ?? null,
+            marketTitleRu: t.marketTitleRu ?? null,
+            marketTitleEn: t.marketTitleEn ?? null,
+            createdAt: requireValue(t.createdAt, "PUBLIC_TX_CREATED_MISSING"),
+          }))
+        );
+      } catch (err) {
+        console.error("openPublicProfile failed", err);
+        setPublicProfileError(lang === "RU" ? "Не удалось загрузить профиль" : "Failed to load profile");
+      } finally {
+        setPublicProfileLoading(false);
+      }
+    },
+    [lang]
+  );
+
+  const closePublicProfile = useCallback(() => {
+    setPublicProfileOpen(false);
+  }, []);
+
   // Post-auth actions (run only after user becomes available).
   useEffect(() => {
     if (!user || !postAuthAction) return;
@@ -1131,6 +1247,8 @@ export default function HomePage() {
       });
       const ui: MarketComment = {
         id: parsed.id,
+        userId: parsed.userId,
+        username: parsed.authorUsername ?? null,
         user: userLabel,
         avatar,
         text: parsed.body,
@@ -1221,6 +1339,7 @@ export default function HomePage() {
               onPlaceBet={handlePlaceBet}
               onSellPosition={handleSellPosition}
               comments={marketComments}
+                onOpenUserProfile={(userId) => void openPublicProfile(userId)}
               onPostComment={handlePostMarketComment}
               onToggleCommentLike={handleToggleMarketCommentLike}
               userPositions={myPositions.filter((p) => p.marketId === selectedMarket.id)}
@@ -1307,56 +1426,148 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {eventsPanelPage === "FEED" ? (
-                  <>
-                    {user && bookmarkedMarkets.length > 0 && (
-                      <>
-                        <div className="px-4 pb-2">
-                          <div className="text-xs font-bold uppercase tracking-widest text-zinc-500">
-                            {lang === "RU" ? "Закладки" : "Bookmarks"}
+                <div className="overflow-hidden">
+                  <div
+                    className={`flex w-[200%] transition-transform duration-200 ease-out will-change-transform ${
+                      eventsPanelPage === "FEED" ? "translate-x-0" : "-translate-x-1/2"
+                    }`}
+                  >
+                    {/* FEED */}
+                    <div className="w-1/2">
+                      {user && bookmarkedMarkets.length > 0 && (
+                        <>
+                          <div className="px-4 pb-2">
+                            <div className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+                              {lang === "RU" ? "Закладки" : "Bookmarks"}
+                            </div>
                           </div>
+                          <div className="px-4 pt-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-4">
+                              {bookmarkedMarkets.map((market) => (
+                                <MarketCard
+                                  key={`bm-${market.id}`}
+                                  market={market}
+                                  bookmarked
+                                  onSetBookmarked={handleSetBookmarked}
+                                  onClick={() => {
+                                    setMarketBetIntent(null);
+                                    setSelectedMarketId(market.id);
+                                  }}
+                                  onQuickBet={(side) => handleOpenMarketBet(market, side)}
+                                  lang={lang}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                      <div className="px-4 pb-2">
+                        <div className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+                          {lang === "RU" ? "Рекомендовано" : "Recommended"}
                         </div>
-                        <div className="px-4 pt-2">
+                      </div>
+                      <div className="px-4 pt-2">
+                        {loadingMarkets ? (
+                          <div className="text-center py-10 text-zinc-500">
+                            {marketsLoadingMessage || (lang === "RU" ? "Загрузка рынков..." : "Loading markets...")}
+                          </div>
+                        ) : feedMarkets.length > 0 ? (
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-4">
-                            {bookmarkedMarkets.map((market) => (
-                              <MarketCard
-                                key={`bm-${market.id}`}
-                                market={market}
-                                bookmarked
-                                onSetBookmarked={handleSetBookmarked}
-                                onClick={() => {
-                                  setMarketBetIntent(null);
-                                  setSelectedMarketId(market.id);
-                                }}
-                                onQuickBet={(side) => handleOpenMarketBet(market, side)}
-                                lang={lang}
-                              />
-                            ))}
+                            {feedMarkets
+                              .filter((m) => !bookmarkedMarketIds.has(m.id))
+                              .map((market) => (
+                                <MarketCard
+                                  key={market.id}
+                                  market={market}
+                                  bookmarked={bookmarkedMarketIds.has(market.id)}
+                                  onSetBookmarked={handleSetBookmarked}
+                                  onClick={() => {
+                                    setMarketBetIntent(null);
+                                    setSelectedMarketId(market.id);
+                                  }}
+                                  onQuickBet={(side) => handleOpenMarketBet(market, side)}
+                                  lang={lang}
+                                />
+                              ))}
                           </div>
-                        </div>
-                      </>
-                    )}
-                    <div className="px-4 pb-2">
-                      <div className="text-xs font-bold uppercase tracking-widest text-zinc-500">
-                        {lang === "RU" ? "Рекомендовано" : "Recommended"}
+                        ) : (
+                          <div className="text-center py-20 text-zinc-500 px-4">
+                            <p className="text-lg mb-2">{lang === "RU" ? "Ничего не найдено" : "Nothing found"}</p>
+                            <p className="text-sm">{lang === "RU" ? "Попробуйте другой запрос" : "Try a different search"}</p>
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div className="px-4 pt-2">
-                      {loadingMarkets ? (
-                        <div className="text-center py-10 text-zinc-500">
-                          {marketsLoadingMessage || (lang === "RU" ? "Загрузка рынков..." : "Loading markets...")}
+
+                    {/* CATALOG */}
+                    <div className="w-1/2">
+                      {/* Mobile search (desktop search is in Header) */}
+                      <div className="px-4 pt-2 pb-3 md:hidden">
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder={lang === "RU" ? "Поиск..." : "Search..."}
+                            className="w-full h-10 rounded-full bg-zinc-950 border border-zinc-900 px-4 pl-10 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700"
+                          />
+                          <Search size={16} className="absolute left-3.5 top-3 text-zinc-600" />
                         </div>
-                      ) : feedMarkets.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-4">
-                          {feedMarkets
-                            .filter((m) => !bookmarkedMarketIds.has(m.id))
-                            .map((market) => (
+                      </div>
+
+                      {/* Categories */}
+                      <div className="px-4 pb-3 border-b border-zinc-900">
+                        <div
+                          className="flex gap-2 overflow-x-auto custom-scrollbar pb-1"
+                          data-events-swipe-ignore="true"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setActiveCategoryId("all")}
+                            className={`shrink-0 px-3 py-1.5 rounded-full border text-xs font-semibold uppercase tracking-wider transition ${
+                              activeCategoryId === "all"
+                                ? "border-[rgba(245,68,166,1)] bg-black text-[rgba(245,68,166,1)] hover:bg-[rgba(245,68,166,0.10)]"
+                                : "border-zinc-900 bg-black text-zinc-400 hover:text-white hover:border-zinc-700"
+                            }`}
+                          >
+                            {lang === "RU" ? "Все" : "All"}
+                          </button>
+                          {marketCategories.map((c) => {
+                            const label = lang === "RU" ? c.labelRu : c.labelEn;
+                            const selected = activeCategoryId === c.id;
+                            return (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => setActiveCategoryId(c.id)}
+                                className={`shrink-0 px-3 py-1.5 rounded-full border text-xs font-semibold uppercase tracking-wider transition ${
+                                  selected
+                                    ? "border-[rgba(245,68,166,1)] bg-black text-[rgba(245,68,166,1)] hover:bg-[rgba(245,68,166,0.10)]"
+                                    : "border-zinc-900 bg-black text-zinc-400 hover:text-white hover:border-zinc-700"
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="px-4 pt-4">
+                        {loadingMarkets ? (
+                          <div className="text-center py-10 text-zinc-500">
+                            {marketsLoadingMessage || (lang === "RU" ? "Загрузка рынков..." : "Loading markets...")}
+                          </div>
+                        ) : filteredMarkets.length > 0 ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-4">
+                            {filteredMarkets.map((market) => (
                               <MarketCard
                                 key={market.id}
                                 market={market}
                                 bookmarked={bookmarkedMarketIds.has(market.id)}
                                 onSetBookmarked={handleSetBookmarked}
                                 onClick={() => {
+                                  // Always clear bet intent when clicking card normally to ensure we start at top
                                   setMarketBetIntent(null);
                                   setSelectedMarketId(market.id);
                                 }}
@@ -1364,101 +1575,17 @@ export default function HomePage() {
                                 lang={lang}
                               />
                             ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-20 text-zinc-500 px-4">
-                          <p className="text-lg mb-2">{lang === "RU" ? "Ничего не найдено" : "Nothing found"}</p>
-                          <p className="text-sm">{lang === "RU" ? "Попробуйте другой запрос" : "Try a different search"}</p>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    {/* Mobile search (desktop search is in Header) */}
-                    <div className="px-4 pt-2 pb-3 md:hidden">
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          placeholder={lang === "RU" ? "Поиск..." : "Search..."}
-                          className="w-full h-10 rounded-full bg-zinc-950 border border-zinc-900 px-4 pl-10 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700"
-                        />
-                        <Search size={16} className="absolute left-3.5 top-3 text-zinc-600" />
+                          </div>
+                        ) : (
+                          <div className="text-center py-20 text-zinc-500 px-4">
+                            <p className="text-lg mb-2">{lang === "RU" ? "Ничего не найдено" : "Nothing found"}</p>
+                            <p className="text-sm">{lang === "RU" ? "Попробуйте другой запрос" : "Try a different search"}</p>
+                          </div>
+                        )}
                       </div>
                     </div>
-
-                    {/* Categories */}
-                    <div className="px-4 pb-3 border-b border-zinc-900">
-                      <div
-                        className="flex gap-2 overflow-x-auto custom-scrollbar pb-1"
-                        data-events-swipe-ignore="true"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => setActiveCategoryId("all")}
-                          className={`shrink-0 px-3 py-1.5 rounded-full border text-xs font-semibold uppercase tracking-wider transition ${
-                            activeCategoryId === "all"
-                              ? "border-[rgba(245,68,166,1)] bg-black text-[rgba(245,68,166,1)] hover:bg-[rgba(245,68,166,0.10)]"
-                              : "border-zinc-900 bg-black text-zinc-400 hover:text-white hover:border-zinc-700"
-                          }`}
-                        >
-                          {lang === "RU" ? "Все" : "All"}
-                        </button>
-                        {marketCategories.map((c) => {
-                          const label = lang === "RU" ? c.labelRu : c.labelEn;
-                          const selected = activeCategoryId === c.id;
-                          return (
-                            <button
-                              key={c.id}
-                              type="button"
-                              onClick={() => setActiveCategoryId(c.id)}
-                              className={`shrink-0 px-3 py-1.5 rounded-full border text-xs font-semibold uppercase tracking-wider transition ${
-                                selected
-                                  ? "border-[rgba(245,68,166,1)] bg-black text-[rgba(245,68,166,1)] hover:bg-[rgba(245,68,166,0.10)]"
-                                  : "border-zinc-900 bg-black text-zinc-400 hover:text-white hover:border-zinc-700"
-                              }`}
-                            >
-                              {label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="px-4 pt-4">
-                      {loadingMarkets ? (
-                        <div className="text-center py-10 text-zinc-500">
-                          {marketsLoadingMessage || (lang === "RU" ? "Загрузка рынков..." : "Loading markets...")}
-                        </div>
-                      ) : filteredMarkets.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-4">
-                          {filteredMarkets.map((market) => (
-                            <MarketCard
-                              key={market.id}
-                              market={market}
-                              bookmarked={bookmarkedMarketIds.has(market.id)}
-                              onSetBookmarked={handleSetBookmarked}
-                              onClick={() => {
-                                // Always clear bet intent when clicking card normally to ensure we start at top
-                                setMarketBetIntent(null);
-                                setSelectedMarketId(market.id);
-                              }}
-                              onQuickBet={(side) => handleOpenMarketBet(market, side)}
-                              lang={lang}
-                            />
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-20 text-zinc-500 px-4">
-                          <p className="text-lg mb-2">{lang === "RU" ? "Ничего не найдено" : "Nothing found"}</p>
-                          <p className="text-sm">{lang === "RU" ? "Попробуйте другой запрос" : "Try a different search"}</p>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1470,6 +1597,7 @@ export default function HomePage() {
                 leaderboardLoading={loadingLeaderboard}
                 leaderboardError={leaderboardError}
                 onLogin={() => openAuth("SIGN_IN")}
+                onUserClick={(u) => void openPublicProfile(u.id)}
                 onCreateReferralLink={handleCreateReferralLink}
               />
             )}
@@ -1546,6 +1674,26 @@ export default function HomePage() {
         amount={betConfirm.amount}
         newBalance={betConfirm.newBalance}
         errorMessage={betConfirm.errorMessage}
+      />
+      <PublicUserProfileModal
+        isOpen={publicProfileOpen}
+        onClose={closePublicProfile}
+        lang={lang}
+        loading={publicProfileLoading}
+        error={publicProfileError}
+        user={publicProfileUser}
+        pnlMajor={publicProfilePnl}
+        pnlSeries={publicProfilePnlSeries}
+        votes={publicProfileVotes}
+        comments={publicProfileComments}
+        transactions={publicProfileTxs}
+        markets={markets}
+        onMarketClick={(marketId) => {
+          closePublicProfile();
+          setMarketBetIntent(null);
+          setSelectedMarketId(marketId);
+          setCurrentView("EVENTS");
+        }}
       />
       <AdminMarketModal
         isOpen={showAdminModal}

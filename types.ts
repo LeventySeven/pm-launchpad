@@ -8,6 +8,8 @@ export interface HistoryPoint {
 
 export interface Comment {
   id: string;
+  userId: string;
+  username: string | null;
   user: string;
   avatar: string;
   text: string;

@@ -3,7 +3,6 @@ begin;
 -- Public identity surface (PII-free)
 drop view if exists public.users_public;
 create or replace view public.users_public
-with (security_invoker = true)
 as
 select
   id,
@@ -26,7 +25,6 @@ revoke all on table public.users from authenticated;
 -- Update market_comments_public to join users_public (PII-free) instead of users.
 drop view if exists public.market_comments_public;
 create view public.market_comments_public
-with (security_invoker = true)
 as
 select
   c.id,
@@ -54,7 +52,6 @@ grant select on public.market_comments_public to service_role;
 -- Update leaderboard_public to join users_public (PII-free) instead of users.
 drop view if exists public.leaderboard_public;
 create or replace view public.leaderboard_public
-with (security_invoker = true)
 as
 with
   pnl as (

@@ -31,6 +31,7 @@ interface MarketPageProps {
   onSellPosition?: (params: { marketId: string; side: 'YES' | 'NO'; shares: number }) => Promise<void>;
   onResolveOutcome?: (params: { marketId: string; outcome: 'YES' | 'NO' }) => Promise<void>;
   comments: Comment[];
+  onOpenUserProfile?: (userId: string) => void;
   onPostComment: (params: { marketId: string; text: string; parentId?: string | null }) => Promise<void>;
   onToggleCommentLike?: (commentId: string) => Promise<void>;
   userPositions?: Position[];
@@ -51,6 +52,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
   onSellPosition,
   onResolveOutcome,
   comments,
+  onOpenUserProfile,
   onPostComment,
   onToggleCommentLike,
   userPositions = [],
@@ -781,14 +783,27 @@ const MarketPage: React.FC<MarketPageProps> = ({
                             className={`flex gap-4 group ${depth > 0 ? "border-l-2 border-zinc-800 pl-4" : ""}`}
                             style={{ marginLeft: depth * 20 }}
                           >
-                            <img
-                              src={node.avatar}
-                              alt={node.user}
-                              className="w-9 h-9 rounded-full bg-zinc-900 opacity-80 group-hover:opacity-100 transition-opacity"
-                            />
+                            <button
+                              type="button"
+                              onClick={() => onOpenUserProfile?.(node.userId)}
+                              className="w-9 h-9 rounded-full overflow-hidden bg-zinc-900 opacity-80 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                              aria-label={lang === 'RU' ? 'Открыть профиль' : 'Open profile'}
+                            >
+                              <img
+                                src={node.avatar}
+                                alt={node.user}
+                                className="w-full h-full object-cover"
+                              />
+                            </button>
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-1">
-                                <span className="font-semibold text-sm text-white">{node.user}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenUserProfile?.(node.userId)}
+                                  className="font-semibold text-sm text-white hover:underline text-left"
+                                >
+                                  {node.user}
+                                </button>
                                 <span className="text-[10px] uppercase text-zinc-500 tracking-wider">{node.timestamp}</span>
                               </div>
                               <p className="text-zinc-300 text-sm mb-2">{node.text}</p>
