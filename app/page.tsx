@@ -122,6 +122,8 @@ export default function HomePage() {
   const [myTrades, setMyTrades] = useState<Trade[]>([]);
   const [myBetsLoading, setMyBetsLoading] = useState(false);
   const [myBetsError, setMyBetsError] = useState<string | null>(null);
+  const [myCommentsLoading, setMyCommentsLoading] = useState(false);
+  const [myCommentsError, setMyCommentsError] = useState<string | null>(null);
   type MarketBookmark = { marketId: string; createdAt: string };
   const [myBookmarks, setMyBookmarks] = useState<MarketBookmark[]>([]);
   const [marketsLoadingMessage, setMarketsLoadingMessage] = useState<string | null>(null);
@@ -675,6 +677,8 @@ export default function HomePage() {
 
   const loadMyComments = useCallback(async () => {
     if (!user) return;
+    setMyCommentsLoading(true);
+    setMyCommentsError(null);
     try {
       const raw = await trpcClient.market.myComments.query({ limit: 100 });
       const parsed = myCommentsSchema.parse(raw);
@@ -692,8 +696,12 @@ export default function HomePage() {
     } catch (err) {
       console.error("Failed to load my comments", err);
       setMyComments([]);
+      setMyCommentsError(lang === "RU" ? "Не удалось загрузить комментарии." : "Failed to load comments.");
     }
-  }, [user]);
+    finally {
+      setMyCommentsLoading(false);
+    }
+  }, [user, lang]);
   useEffect(() => {
     if (!user) {
       setMyPositions([]);
@@ -1654,8 +1662,11 @@ export default function HomePage() {
                     betsError={myBetsError}
                     soldTrades={soldTrades}
                     comments={myComments}
+                    commentsLoading={myCommentsLoading}
+                    commentsError={myCommentsError}
                     bookmarks={bookmarkedMarkets}
                     onLoadBets={() => void loadMyBets()}
+                    onLoadComments={() => void loadMyComments()}
                     onMarketClick={(marketId) => {
                       setMarketBetIntent(null); // Clear bet intent when clicking from profile
                       setSelectedMarketId(marketId);

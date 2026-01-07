@@ -19,9 +19,12 @@ type ProfilePageProps = {
   betsError?: string | null;
   soldTrades: Trade[];
   comments: UserCommentSummary[];
+  commentsLoading?: boolean;
+  commentsError?: string | null;
   bookmarks: Market[];
   onMarketClick: (marketId: string) => void;
   onLoadBets?: () => void;
+  onLoadComments?: () => void;
 };
 
 const initialsFrom = (value?: string) => {
@@ -165,9 +168,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   betsError = null,
   soldTrades,
   comments,
+  commentsLoading = false,
+  commentsError = null,
   bookmarks,
   onMarketClick,
   onLoadBets,
+  onLoadComments,
 }) => {
   if (!user) {
     return (
@@ -579,7 +585,14 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('COMMENTS')}
+          onClick={() => {
+            if (!user) {
+              onLogin();
+              return;
+            }
+            onLoadComments?.();
+            setActiveTab('COMMENTS');
+          }}
           className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
             activeTab === 'COMMENTS' ? 'border-white text-white' : 'border-transparent text-zinc-500 hover:text-white'
           }`}
@@ -588,7 +601,15 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('BOOKMARKS')}
+          onClick={() => {
+            if (!user) {
+              onLogin();
+              return;
+            }
+            // Bookmarks are loaded together with bets (myBookmarks) in HomePage.
+            onLoadBets?.();
+            setActiveTab('BOOKMARKS');
+          }}
           className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
             activeTab === 'BOOKMARKS' ? 'border-white text-white' : 'border-transparent text-zinc-500 hover:text-white'
           }`}
@@ -815,6 +836,16 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3 px-1">
               {lang === 'RU' ? 'Ваши комментарии' : 'Your comments'}
             </h2>
+            {commentsLoading && (
+              <div className="text-sm text-zinc-500 px-1 mb-4">
+                {lang === 'RU' ? 'Загрузка...' : 'Loading...'}
+              </div>
+            )}
+            {commentsError && (
+              <div className="text-sm text-red-400 px-1 mb-4">
+                {commentsError}
+              </div>
+            )}
             {comments.length === 0 ? (
               <div className="text-sm text-zinc-500 px-1">
                 {lang === 'RU' ? 'Пока нет комментариев' : 'No comments yet'}
