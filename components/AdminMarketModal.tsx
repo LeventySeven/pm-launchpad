@@ -17,7 +17,6 @@ type AdminMarketModalProps = {
     description?: string | null;
     closesAt?: string | null;
     expiresAt: string;
-    liquidityB?: number;
     categoryId: string;
   }) => Promise<void>;
 };
@@ -35,7 +34,6 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
   const [titleEn, setTitleEn] = useState("");
   const [description, setDescription] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
-  const [liquidityB, setLiquidityB] = useState("50");
   const [categoryId, setCategoryId] = useState<string>("");
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -62,11 +60,6 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
     [categoriesStrict, categoryId]
   );
 
-  const parsedLiquidityB = useMemo(() => {
-    const n = Number(liquidityB);
-    return Number.isFinite(n) && n > 0 ? n : null;
-  }, [liquidityB]);
-
   const validationIssues = useMemo(() => {
     const issues: string[] = [];
 
@@ -82,10 +75,8 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
       issues.push(t("Окончание события — обязательно", "Event end time — required"));
     } else if (!Number.isFinite(expiresAtMs)) {
       issues.push(t("Окончание события — некорректная дата", "Event end time — invalid date"));
-    }
-
-    if (parsedLiquidityB === null) {
-      issues.push(t("Ликвидность B — должна быть числом > 0", "Liquidity B — must be a number > 0"));
+    } else if (expiresAtMs < Date.now()) {
+      issues.push(t("Окончание события — должно быть в будущем", "Event end time — must be in the future"));
     }
 
     if (categoriesLoading) {
@@ -101,7 +92,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
     }
 
     return issues;
-  }, [titleRu, titleEn, expiresAt, parsedLiquidityB, categoryId, categoriesLoading, categoriesStrict, t]);
+  }, [titleRu, titleEn, expiresAt, categoryId, categoriesLoading, categoriesStrict, t]);
 
   const canSubmit = validationIssues.length === 0 && !loading;
 
@@ -131,14 +122,12 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
         titleEn: titleEn.trim(),
         description: description.trim() || null,
         expiresAt,
-        liquidityB: parsedLiquidityB,
         categoryId,
       });
       setTitleRu("");
       setTitleEn("");
       setDescription("");
       setExpiresAt("");
-      setLiquidityB("50");
       setCategoryId("");
       onClose();
     } catch (error) {
@@ -270,31 +259,6 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3">
-              <div>
-                <label className="block text-xs text-neutral-400 mb-1">
-                  <span className="inline-flex items-center gap-2">
-                    {t("Ликвидность B (LMSR)", "Liquidity B (LMSR)")}
-                    <button
-                      type="button"
-                      onClick={() => setHelpOpen(true)}
-                      className="h-6 w-6 rounded-full border border-zinc-900 bg-black/40 hover:bg-black/60 inline-flex items-center justify-center text-zinc-300"
-                      aria-label={t("Что такое B?", "What is B?")}
-                      title={t("Что такое B?", "What is B?")}
-                    >
-                      <Info size={12} />
-                    </button>
-                  </span>
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  value={liquidityB}
-                  onChange={(e) => setLiquidityB(e.target.value)}
-                  className="w-full bg-zinc-950/40 border border-zinc-900 rounded-xl p-3 text-white focus:border-zinc-700 focus:outline-none"
-                />
-              </div>
-            </div>
           </div>
 
           <div className="lg:col-span-2 bg-zinc-950/40 border border-zinc-900 rounded-2xl p-4 space-y-4">
@@ -311,17 +275,11 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="bg-zinc-950/60 border border-zinc-900 rounded-xl p-3">
-                <p className="text-xs text-neutral-500 mb-1">{t("Ликвидность B", "Liquidity B")}</p>
-                <p className="text-xl font-mono text-white">{parsedLiquidityB ?? "—"}</p>
-              </div>
-              <div className="bg-zinc-950/60 border border-zinc-900 rounded-xl p-3">
-                <p className="text-xs text-neutral-500 mb-1">{t("Окончание", "Ends")}</p>
-                <p className="text-sm text-white">
-                  {expiresAt ? new Date(expiresAt).toLocaleString(lang === "RU" ? "ru-RU" : "en-US", { hour12: false }) : "—"}
-                </p>
-              </div>
+            <div className="bg-zinc-950/60 border border-zinc-900 rounded-xl p-3">
+              <p className="text-xs text-neutral-500 mb-1">{t("Окончание", "Ends")}</p>
+              <p className="text-sm text-white">
+                {expiresAt ? new Date(expiresAt).toLocaleString(lang === "RU" ? "ru-RU" : "en-US", { hour12: false }) : "—"}
+              </p>
             </div>
             {/* (explanations moved into the help popup) */}
           </div>
@@ -475,18 +433,6 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
             <div className="space-y-3 text-sm text-zinc-300">
               <div className="rounded-xl border border-zinc-900 bg-zinc-950/30 p-4">
                 <div className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">
-                  {t("Что такое Liquidity B?", "What is Liquidity B?")}
-                </div>
-                <p className="text-zinc-300">
-                  {t(
-                    "B — параметр LMSR, который управляет чувствительностью цены. Меньше B → цена двигается сильнее от каждой ставки (больше волатильность). Больше B → цена двигается плавнее.",
-                    "B is an LMSR parameter that controls price sensitivity. Lower B → price moves more per bet (more volatility). Higher B → smoother price movement."
-                  )}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-zinc-900 bg-zinc-950/30 p-4">
-                <div className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">
                   {t("Зачем категории?", "Why categories?")}
                 </div>
                 <p className="text-zinc-300">
@@ -495,10 +441,6 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
                     "Categories keep the feed organized and improve discovery/search."
                   )}
                 </p>
-              </div>
-
-              <div className="text-xs text-zinc-500">
-                {t("Совет: начните с B = 20–80 для тестов.", "Tip: start with B = 20–80 for testing.")}
               </div>
             </div>
           </div>

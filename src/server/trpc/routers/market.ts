@@ -1200,7 +1200,6 @@ export const marketRouter = router({
         description: z.string().optional().nullable(),
         closesAt: z.string().optional().nullable(),
         expiresAt: z.string(),
-        liquidityB: z.number().positive().optional().default(50),
         categoryId: z.string().min(1),
       })
     )
@@ -1225,6 +1224,14 @@ export const marketRouter = router({
       if (closesAtMs > expiresAtMs) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Trading close must be <= end time" });
       }
+      // Validate dates are not in the past
+      const now = Date.now();
+      if (expiresAtMs < now) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Event end time must be in the future" });
+      }
+      if (closesAtMs < now) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Trading close time must be in the future" });
+      }
 
       const { data: category, error: categoryError } = await supabaseService
         .from("market_categories")
@@ -1237,20 +1244,30 @@ export const marketRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid category" });
       }
 
+      // Validate trimmed titles are not empty
+      const titleRuTrimmed = input.titleRu.trim();
+      const titleEnTrimmed = input.titleEn.trim();
+      if (titleRuTrimmed.length < 3) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Title (RU) must be at least 3 characters" });
+      }
+      if (titleEnTrimmed.length < 3) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Title (EN) must be at least 3 characters" });
+      }
+
       // Insert market
       const { data: market, error: marketError } = await (supabaseService as SupabaseDbClient)
         .from("markets")
         .insert({
-          title_rus: input.titleRu.trim(),
-          title_eng: input.titleEn.trim(),
-          description: input.description ?? null,
+          title_rus: titleRuTrimmed,
+          title_eng: titleEnTrimmed,
+          description: input.description?.trim() || null,
           state: "open",
           closes_at: new Date(closesAtMs).toISOString(),
           expires_at: new Date(expiresAtMs).toISOString(),
           created_by: authUser.id,
           settlement_asset_code: DEFAULT_ASSET,
           fee_bps: 0,
-          liquidity_b: input.liquidityB,
+          liquidity_b: 0,
           amm_type: "lmsr",
           category_id: cat.id,
         })
@@ -1264,17 +1281,23 @@ export const marketRouter = router({
         });
       }
 
-      // Insert AMM state
+      // Insert AMM state (use upsert with ignoreDuplicates to handle race conditions)
       const { error: ammError } = await (supabaseService as SupabaseDbClient)
         .from("market_amm_state")
-        .insert({
-          market_id: market.id,
-          b: input.liquidityB,
-          q_yes: 0,
-          q_no: 0,
-          last_price_yes: 0.5,
-          fee_accumulated_minor: 0,
-        });
+        .upsert(
+          {
+            market_id: market.id,
+            b: 0,
+            q_yes: 0,
+            q_no: 0,
+            last_price_yes: 0.5,
+            fee_accumulated_minor: 0,
+          },
+          {
+            onConflict: "market_id",
+            ignoreDuplicates: true, // Silently skip if already exists (handles race conditions)
+          }
+        );
 
       if (ammError) {
         // Rollback by deleting market (not ideal, but simple)
