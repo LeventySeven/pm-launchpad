@@ -167,7 +167,10 @@ const PublicUserProfileModal: React.FC<PublicUserProfileModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      data-swipe-ignore="true"
+    >
       <div className="w-full max-w-2xl bg-black border border-zinc-900 rounded-2xl overflow-hidden max-h-[92vh] flex flex-col">
         <div
           className="relative overflow-hidden p-5 border-b border-zinc-900"
@@ -210,12 +213,14 @@ const PublicUserProfileModal: React.FC<PublicUserProfileModalProps> = ({
               {formatSignedMoney(pnlMajor)}
             </div>
           </div>
+        </div>
 
-          <div className="mt-4 border-b border-zinc-900 flex">
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="sticky top-0 z-10 bg-black/95 backdrop-blur border-b border-zinc-900 flex">
             <button
               type="button"
               onClick={() => setTab("BETS")}
-              className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+              className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors border-b-2 ${
                 tab === "BETS" ? "border-white text-white" : "border-transparent text-zinc-500 hover:text-white"
               }`}
             >
@@ -224,7 +229,7 @@ const PublicUserProfileModal: React.FC<PublicUserProfileModalProps> = ({
             <button
               type="button"
               onClick={() => setTab("COMMENTS")}
-              className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+              className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors border-b-2 ${
                 tab === "COMMENTS" ? "border-white text-white" : "border-transparent text-zinc-500 hover:text-white"
               }`}
             >
@@ -233,22 +238,21 @@ const PublicUserProfileModal: React.FC<PublicUserProfileModalProps> = ({
             <button
               type="button"
               onClick={() => setTab("TXS")}
-              className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+              className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors border-b-2 ${
                 tab === "TXS" ? "border-white text-white" : "border-transparent text-zinc-500 hover:text-white"
               }`}
             >
               {lang === "RU" ? "Транзакции" : "Transactions"}
             </button>
           </div>
-        </div>
 
-        <div className="p-5 overflow-y-auto">
-          {loading ? (
-            <div className="py-10 text-center text-zinc-500 text-sm">{lang === "RU" ? "Загрузка..." : "Loading..."}</div>
-          ) : error ? (
-            <div className="py-10 text-center text-zinc-500 text-sm">{error}</div>
-          ) : tab === "BETS" ? (
-            <div className="space-y-6">
+          <div className="p-5">
+            {loading ? (
+              <div className="py-10 text-center text-zinc-500 text-sm">{lang === "RU" ? "Загрузка..." : "Loading..."}</div>
+            ) : error ? (
+              <div className="py-10 text-center text-zinc-500 text-sm">{error}</div>
+            ) : tab === "BETS" ? (
+              <div className="space-y-6">
               {votes.length === 0 ? (
                 <div className="text-sm text-zinc-500">{lang === "RU" ? "Пока нет ставок" : "No bets yet"}</div>
               ) : (
@@ -358,9 +362,9 @@ const PublicUserProfileModal: React.FC<PublicUserProfileModalProps> = ({
                   );
                 })()
               )}
-            </div>
-          ) : tab === "COMMENTS" ? (
-            <div className="space-y-3">
+              </div>
+            ) : tab === "COMMENTS" ? (
+              <div className="space-y-3">
               {comments.length === 0 ? (
                 <div className="text-sm text-zinc-500">{lang === "RU" ? "Пока нет комментариев" : "No comments yet"}</div>
               ) : (
@@ -404,9 +408,9 @@ const PublicUserProfileModal: React.FC<PublicUserProfileModalProps> = ({
                   );
                 })
               )}
-            </div>
-          ) : (
-            <div className="space-y-3">
+              </div>
+            ) : (
+              <div className="space-y-3">
               {transactions.length === 0 ? (
                 <div className="text-sm text-zinc-500">{lang === "RU" ? "Пока нет транзакций" : "No transactions yet"}</div>
               ) : (
@@ -452,8 +456,9 @@ const PublicUserProfileModal: React.FC<PublicUserProfileModalProps> = ({
                   );
                 })
               )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

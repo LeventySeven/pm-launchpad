@@ -579,7 +579,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                     </div>
                     <div className="flex justify-between text-xs text-zinc-500 uppercase font-medium">
                       <span>{lang === 'RU' ? 'Прибыль' : 'Profit'}</span>
-                      <span className="text-[rgba(245,68,166,1)] font-mono">{numericAmount > 0 && currentPrice > 0 ? (((1 / currentPrice) - 1) * 100).toFixed(1) : '0.0'}%</span>
+                      <span className="text-[rgba(190,255,29,1)] font-mono">{numericAmount > 0 && currentPrice > 0 ? (((1 / currentPrice) - 1) * 100).toFixed(1) : '0.0'}%</span>
                     </div>
                   </div>
 

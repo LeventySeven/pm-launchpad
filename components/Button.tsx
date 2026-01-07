@@ -20,11 +20,11 @@ const Button: React.FC<ButtonProps> = ({
   
   const variants = {
     // Stroke style with transparent background
-    primary: "bg-black border border-[rgba(245,68,166,1)] text-[rgba(245,68,166,1)] hover:bg-[rgba(245,68,166,0.10)]",
+    primary: "bg-[rgba(245,68,166,1)] border border-[rgba(245,68,166,1)] text-white hover:bg-[rgba(245,68,166,0.90)]",
     secondary: "bg-zinc-800 text-zinc-50 hover:bg-zinc-800/80",
     outline: "border border-zinc-800 bg-black hover:bg-zinc-800 hover:text-zinc-50",
     ghost: "hover:bg-zinc-800 hover:text-zinc-50",
-    destructive: "bg-black border border-[rgba(245,68,166,1)] text-[rgba(245,68,166,1)] hover:bg-[rgba(245,68,166,0.10)]",
+    destructive: "bg-red-600 border border-red-600 text-white hover:bg-red-500",
   };
 
   const sizes = {
