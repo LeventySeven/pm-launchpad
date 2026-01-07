@@ -1267,7 +1267,7 @@ export const marketRouter = router({
           created_by: authUser.id,
           settlement_asset_code: DEFAULT_ASSET,
           fee_bps: 0,
-          liquidity_b: 0,
+          liquidity_b: 100,
           amm_type: "lmsr",
           category_id: cat.id,
         })
@@ -1287,7 +1287,7 @@ export const marketRouter = router({
         .upsert(
           {
             market_id: market.id,
-            b: 0,
+            b: 100,
             q_yes: 0,
             q_no: 0,
             last_price_yes: 0.5,
