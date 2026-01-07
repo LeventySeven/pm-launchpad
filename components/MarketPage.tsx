@@ -126,13 +126,42 @@ const MarketPage: React.FC<MarketPageProps> = ({
 
   const chartSeries = useMemo(() => {
     if (priceCandles.length > 0) {
-      return priceCandles.map((c) => ({
-        date: new Date(c.bucket).toLocaleTimeString(lang === 'RU' ? 'ru-RU' : 'en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-        value: Number((c.close * 100).toFixed(2)),
-      }));
+      const times = priceCandles
+        .map((c) => Date.parse(String(c.bucket)))
+        .filter((t) => Number.isFinite(t));
+      const spansMultipleDays = (() => {
+        if (times.length === 0) return false;
+        const first = new Date(times[0]);
+        const last = new Date(times[times.length - 1]);
+        return (
+          first.getFullYear() !== last.getFullYear() ||
+          first.getMonth() !== last.getMonth() ||
+          first.getDate() !== last.getDate()
+        );
+      })();
+
+      return priceCandles
+        .map((c) => {
+          const ts = Date.parse(String(c.bucket));
+          if (!Number.isFinite(ts)) return null;
+          return {
+            ts,
+            label: spansMultipleDays
+              ? new Date(ts).toLocaleString(lang === 'RU' ? 'ru-RU' : 'en-US', {
+                  month: 'short',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : new Date(ts).toLocaleTimeString(lang === 'RU' ? 'ru-RU' : 'en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }),
+            value: Number((c.close * 100).toFixed(2)),
+            spansMultipleDays,
+          };
+        })
+        .filter((v): v is { ts: number; label: string; value: number; spansMultipleDays: boolean } => Boolean(v));
     }
     return [];
   }, [priceCandles, lang]);
@@ -443,11 +472,11 @@ const MarketPage: React.FC<MarketPageProps> = ({
                     </linearGradient>
                   </defs>
                   <XAxis 
-                    dataKey="date" 
+                    dataKey="label" 
                     axisLine={false} 
                     tickLine={false} 
                     tick={{fill: '#52525b', fontSize: 10}} 
-                    tickFormatter={(value) => String(value).toUpperCase()}
+                    tickFormatter={(value) => String(value)}
                     minTickGap={40}
                     dy={10}
                   />
@@ -459,6 +488,17 @@ const MarketPage: React.FC<MarketPageProps> = ({
                     contentStyle={{backgroundColor: '#000000', borderColor: '#27272a', borderRadius: '10px'}}
                     itemStyle={{color: '#ffffff', fontSize: '12px'}}
                     labelStyle={{color: '#71717a', fontSize: '10px', textTransform: 'uppercase'}}
+                    labelFormatter={(_, payload) => {
+                      const p = Array.isArray(payload) ? payload[0]?.payload : null;
+                      const ts = p && typeof p.ts === "number" ? p.ts : null;
+                      if (!ts) return "";
+                      return new Date(ts).toLocaleString(lang === 'RU' ? 'ru-RU' : 'en-US', {
+                        month: 'short',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      });
+                    }}
                     formatter={(value: number) => [`${value}%`, lang === 'RU' ? 'Вероятность' : 'Chance']}
                   />
                   <Area 

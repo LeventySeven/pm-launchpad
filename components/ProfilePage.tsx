@@ -15,10 +15,13 @@ type ProfilePageProps = {
   balanceMajor: number;
   pnlMajor: number;
   bets: Bet[];
+  betsLoading?: boolean;
+  betsError?: string | null;
   soldTrades: Trade[];
   comments: UserCommentSummary[];
   bookmarks: Market[];
   onMarketClick: (marketId: string) => void;
+  onLoadBets?: () => void;
 };
 
 const initialsFrom = (value?: string) => {
@@ -158,10 +161,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   balanceMajor,
   pnlMajor,
   bets,
+  betsLoading = false,
+  betsError = null,
   soldTrades,
   comments,
   bookmarks,
   onMarketClick,
+  onLoadBets,
 }) => {
   if (!user) {
     return (
@@ -193,7 +199,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   const yesLabel = lang === 'RU' ? 'Да' : 'Yes';
   const noLabel = lang === 'RU' ? 'Нет' : 'No';
   const [isEditing, setIsEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'BETS' | 'COMMENTS' | 'BOOKMARKS'>('BETS');
+  // Tabs are "closed" by default: user chooses what to open.
+  const [activeTab, setActiveTab] = useState<'BETS' | 'COMMENTS' | 'BOOKMARKS' | null>(null);
   const [nameDraft, setNameDraft] = useState(displayName);
   const [avatarMode, setAvatarMode] = useState<'unchanged' | 'upload' | 'import_telegram' | 'clear'>('unchanged');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -556,7 +563,14 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
       <div className="mt-6 border-b border-zinc-900 flex">
         <button
           type="button"
-          onClick={() => setActiveTab('BETS')}
+          onClick={() => {
+            if (!user) {
+              onLogin();
+              return;
+            }
+            onLoadBets?.();
+            setActiveTab('BETS');
+          }}
           className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
             activeTab === 'BETS' ? 'border-white text-white' : 'border-transparent text-zinc-500 hover:text-white'
           }`}
@@ -585,11 +599,26 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
 
       {/* Transactions (bet history) */}
       <div className="mt-8">
+        {activeTab === null && (
+          <div className="text-sm text-zinc-500 px-1">
+            {lang === 'RU' ? 'Выберите раздел выше' : 'Choose a section above'}
+          </div>
+        )}
         {activeTab === 'BETS' && (
           <>
             <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3 px-1">
               {lang === 'RU' ? 'События' : 'Events'}
             </h2>
+            {betsLoading && (
+              <div className="text-sm text-zinc-500 px-1 mb-4">
+                {lang === 'RU' ? 'Загрузка...' : 'Loading...'}
+              </div>
+            )}
+            {betsError && (
+              <div className="text-sm text-red-400 px-1 mb-4">
+                {betsError}
+              </div>
+            )}
 
             {/* Active */}
             <div className="mb-6">

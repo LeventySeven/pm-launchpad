@@ -61,7 +61,8 @@ const deriveVolumeMajor = (amm: AmmStateRow | null, feeBps?: number | null) => {
 
 const mapMarketRow = (
   row: MarketWithAmm,
-  categoryLabelsById?: Map<string, Pick<MarketCategoryRow, "label_ru" | "label_en">>
+  categoryLabelsById?: Map<string, Pick<MarketCategoryRow, "label_ru" | "label_en">>,
+  volumeMajorOverride?: number
 ) => {
   const amm = row.market_amm_state;
   const { priceYes, priceNo } = amm
@@ -91,7 +92,9 @@ const mapMarketRow = (
     liquidityB: Number(row.liquidity_b),
     priceYes,
     priceNo,
-    volume: deriveVolumeMajor(amm, row.fee_bps),
+    volume: typeof volumeMajorOverride === "number" && Number.isFinite(volumeMajorOverride)
+      ? volumeMajorOverride
+      : deriveVolumeMajor(amm, row.fee_bps),
   };
 };
 
@@ -262,6 +265,31 @@ export const marketRouter = router({
 
       const rows: MarketWithAmm[] = data ?? [];
 
+      // Compute market volume from candle aggregates (always use market_price_candles).
+      const volumeByMarketId = new Map<string, number>();
+      if (rows.length > 0) {
+        const marketIds = rows.map((r) => r.id);
+        const { data: candles, error: candlesError } = await supabase
+          .from("market_price_candles")
+          .select("market_id, volume_minor")
+          .in("market_id", marketIds)
+          .limit(20000);
+
+        if (!candlesError && candles) {
+          type CandleRow = Pick<
+            Database["public"]["Tables"]["market_price_candles"]["Row"],
+            "market_id" | "volume_minor"
+          >;
+          (candles as CandleRow[]).forEach((c) => {
+            const key = String(c.market_id);
+            const prev = volumeByMarketId.get(key) ?? 0;
+            const minor = Number(c.volume_minor ?? 0);
+            if (!Number.isFinite(minor) || minor <= 0) return;
+            volumeByMarketId.set(key, prev + toMajorUnits(minor, VCOIN_DECIMALS));
+          });
+        }
+      }
+
       // Derive category labels from market_categories to avoid relying on category_label_* columns.
       const categoryIds = Array.from(
         new Set(rows.map((r) => r.category_id).filter((v): v is string => typeof v === "string" && v.length > 0))
@@ -279,7 +307,7 @@ export const marketRouter = router({
         }
       }
 
-      return rows.map((r) => mapMarketRow(r, labelsById));
+      return rows.map((r) => mapMarketRow(r, labelsById, volumeByMarketId.get(r.id)));
     }),
 
   getMarket: publicProcedure
@@ -304,6 +332,24 @@ export const marketRouter = router({
       }
 
       const row: MarketWithAmm = data;
+
+      // Compute total volume from candle aggregates (always use market_price_candles).
+      let volumeMajor: number | undefined = undefined;
+      const { data: candles, error: candlesError } = await supabase
+        .from("market_price_candles")
+        .select("volume_minor")
+        .eq("market_id", input.marketId)
+        .limit(20000);
+      if (!candlesError && candles) {
+        type CandleRow = Pick<Database["public"]["Tables"]["market_price_candles"]["Row"], "volume_minor">;
+        const totalMinor = (candles as CandleRow[]).reduce((acc, c) => {
+          const n = Number(c.volume_minor ?? 0);
+          return Number.isFinite(n) && n > 0 ? acc + n : acc;
+        }, 0);
+        if (totalMinor > 0) {
+          volumeMajor = toMajorUnits(totalMinor, VCOIN_DECIMALS);
+        }
+      }
       const labelsById = new Map<string, Pick<MarketCategoryRow, "label_ru" | "label_en">>();
       const categoryId = row.category_id;
       if (typeof categoryId === "string" && categoryId.length > 0) {
@@ -318,7 +364,7 @@ export const marketRouter = router({
         }
       }
 
-      return mapMarketRow(row, labelsById);
+      return mapMarketRow(row, labelsById, volumeMajor);
     }),
 
   /**

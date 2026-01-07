@@ -120,6 +120,8 @@ export default function HomePage() {
 
   const [myPositions, setMyPositions] = useState<Position[]>([]);
   const [myTrades, setMyTrades] = useState<Trade[]>([]);
+  const [myBetsLoading, setMyBetsLoading] = useState(false);
+  const [myBetsError, setMyBetsError] = useState<string | null>(null);
   type MarketBookmark = { marketId: string; createdAt: string };
   const [myBookmarks, setMyBookmarks] = useState<MarketBookmark[]>([]);
   const [marketsLoadingMessage, setMarketsLoadingMessage] = useState<string | null>(null);
@@ -515,6 +517,8 @@ export default function HomePage() {
    */
   const loadMyBets = useCallback(async () => {
     if (!user) return;
+    setMyBetsLoading(true);
+    setMyBetsError(null);
     try {
       const [positionsRaw, tradesRaw, bookmarksRaw] = await Promise.all([
         trpcClient.market.myPositions.query(),
@@ -565,8 +569,12 @@ export default function HomePage() {
       setMyBookmarks(bookmarksParsed.map((b) => ({ marketId: b.marketId, createdAt: b.createdAt })));
     } catch (err) {
       console.error("Failed to load positions/trades", err);
+      setMyBetsError(lang === "RU" ? "Не удалось загрузить ставки." : "Failed to load bets.");
     }
-  }, [user]);
+    finally {
+      setMyBetsLoading(false);
+    }
+  }, [user, lang]);
 
   // NOTE: wallet_transactions loading was removed from the UI (wallet now focuses on bets + PnL).
 
@@ -861,15 +869,11 @@ export default function HomePage() {
     (view: ViewType) => {
       setMarketBetIntent(null);
       setCurrentView(view);
-      if (view === "PROFILE") {
-        void loadMyBets();
-        void loadMyComments();
-      }
       if (view === "FRIENDS") {
         void loadLeaderboard();
       }
     },
-    [loadLeaderboard, loadMyBets, loadMyComments]
+    [loadLeaderboard]
   );
 
   const handleShellTouchStart = useCallback((e: TouchEvent<HTMLDivElement>) => {
@@ -1646,9 +1650,12 @@ export default function HomePage() {
                     balanceMajor={user?.balance ?? 0}
                     pnlMajor={totalPnl}
                     bets={legacyBets}
+                    betsLoading={myBetsLoading}
+                    betsError={myBetsError}
                     soldTrades={soldTrades}
                     comments={myComments}
                     bookmarks={bookmarkedMarkets}
+                    onLoadBets={() => void loadMyBets()}
                     onMarketClick={(marketId) => {
                       setMarketBetIntent(null); // Clear bet intent when clicking from profile
                       setSelectedMarketId(marketId);
