@@ -12,7 +12,7 @@ import ProfilePage from "@/components/ProfilePage";
 import PublicUserProfileModal from "@/components/PublicUserProfileModal";
 import type { Market, User, Bet, Position, Trade, PriceCandle, PublicTrade, LeaderboardUser, Comment as MarketComment } from "@/types";
 import { trpcClient } from "@/src/utils/trpcClient";
-import { Search } from "lucide-react";
+import { Search, X, AlertCircle } from "lucide-react";
 import BottomMenu, { type ViewType } from "@/components/BottomMenu";
 import FriendsPage from "@/components/FriendsPage";
 import { leaderboardUsersSchema } from "@/src/schemas/leaderboard";
@@ -49,6 +49,7 @@ export default function HomePage() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState<AuthMode>("SIGN_IN");
+  const [showReloginWarning, setShowReloginWarning] = useState(false);
   type PostAuthAction =
     | { type: "OPEN_CREATE_MARKET" }
     | { type: "PLACE_BET"; marketId: string; side: "YES" | "NO"; amount: number; marketTitle: string }
@@ -212,6 +213,11 @@ export default function HomePage() {
   const formatBetError = (msg?: string) => {
     if (!msg) return lang === "RU" ? "Не удалось поставить ставку" : "Failed to place bet";
     const upper = msg.toUpperCase();
+    // Check for authentication errors first
+    if (upper.includes("UNAUTHORIZED") || upper.includes("NOT AUTHENTICATED") || upper.includes("NOT_AUTHENTICATED")) {
+      setShowReloginWarning(true);
+      return lang === "RU" ? "Требуется повторная авторизация." : "Re-authentication required.";
+    }
     if (upper.includes("MARKET_EXPIRED") || upper.includes("MARKET_CLOSED") || upper.includes("MARKET_NOT_OPEN")) {
       return lang === "RU" ? "Событие завершено, ставки закрыты." : "Market closed for trading.";
     }
@@ -564,9 +570,10 @@ export default function HomePage() {
     } catch (err) {
       const errorMsg = getErrorMessage(err);
       console.error("Failed to load positions/trades", { error: errorMsg, err, userId: user?.id });
-      // If it's an auth error, provide a more specific message
+      // If it's an auth error, show re-login warning
       if (errorMsg?.toUpperCase().includes("UNAUTHORIZED") || errorMsg?.toUpperCase().includes("NOT AUTHENTICATED")) {
-        setMyBetsError(lang === "RU" ? "Требуется авторизация. Попробуйте перезагрузить страницу." : "Authentication required. Please refresh the page.");
+        setShowReloginWarning(true);
+        setMyBetsError(lang === "RU" ? "Требуется повторная авторизация." : "Re-authentication required.");
       } else {
         setMyBetsError(lang === "RU" ? "Не удалось загрузить ставки." : "Failed to load bets.");
       }
@@ -592,6 +599,9 @@ export default function HomePage() {
         if (initData) {
           try {
             await handleTelegramLogin(initData);
+            // After Telegram login, wait briefly for cookies to be set by the browser, then verify
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            await refreshUser();
           } catch (err) {
             console.error("Telegram auto-login failed", err);
           }
@@ -695,7 +705,14 @@ export default function HomePage() {
     } catch (err) {
       console.error("Failed to load my comments", err);
       setMyComments([]);
-      setMyCommentsError(lang === "RU" ? "Не удалось загрузить комментарии." : "Failed to load comments.");
+      const errorMsg = getErrorMessage(err);
+      // If it's an auth error, show re-login warning
+      if (errorMsg?.toUpperCase().includes("UNAUTHORIZED") || errorMsg?.toUpperCase().includes("NOT AUTHENTICATED")) {
+        setShowReloginWarning(true);
+        setMyCommentsError(lang === "RU" ? "Требуется повторная авторизация." : "Re-authentication required.");
+      } else {
+        setMyCommentsError(lang === "RU" ? "Не удалось загрузить комментарии." : "Failed to load comments.");
+      }
     }
     finally {
       setMyCommentsLoading(false);
@@ -878,9 +895,12 @@ export default function HomePage() {
       setCurrentView(view);
       if (view === "FRIENDS") {
         void loadLeaderboard();
+      } else if (view === "FEED" || view === "CATALOG") {
+        // Refresh markets when returning to feed or catalog to show updated percentages
+        void loadMarkets();
       }
     },
-    [loadLeaderboard]
+    [loadLeaderboard, loadMarkets]
   );
 
   const handleShellTouchStart = useCallback((e: TouchEvent<HTMLDivElement>) => {
@@ -1043,6 +1063,21 @@ export default function HomePage() {
           amount,
           newBalance: undefined,
           errorMessage: lang === "RU" ? "Войдите, чтобы сделать ставку." : "Please log in to place a bet.",
+        });
+        return;
+      }
+
+      // Verify auth is still valid before placing bet (in case cookies expired or weren't set)
+      const authCheck = await refreshUser();
+      if (!authCheck) {
+        setShowReloginWarning(true);
+        setBetConfirm({
+          open: true,
+          marketTitle,
+          side,
+          amount,
+          newBalance: undefined,
+          errorMessage: lang === "RU" ? "Требуется повторная авторизация." : "Re-authentication required.",
         });
         return;
       }
@@ -1340,12 +1375,6 @@ export default function HomePage() {
     }
   })();
 
-  const [profileResetNonce, setProfileResetNonce] = useState(0);
-  useEffect(() => {
-    if (currentView === "PROFILE") {
-      setProfileResetNonce((n) => n + 1);
-    }
-  }, [currentView]);
 
   return (
     <div className="tg-scroll bg-black text-zinc-100 font-sans">
@@ -1624,7 +1653,7 @@ export default function HomePage() {
                 {/* PROFILE */}
                 <div className="w-1/4">
                   <ProfilePage
-                    key={`profile-${user?.id ?? "anon"}-${profileResetNonce}`}
+                    key={`profile-${user?.id ?? "anon"}`}
                     user={user}
                     lang={lang}
                     onLogin={() => openAuth("SIGN_IN")}
@@ -1733,6 +1762,49 @@ export default function HomePage() {
           }
         }}
       />
+      {/* Re-login warning modal */}
+      {showReloginWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowReloginWarning(false)} />
+          <div className="relative bg-black border border-zinc-900 w-full max-w-md rounded-2xl p-6 shadow-2xl animate-fade-in-up">
+            <button
+              onClick={() => setShowReloginWarning(false)}
+              className="absolute top-4 right-4 text-neutral-400 hover:text-white"
+              aria-label="Close"
+            >
+              <X size={22} />
+            </button>
+            <div className="flex items-center gap-3 mb-4">
+              <AlertCircle className="text-yellow-400" size={24} />
+              <h2 className="text-xl font-bold text-white">
+                {lang === "RU" ? "Требуется повторная авторизация" : "Re-authentication Required"}
+              </h2>
+            </div>
+            <p className="text-sm text-zinc-300 mb-6">
+              {lang === "RU"
+                ? "По соображениям безопасности необходимо войти в систему снова. Пожалуйста, войдите в свой аккаунт."
+                : "For security reasons, you need to log in again. Please sign in to your account."}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowReloginWarning(false)}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-zinc-400 hover:text-white border border-zinc-800 rounded-lg hover:border-zinc-700 transition-colors"
+              >
+                {lang === "RU" ? "Отмена" : "Cancel"}
+              </button>
+              <button
+                onClick={() => {
+                  setShowReloginWarning(false);
+                  openAuth("SIGN_IN");
+                }}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-[rgba(245,68,166,1)] hover:bg-[rgba(245,68,166,0.9)] rounded-lg transition-colors"
+              >
+                {lang === "RU" ? "Войти" : "Sign In"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
