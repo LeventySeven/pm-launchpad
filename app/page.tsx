@@ -570,13 +570,19 @@ export default function HomePage() {
       setMyTrades(trades);
       setMyBookmarks(bookmarksParsed.map((b) => ({ marketId: b.marketId, createdAt: b.createdAt })));
     } catch (err) {
-      console.error("Failed to load positions/trades", err);
-      setMyBetsError(lang === "RU" ? "Не удалось загрузить ставки." : "Failed to load bets.");
+      const errorMsg = getErrorMessage(err);
+      console.error("Failed to load positions/trades", { error: errorMsg, err, userId: user?.id });
+      // If it's an auth error, provide a more specific message
+      if (errorMsg?.toUpperCase().includes("UNAUTHORIZED") || errorMsg?.toUpperCase().includes("NOT AUTHENTICATED")) {
+        setMyBetsError(lang === "RU" ? "Требуется авторизация. Попробуйте перезагрузить страницу." : "Authentication required. Please refresh the page.");
+      } else {
+        setMyBetsError(lang === "RU" ? "Не удалось загрузить ставки." : "Failed to load bets.");
+      }
     }
     finally {
       setMyBetsLoading(false);
     }
-  }, [user, lang]);
+  }, [user, lang, getErrorMessage]);
 
   // NOTE: wallet_transactions loading was removed from the UI (wallet now focuses on bets + PnL).
 

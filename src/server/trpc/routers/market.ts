@@ -658,12 +658,16 @@ export const marketRouter = router({
   myPositions: publicProcedure
     .output(z.array(positionSummary))
     .query(async ({ ctx }) => {
-      const { supabase, authUser } = ctx;
+      const { supabaseService, authUser, cookies } = ctx;
       if (!authUser) {
+        // Log for debugging: check if cookie is present but JWT verification failed
+        const hasAuthToken = Boolean(cookies?.auth_token);
+        console.warn("[myPositions] authUser is null", { hasAuthToken, cookiesKeys: cookies ? Object.keys(cookies) : [] });
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
       }
 
-      const { data, error } = await supabase
+      // Use service client for reads to avoid depending on presence/validity of sb_access_token cookie.
+      const { data, error } = await supabaseService
         .from("positions")
         .select(`
           user_id, market_id, outcome, shares, avg_entry_price, updated_at,
@@ -674,6 +678,7 @@ export const marketRouter = router({
         .order("updated_at", { ascending: false });
 
       if (error) {
+        console.error("[myPositions] Supabase query error", { error: error.message, userId: authUser.id });
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: error.message,
@@ -690,12 +695,16 @@ export const marketRouter = router({
   myTrades: publicProcedure
     .output(z.array(tradeSummary))
     .query(async ({ ctx }) => {
-      const { supabase, authUser } = ctx;
+      const { supabaseService, authUser, cookies } = ctx;
       if (!authUser) {
+        // Log for debugging: check if cookie is present but JWT verification failed
+        const hasAuthToken = Boolean(cookies?.auth_token);
+        console.warn("[myTrades] authUser is null", { hasAuthToken, cookiesKeys: cookies ? Object.keys(cookies) : [] });
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
       }
 
-      const { data, error } = await supabase
+      // Use service client for reads to avoid depending on presence/validity of sb_access_token cookie.
+      const { data, error } = await supabaseService
         .from("trades")
         .select(`
           id, market_id, user_id, action, outcome, asset_code,
@@ -708,6 +717,7 @@ export const marketRouter = router({
         .limit(100);
 
       if (error) {
+        console.error("[myTrades] Supabase query error", { error: error.message, userId: authUser.id });
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: error.message,
@@ -724,12 +734,13 @@ export const marketRouter = router({
   myBookmarks: publicProcedure
     .output(z.array(marketBookmarkOutput))
     .query(async ({ ctx }) => {
-      const { supabase, authUser } = ctx;
+      const { supabaseService, authUser } = ctx;
       if (!authUser) {
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
       }
 
-      const { data, error } = await supabase
+      // Use service client for reads to avoid depending on presence/validity of sb_access_token cookie.
+      const { data, error } = await supabaseService
         .from("market_bookmarks")
         .select("market_id, created_at")
         .eq("user_id", authUser.id)

@@ -15,7 +15,18 @@ const handler = (req: Request) =>
     createContext: () => createContext({ req }),
     responseMeta({ ctx }) {
       if (ctx?.responseHeaders) {
-        return { headers: ctx.responseHeaders };
+        // IMPORTANT: Fetch Response headers must handle multiple `Set-Cookie` values.
+        // Our context stores multi-value headers as string[]; convert them to a Headers instance
+        // so we can append each value.
+        const headers = new Headers();
+        for (const [key, value] of Object.entries(ctx.responseHeaders)) {
+          if (Array.isArray(value)) {
+            value.forEach((v) => headers.append(key, v));
+          } else if (typeof value === "string") {
+            headers.set(key, value);
+          }
+        }
+        return { headers };
       }
       return {};
     },
