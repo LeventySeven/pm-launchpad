@@ -15,15 +15,15 @@ const handler = (req: Request) =>
     createContext: () => createContext({ req }),
     responseMeta({ ctx }) {
       if (ctx?.responseHeaders) {
-        // IMPORTANT: Fetch Response headers must handle multiple `Set-Cookie` values.
-        // Our context stores multi-value headers as string[]; convert them to a Headers instance
-        // so we can append each value.
-        const headers = new Headers();
+        // Convert our multi-value headers format to HTTPHeaders (Record<string, string | string[]>)
+        // tRPC's fetch adapter will handle converting this to a proper Headers object.
+        const headers: Record<string, string | string[]> = {};
         for (const [key, value] of Object.entries(ctx.responseHeaders)) {
           if (Array.isArray(value)) {
-            value.forEach((v) => headers.append(key, v));
+            // For multi-value headers like Set-Cookie, keep as array
+            headers[key] = value;
           } else if (typeof value === "string") {
-            headers.set(key, value);
+            headers[key] = value;
           }
         }
         return { headers };
