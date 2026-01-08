@@ -263,16 +263,11 @@ const PublicUserProfileModal: React.FC<PublicUserProfileModalProps> = ({
                     // Ongoing means: market not resolved AND user still has an active position (not sold out).
                     return !isResolved && v.isActive;
                   });
+                  // Completed includes resolved markets AND sold-out positions for unresolved markets (matches ProfilePage).
                   const completed = votes.filter((v) => {
                     const m = marketById.get(v.marketId);
-                    if (!m) return false;
-                    return m.state === "resolved" || Boolean(m.outcome);
-                  });
-                  const sold = votes.filter((v) => {
-                    const m = marketById.get(v.marketId);
                     const isResolved = Boolean(m && (m.state === "resolved" || m.outcome));
-                    // Sold means: market not resolved but user has no active position anymore.
-                    return !isResolved && !v.isActive;
+                    return isResolved || !v.isActive;
                   });
 
                   const renderVote = (v: PublicVote) => {
@@ -334,17 +329,6 @@ const PublicUserProfileModal: React.FC<PublicUserProfileModalProps> = ({
                           <div className="text-sm text-zinc-500 px-1">{lang === "RU" ? "Нет активных ставок" : "No active bets"}</div>
                         ) : (
                           <div className="space-y-3">{ongoing.map(renderVote)}</div>
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-3 px-1">
-                          {lang === "RU" ? "Закрытые" : "Closed"}
-                        </div>
-                        {sold.length === 0 ? (
-                          <div className="text-sm text-zinc-500 px-1">{lang === "RU" ? "Нет закрытых ставок" : "No closed bets"}</div>
-                        ) : (
-                          <div className="space-y-3">{sold.map(renderVote)}</div>
                         )}
                       </div>
 
