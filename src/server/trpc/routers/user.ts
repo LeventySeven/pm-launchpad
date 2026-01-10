@@ -487,7 +487,7 @@ export const userRouter = router({
         kind: String(r.kind),
         amountMajor: toMajorUnits(Number(r.amount_minor ?? 0), VCOIN_DECIMALS),
         marketId: r.market_id ?? null,
-        marketTitleRu: r.market_title_rus ?? null,
+        marketTitleRu: r.market_title_rus ?? r.market_title_eng ?? null,
         marketTitleEn: r.market_title_eng ?? null,
         createdAt: new Date(r.created_at).toISOString(),
       }));

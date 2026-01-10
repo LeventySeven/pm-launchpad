@@ -74,7 +74,7 @@ const mapMarketRow = (
 
   return {
     id: row.id,
-    titleRu: row.title_rus,
+    titleRu: row.title_rus ?? row.title_eng,
     titleEn: row.title_eng,
     description: row.description,
     state: row.state,
@@ -104,7 +104,7 @@ const mapPositionRow = (row: PositionWithMarket, decimals: number) => {
     outcome: row.outcome,
     shares: Number(row.shares),
     avgEntryPrice: row.avg_entry_price ? Number(row.avg_entry_price) : null,
-    marketTitleRu: row.markets?.title_rus ?? "",
+    marketTitleRu: row.markets?.title_rus ?? row.markets?.title_eng ?? "",
     marketTitleEn: row.markets?.title_eng ?? "",
     marketState: row.markets?.state ?? "open",
     marketOutcome: row.markets?.resolve_outcome ?? null,
@@ -126,7 +126,7 @@ const mapTradeRow = (row: TradeWithMarket, decimals: number) => {
     priceBefore: Number(row.price_before),
     priceAfter: Number(row.price_after),
     createdAt: new Date(row.created_at).toISOString(),
-    marketTitleRu: row.markets?.title_rus ?? "",
+    marketTitleRu: row.markets?.title_rus ?? row.markets?.title_eng ?? "",
     marketTitleEn: row.markets?.title_eng ?? "",
     marketState: row.markets?.state ?? "open",
     marketOutcome: row.markets?.resolve_outcome ?? null,
@@ -235,21 +235,11 @@ export const marketRouter = router({
     }),
 
   listMarkets: publicProcedure
-    .input(
-      z
-        .object({
-          onlyOpen: z.boolean().optional(),
-          limit: z.number().int().positive().max(500).optional(),
-          offset: z.number().int().nonnegative().optional(),
-        })
-        .optional()
-    )
+    .input(z.object({ onlyOpen: z.boolean().optional() }).optional())
     .output(z.array(marketOutput))
     .query(async ({ ctx, input }) => {
       const { supabase, supabaseService } = ctx;
       const onlyOpen = input?.onlyOpen ?? false;
-      const limit = input?.limit ?? 100; // Default limit of 100 markets
-      const offset = input?.offset ?? 0;
 
       let query = supabase
         .from("markets")
@@ -259,8 +249,7 @@ export const marketRouter = router({
           category_id,
           market_amm_state (market_id, b, q_yes, q_no, last_price_yes, fee_accumulated_minor, updated_at)
         `)
-        .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1); // Use range for pagination
+        .order("created_at", { ascending: false });
 
       if (onlyOpen) {
         query = query.eq("state", "open");
@@ -276,13 +265,30 @@ export const marketRouter = router({
 
       const rows: MarketWithAmm[] = data ?? [];
 
-      // Volume is calculated using deriveVolumeMajor from AMM state fee_accumulated in mapMarketRow
-      // This is much faster than querying all candles. The volumeByMarketId map is kept for potential overrides
-      // but in most cases, deriveVolumeMajor will be used directly.
+      // Compute market volume from candle aggregates (always use market_price_candles).
       const volumeByMarketId = new Map<string, number>();
-      // Note: We're intentionally NOT querying candles here for performance.
-      // Volume is derived from fee_accumulated_minor in the AMM state via deriveVolumeMajor function.
-      // If you need exact volume from candles, consider creating a materialized view or aggregate table.
+      if (rows.length > 0) {
+        const marketIds = rows.map((r) => r.id);
+        const { data: candles, error: candlesError } = await supabase
+          .from("market_price_candles")
+          .select("market_id, volume_minor")
+          .in("market_id", marketIds)
+          .limit(20000);
+
+        if (!candlesError && candles) {
+          type CandleRow = Pick<
+            Database["public"]["Tables"]["market_price_candles"]["Row"],
+            "market_id" | "volume_minor"
+          >;
+          (candles as CandleRow[]).forEach((c) => {
+            const key = String(c.market_id);
+            const prev = volumeByMarketId.get(key) ?? 0;
+            const minor = Number(c.volume_minor ?? 0);
+            if (!Number.isFinite(minor) || minor <= 0) return;
+            volumeByMarketId.set(key, prev + toMajorUnits(minor, VCOIN_DECIMALS));
+          });
+        }
+      }
 
       // Derive category labels from market_categories to avoid relying on category_label_* columns.
       const categoryIds = Array.from(
@@ -1253,7 +1259,7 @@ export const marketRouter = router({
           parentId: r.parent_id ?? null,
           body: r.body,
           createdAt: new Date(r.created_at).toISOString(),
-          marketTitleRu: titles?.title_rus ?? "",
+          marketTitleRu: titles?.title_rus ?? titles?.title_eng ?? "",
           marketTitleEn: titles?.title_eng ?? "",
           likesCount: Number(r.likes_count ?? 0),
         };
@@ -1374,6 +1380,6 @@ export const marketRouter = router({
         });
       }
 
-      return { id: market.id, titleRu: market.title_rus, titleEn: market.title_eng };
+      return { id: market.id, titleRu: market.title_rus ?? market.title_eng, titleEn: market.title_eng };
     }),
 });
