@@ -12,7 +12,6 @@ type AdminMarketModalProps = {
   categoriesLoading?: boolean;
   onReloadCategories?: () => void;
   onCreate: (payload: {
-    titleRu: string;
     titleEn: string;
     description?: string | null;
     closesAt?: string | null;
@@ -30,7 +29,6 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
   onReloadCategories,
   onCreate,
 }) => {
-  const [titleRu, setTitleRu] = useState("");
   const [titleEn, setTitleEn] = useState("");
   const [description, setDescription] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
@@ -63,11 +61,8 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
   const validationIssues = useMemo(() => {
     const issues: string[] = [];
 
-    if (titleRu.trim().length < 3) {
-      issues.push(t("Название (RU) — минимум 3 символа", "Title (RU) — at least 3 characters"));
-    }
     if (titleEn.trim().length < 3) {
-      issues.push(t("Название (EN) — минимум 3 символа", "Title (EN) — at least 3 characters"));
+      issues.push(t("Название — минимум 3 символа", "Title — at least 3 characters"));
     }
 
     const expiresAtMs = Date.parse(expiresAt);
@@ -92,7 +87,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
     }
 
     return issues;
-  }, [titleRu, titleEn, expiresAt, categoryId, categoriesLoading, categoriesStrict, t]);
+  }, [titleEn, expiresAt, categoryId, categoriesLoading, categoriesStrict, t]);
 
   const canSubmit = validationIssues.length === 0 && !loading;
 
@@ -118,13 +113,11 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
     setLoading(true);
     try {
       await onCreate({
-        titleRu: titleRu.trim(),
         titleEn: titleEn.trim(),
         description: description.trim() || null,
         expiresAt,
         categoryId,
       });
-      setTitleRu("");
       setTitleEn("");
       setDescription("");
       setExpiresAt("");
@@ -169,25 +162,14 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 text-sm text-neutral-200">
           <div className="lg:col-span-3 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-neutral-400 mb-1">{t("Название (RU)", "Title (RU)")}</label>
-                <input
-                  value={titleRu}
-                  onChange={(e) => setTitleRu(e.target.value)}
-                  placeholder={t("Например: Bitcoin > $125k к концу 2025?", "e.g. Bitcoin > $125k by end of 2025?")}
-                  className="w-full bg-zinc-950/40 border border-zinc-900 rounded-xl p-3 text-white focus:border-zinc-700 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-neutral-400 mb-1">{t("Название (EN)", "Title (EN)")}</label>
-                <input
-                  value={titleEn}
-                  onChange={(e) => setTitleEn(e.target.value)}
-                  placeholder={t("Например: Bitcoin > $125k к концу 2025?", "e.g. Bitcoin > $125k by end of 2025?")}
-                  className="w-full bg-zinc-950/40 border border-zinc-900 rounded-xl p-3 text-white focus:border-zinc-700 focus:outline-none"
-                />
-              </div>
+            <div>
+              <label className="block text-xs text-neutral-400 mb-1">{t("Название", "Title")}</label>
+              <input
+                value={titleEn}
+                onChange={(e) => setTitleEn(e.target.value)}
+                placeholder={t("Например: Bitcoin > $125k к концу 2025?", "e.g. Bitcoin > $125k by end of 2025?")}
+                className="w-full bg-zinc-950/40 border border-zinc-900 rounded-xl p-3 text-white focus:border-zinc-700 focus:outline-none"
+              />
             </div>
             <div>
               <label className="block text-xs text-neutral-400 mb-1">{t("Описание", "Description")}</label>
@@ -263,17 +245,11 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
 
           <div className="lg:col-span-2 bg-zinc-950/40 border border-zinc-900 rounded-2xl p-4 space-y-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-neutral-500 mb-1">{t("Предпросмотр (RU)", "Preview (RU)")}</p>
-              <h3 className="text-lg font-semibold text-white line-clamp-2">{titleRu || "Название события"}</h3>
+              <p className="text-xs uppercase tracking-[0.3em] text-neutral-500 mb-1">{t("Предпросмотр", "Preview")}</p>
+              <h3 className="text-lg font-semibold text-white line-clamp-2">{titleEn || "Event title"}</h3>
               <p className="text-sm text-neutral-400 line-clamp-3">
                 {description || t("Короткое описание условия и критериев разрешения.", "Short resolution criteria/description.")}
               </p>
-              <div className="mt-4 text-xs text-neutral-500">
-                <span className="font-semibold text-white block mb-1">EN:</span>
-                <p className="text-neutral-400 line-clamp-2">
-                  {titleEn || "Event title in English"}
-                </p>
-              </div>
             </div>
             <div className="bg-zinc-950/60 border border-zinc-900 rounded-xl p-3">
               <p className="text-xs text-neutral-500 mb-1">{t("Окончание", "Ends")}</p>

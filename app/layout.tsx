@@ -21,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru">
+    <html lang="en">
       <body className={`${inter.variable} bg-[#0a0a0a] text-white`}>
         {/* Telegram Mini App SDK: provides window.Telegram.WebApp + initData parsing */}
         <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />

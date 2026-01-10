@@ -130,11 +130,20 @@ const sampleAvatarHue = async (src: string): Promise<number | null> => {
 };
 
 const SolanaWalletSection: React.FC<{ lang: 'RU' | 'EN' }> = ({ lang }) => {
-  const { wallet, publicKey, disconnect, connecting } = useWallet();
+  const { wallet, publicKey, disconnect, connecting, select, wallets: availableWallets } = useWallet();
   const { setVisible } = useWalletModal();
 
+  const isTelegram = typeof window !== 'undefined' && window.Telegram?.WebApp;
+
   const handleConnectClick = () => {
-    setVisible(true);
+    // Check if we're in Telegram and no wallets are available
+    if (isTelegram && availableWallets.length === 0) {
+      // In Telegram Mini App, wallets need to be installed or available via browser
+      // Show modal anyway - it will handle the case where no wallets are available
+      setVisible(true);
+    } else {
+      setVisible(true);
+    }
   };
 
   const handleDisconnectClick = async () => {
@@ -148,6 +157,8 @@ const SolanaWalletSection: React.FC<{ lang: 'RU' | 'EN' }> = ({ lang }) => {
   const truncateAddress = (address: string) => {
     return `${address.slice(0, 4)}...${address.slice(-4)}`;
   };
+
+  const hasAvailableWallets = availableWallets.length > 0;
 
   return (
     <div className="mt-4 border border-zinc-900 bg-black rounded-2xl p-4">
@@ -194,7 +205,7 @@ const SolanaWalletSection: React.FC<{ lang: 'RU' | 'EN' }> = ({ lang }) => {
               size="sm"
               className="h-9 px-4 rounded-full"
               onClick={handleConnectClick}
-              disabled={connecting}
+              disabled={connecting || (!hasAvailableWallets && !isTelegram)}
             >
               {connecting
                 ? lang === 'RU'
@@ -211,6 +222,15 @@ const SolanaWalletSection: React.FC<{ lang: 'RU' | 'EN' }> = ({ lang }) => {
         <div className="mt-3 pt-3 border-t border-zinc-900">
           <div className="text-xs text-zinc-500">
             {lang === 'RU' ? 'Кошелек:' : 'Wallet:'} <span className="text-zinc-300">{wallet.adapter.name}</span>
+          </div>
+        </div>
+      )}
+      {isTelegram && !publicKey && hasAvailableWallets && (
+        <div className="mt-3 pt-3 border-t border-zinc-900">
+          <div className="text-xs text-zinc-400">
+            {lang === 'RU' 
+              ? 'В Telegram Mini App доступны внешние кошельки (Phantom, Solflare и др.)' 
+              : 'External wallets (Phantom, Solflare, etc.) are available in Telegram Mini App'}
           </div>
         </div>
       )}

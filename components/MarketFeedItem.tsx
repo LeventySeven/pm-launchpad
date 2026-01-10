@@ -16,7 +16,7 @@ const formatPrice = (value: number) => {
   return value.toFixed(3);
 };
 
-const MarketFeedItem: React.FC<MarketFeedItemProps> = ({ market, onClick, lang = 'RU' }) => {
+const MarketFeedItem: React.FC<MarketFeedItemProps> = ({ market, onClick, lang = 'EN' }) => {
   const localizedTitle = useMemo(
     () => (lang === 'RU' ? market.titleRu ?? market.titleEn ?? market.title : market.titleEn ?? market.titleRu ?? market.title),
     [lang, market.title, market.titleEn, market.titleRu]

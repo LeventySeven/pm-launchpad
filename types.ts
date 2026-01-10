@@ -36,7 +36,7 @@ export type MarketState = "open" | "closed" | "resolved" | "cancelled";
 export interface Market {
   id: string;
   title: string;
-  titleRu: string;
+  titleRu: string | null;
   titleEn: string;
   state: MarketState;
   outcome: "YES" | "NO" | null;

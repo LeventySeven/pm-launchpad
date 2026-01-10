@@ -11,6 +11,8 @@ import { clusterApiUrl } from "@solana/web3.js";
 import {
   PhantomWalletAdapter,
   SolflareWalletAdapter,
+  TorusWalletAdapter,
+  LedgerWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
 import "@solana/wallet-adapter-react-ui/styles.css";
 
@@ -23,20 +25,47 @@ export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
   const network = WalletAdapterNetwork.Devnet;
 
   // You can also provide a custom RPC endpoint
-  const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+  const endpoint = useMemo(() => {
+    // Use a more reliable RPC endpoint
+    return clusterApiUrl(network);
+    // Alternative: use a custom RPC endpoint
+    // return 'https://api.devnet.solana.com';
+  }, [network]);
 
-  // Configure wallets
+  // Configure wallets - memoize to prevent unnecessary re-renders
   const wallets = useMemo(
-    () => [
-      new PhantomWalletAdapter(),
-      new SolflareWalletAdapter(),
-    ],
-    []
+    () => {
+      const adapters = [
+        new PhantomWalletAdapter(),
+        new SolflareWalletAdapter(),
+        new TorusWalletAdapter(),
+        // LedgerWalletAdapter requires additional setup, so it's commented out by default
+        // new LedgerWalletAdapter(),
+      ];
+
+      return adapters;
+    },
+    // Re-initialize wallets if network changes
+    [network]
   );
+
+  // Check if we're in a Telegram environment
+  // In Telegram Mini Apps, autoConnect may not work well with browser extensions
+  const isTelegram = typeof window !== 'undefined' && window.Telegram?.WebApp;
 
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect>
+      <WalletProvider 
+        wallets={wallets} 
+        autoConnect={!isTelegram}
+        localStorageKey="solana-wallet-adapter"
+        onError={(error) => {
+          // Only log errors in development
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Solana Wallet Adapter Error:', error);
+          }
+        }}
+      >
         <WalletModalProvider>{children}</WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>

@@ -61,7 +61,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
   onPostComment,
   onToggleCommentLike,
   userPositions = [],
-  lang = 'RU',
+  lang = 'EN',
   priceCandles = [],
   publicTrades = [],
   insightsLoading = false,

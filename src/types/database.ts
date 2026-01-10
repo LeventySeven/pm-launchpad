@@ -250,7 +250,7 @@ export interface Database {
       markets: {
         Row: {
           id: string;
-          title_rus: string;
+          title_rus: string | null;
           title_eng: string;
           description: string | null;
           state: MarketState;
@@ -269,7 +269,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          title_rus: string;
+          title_rus?: string | null;
           title_eng: string;
           description?: string | null;
           state?: MarketState;

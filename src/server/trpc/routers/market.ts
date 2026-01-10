@@ -1272,7 +1272,6 @@ export const marketRouter = router({
   createMarket: publicProcedure
     .input(
       z.object({
-        titleRu: z.string().min(3),
         titleEn: z.string().min(3),
         description: z.string().optional().nullable(),
         closesAt: z.string().optional().nullable(),
@@ -1321,21 +1320,17 @@ export const marketRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid category" });
       }
 
-      // Validate trimmed titles are not empty
-      const titleRuTrimmed = input.titleRu.trim();
+      // Validate trimmed title is not empty
       const titleEnTrimmed = input.titleEn.trim();
-      if (titleRuTrimmed.length < 3) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Title (RU) must be at least 3 characters" });
-      }
       if (titleEnTrimmed.length < 3) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Title (EN) must be at least 3 characters" });
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Title must be at least 3 characters" });
       }
 
-      // Insert market
+      // Insert market - title_rus is optional (nullable) for English-only markets
       const { data: market, error: marketError } = await (supabaseService as SupabaseDbClient)
         .from("markets")
         .insert({
-          title_rus: titleRuTrimmed,
+          title_rus: null, // Optional field - focusing on English audience
           title_eng: titleEnTrimmed,
           description: input.description?.trim() || null,
           state: "open",

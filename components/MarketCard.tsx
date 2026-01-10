@@ -11,7 +11,7 @@ interface MarketCardProps {
   lang?: 'RU' | 'EN';
 }
 
-const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, onQuickBet, bookmarked = false, lang = 'RU' }) => {
+const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, onQuickBet, bookmarked = false, lang = 'EN' }) => {
   const localizedTitle =
     lang === 'RU'
       ? market.titleRu ?? market.titleEn ?? market.title
