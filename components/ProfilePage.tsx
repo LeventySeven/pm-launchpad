@@ -4,8 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { LogOut, Mail, User as UserIcon, Shield, Pencil, X, Image, CheckCircle2, XCircle, ArrowUpRight, ArrowDownRight, Clock, Wallet } from 'lucide-react';
 import Button from './Button';
 import type { Bet, Market, Trade, User, UserCommentSummary } from '../types';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 
 type ProfilePageProps = {
   user: User | null;
@@ -129,17 +128,13 @@ const sampleAvatarHue = async (src: string): Promise<number | null> => {
   }
 };
 
-const SolanaWalletSection: React.FC<{ lang: 'RU' | 'EN' }> = ({ lang }) => {
-  const { wallet, publicKey, disconnect, connecting, wallets: availableWallets } = useWallet();
-  const { visible, setVisible } = useWalletModal();
+const WalletConnectSection: React.FC<{ lang: 'RU' | 'EN' }> = ({ lang }) => {
+  const { open } = useAppKit();
+  const { address, isConnected, status } = useAppKitAccount();
 
   const handleConnectClick = () => {
     try {
-      // Log for debugging in development
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Opening wallet modal. Available wallets:', availableWallets.map(w => w.adapter.name));
-      }
-      setVisible(true);
+      open({ view: 'Connect' });
     } catch (error) {
       console.error('Failed to open wallet modal:', error);
     }
@@ -147,15 +142,18 @@ const SolanaWalletSection: React.FC<{ lang: 'RU' | 'EN' }> = ({ lang }) => {
 
   const handleDisconnectClick = async () => {
     try {
-      await disconnect();
+      open({ view: 'Account' });
+      // Disconnect will be handled through the Account view
     } catch (error) {
       console.error('Failed to disconnect wallet:', error);
     }
   };
 
-  const truncateAddress = (address: string) => {
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
+  const truncateAddress = (addr: string) => {
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
+
+  const isConnecting = status === 'connecting' || status === 'reconnecting';
 
   return (
     <div className="mt-4 border border-zinc-900 bg-black rounded-2xl p-4">
@@ -166,11 +164,11 @@ const SolanaWalletSection: React.FC<{ lang: 'RU' | 'EN' }> = ({ lang }) => {
           </div>
           <div>
             <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">
-              {lang === 'RU' ? 'Solana Кошелек' : 'Solana Wallet'}
+              {lang === 'RU' ? 'WalletConnect' : 'WalletConnect'}
             </div>
-            {publicKey ? (
+            {isConnected && address ? (
               <div className="text-sm font-mono text-zinc-300">
-                {truncateAddress(publicKey.toString())}
+                {truncateAddress(address)}
               </div>
             ) : (
               <div className="text-sm text-zinc-500">
@@ -180,15 +178,15 @@ const SolanaWalletSection: React.FC<{ lang: 'RU' | 'EN' }> = ({ lang }) => {
           </div>
         </div>
         <div>
-          {publicKey ? (
+          {isConnected && address ? (
             <Button
               variant="outline"
               size="sm"
               className="h-9 px-4 rounded-full border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60"
               onClick={handleDisconnectClick}
-              disabled={connecting}
+              disabled={isConnecting}
             >
-              {connecting
+              {isConnecting
                 ? lang === 'RU'
                   ? 'Отключение...'
                   : 'Disconnecting...'
@@ -202,9 +200,9 @@ const SolanaWalletSection: React.FC<{ lang: 'RU' | 'EN' }> = ({ lang }) => {
               size="sm"
               className="h-9 px-4 rounded-full"
               onClick={handleConnectClick}
-              disabled={connecting}
+              disabled={isConnecting}
             >
-              {connecting
+              {isConnecting
                 ? lang === 'RU'
                   ? 'Подключение...'
                   : 'Connecting...'
@@ -215,13 +213,6 @@ const SolanaWalletSection: React.FC<{ lang: 'RU' | 'EN' }> = ({ lang }) => {
           )}
         </div>
       </div>
-      {wallet && publicKey && (
-        <div className="mt-3 pt-3 border-t border-zinc-900">
-          <div className="text-xs text-zinc-500">
-            {lang === 'RU' ? 'Кошелек:' : 'Wallet:'} <span className="text-zinc-300">{wallet.adapter.name}</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -605,8 +596,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
         )}
       </div>
 
-      {/* Solana Wallet Connection */}
-      <SolanaWalletSection lang={lang} />
+      {/* WalletConnect Connection */}
+      <WalletConnectSection lang={lang} />
 
       {/* PnL graph (lightweight sparkline) */}
       <div className="mt-4 border border-zinc-900 bg-black rounded-2xl overflow-hidden">
