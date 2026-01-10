@@ -33,20 +33,16 @@ export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
   }, [network]);
 
   // Configure wallets - memoize to prevent unnecessary re-renders
+  // According to Solana Wallet Adapter docs, wallets should be created once and memoized
   const wallets = useMemo(
-    () => {
-      const adapters = [
-        new PhantomWalletAdapter(),
-        new SolflareWalletAdapter(),
-        new TorusWalletAdapter(),
-        // LedgerWalletAdapter requires additional setup, so it's commented out by default
-        // new LedgerWalletAdapter(),
-      ];
-
-      return adapters;
-    },
-    // Re-initialize wallets if network changes
-    [network]
+    () => [
+      new PhantomWalletAdapter(),
+      new SolflareWalletAdapter(),
+      new TorusWalletAdapter(),
+      // LedgerWalletAdapter requires additional setup, so it's commented out by default
+      // new LedgerWalletAdapter(),
+    ],
+    [] // Empty deps - wallets don't need to be recreated on network change
   );
 
   // Check if we're in a Telegram environment

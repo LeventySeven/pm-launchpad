@@ -163,7 +163,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 text-sm text-neutral-200">
           <div className="lg:col-span-3 space-y-4">
             <div>
-              <label className="block text-xs text-neutral-400 mb-1">{t("Название", "Title")}</label>
+              <label className="block text-xs font-bold text-white mb-1">{t("Название", "Title")}</label>
               <input
                 value={titleEn}
                 onChange={(e) => setTitleEn(e.target.value)}
@@ -172,7 +172,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-xs text-neutral-400 mb-1">{t("Описание", "Description")}</label>
+              <label className="block text-xs font-bold text-white mb-1">{t("Описание", "Description")}</label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -183,7 +183,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs text-neutral-400 mb-2">{t("Категория", "Category")}</label>
+              <label className="block text-xs font-bold text-white mb-2">{t("Категория", "Category")}</label>
               <button
                 type="button"
                 onClick={() => setCategoryPickerOpen(true)}
@@ -207,7 +207,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs text-neutral-400 mb-2">{t("Окончание события (UTC)", "Event end (UTC)")}</label>
+              <label className="block text-xs font-bold text-white mb-2">{t("Окончание события (UTC)", "Event end (UTC)")}</label>
               <div className="flex items-center gap-3 mb-2 text-xs text-neutral-500">
                 <Info size={14} />
                 {t("После этого времени торги закрываются, а рынок можно разрешить.", "After this time, trading closes and the market can be resolved.")}
