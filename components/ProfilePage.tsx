@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { LogOut, Mail, User as UserIcon, Shield, Pencil, X, Image, CheckCircle2, XCircle, ArrowUpRight, ArrowDownRight, Clock } from 'lucide-react';
+import { LogOut, Mail, User as UserIcon, Shield, Pencil, X, Image, CheckCircle2, XCircle, ArrowUpRight, ArrowDownRight, Clock, Wallet } from 'lucide-react';
 import Button from './Button';
 import type { Bet, Market, Trade, User, UserCommentSummary } from '../types';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 
 type ProfilePageProps = {
   user: User | null;
@@ -125,6 +127,95 @@ const sampleAvatarHue = async (src: string): Promise<number | null> => {
     // If the image is cross-origin without CORS, canvas read will fail (tainted).
     return null;
   }
+};
+
+const SolanaWalletSection: React.FC<{ lang: 'RU' | 'EN' }> = ({ lang }) => {
+  const { wallet, publicKey, disconnect, connecting } = useWallet();
+  const { setVisible } = useWalletModal();
+
+  const handleConnectClick = () => {
+    setVisible(true);
+  };
+
+  const handleDisconnectClick = async () => {
+    try {
+      await disconnect();
+    } catch (error) {
+      console.error('Failed to disconnect wallet:', error);
+    }
+  };
+
+  const truncateAddress = (address: string) => {
+    return `${address.slice(0, 4)}...${address.slice(-4)}`;
+  };
+
+  return (
+    <div className="mt-4 border border-zinc-900 bg-black rounded-2xl p-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full border border-zinc-900 bg-zinc-950/40 flex items-center justify-center">
+            <Wallet size={18} className="text-zinc-400" />
+          </div>
+          <div>
+            <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">
+              {lang === 'RU' ? 'Solana Кошелек' : 'Solana Wallet'}
+            </div>
+            {publicKey ? (
+              <div className="text-sm font-mono text-zinc-300">
+                {truncateAddress(publicKey.toString())}
+              </div>
+            ) : (
+              <div className="text-sm text-zinc-500">
+                {lang === 'RU' ? 'Не подключен' : 'Not connected'}
+              </div>
+            )}
+          </div>
+        </div>
+        <div>
+          {publicKey ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 px-4 rounded-full border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60"
+              onClick={handleDisconnectClick}
+              disabled={connecting}
+            >
+              {connecting
+                ? lang === 'RU'
+                  ? 'Отключение...'
+                  : 'Disconnecting...'
+                : lang === 'RU'
+                ? 'Отключить'
+                : 'Disconnect'}
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              size="sm"
+              className="h-9 px-4 rounded-full"
+              onClick={handleConnectClick}
+              disabled={connecting}
+            >
+              {connecting
+                ? lang === 'RU'
+                  ? 'Подключение...'
+                  : 'Connecting...'
+                : lang === 'RU'
+                ? 'Подключить'
+                : 'Connect Wallet'}
+            </Button>
+          )}
+        </div>
+      </div>
+      {wallet && publicKey && (
+        <div className="mt-3 pt-3 border-t border-zinc-900">
+          <div className="text-xs text-zinc-500">
+            {lang === 'RU' ? 'Кошелек:' : 'Wallet:'} <span className="text-zinc-300">{wallet.adapter.name}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 const buildSparklinePath = (values: number[]) => {
@@ -505,6 +596,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
           </div>
         )}
       </div>
+
+      {/* Solana Wallet Connection */}
+      <SolanaWalletSection lang={lang} />
 
       {/* PnL graph (lightweight sparkline) */}
       <div className="mt-4 border border-zinc-900 bg-black rounded-2xl overflow-hidden">
