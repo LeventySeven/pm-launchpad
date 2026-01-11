@@ -26,7 +26,8 @@ const PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '';
 
 const networks = [mainnet, arbitrum, base, polygon];
 
-// Initialize AppKit at module level (only once, before any components render)
+// Initialize AppKit at module level (client-side only)
+// This ensures createAppKit is called before any components using hooks render
 let wagmiAdapterInstance: WagmiAdapter | null = null;
 
 if (typeof window !== 'undefined' && PROJECT_ID) {
@@ -38,7 +39,8 @@ if (typeof window !== 'undefined' && PROJECT_ID) {
       ssr: false,
     });
 
-    // Initialize AppKit (only once, globally, synchronously at module load)
+    // Initialize AppKit (only once, globally, at module load)
+    // This must be called before any hooks like useAppKit are used
     createAppKit({
       adapters: [wagmiAdapterInstance],
       networks,
@@ -76,7 +78,7 @@ export const WalletConnectProvider: FC<WalletConnectProviderProps> = ({ children
     setMounted(true);
   }, []);
 
-  // Don't render providers if not mounted or no project ID
+  // Don't render providers if not mounted or no project ID or adapter
   if (!mounted || !wagmiAdapter) {
     return <>{children}</>;
   }
