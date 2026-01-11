@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
+import dynamic from "next/dynamic";
 import "./globals.css";
-import { WalletConnectProvider } from "@/components/WalletConnectProvider";
 
 const inter = Inter({
   subsets: ["latin", "cyrillic"],
@@ -14,6 +14,13 @@ export const metadata: Metadata = {
   title: "Yalla Market",
   description: "Prediction market demo for Telegram mini app",
 };
+
+// Dynamically import WalletConnectProvider with SSR disabled
+// This ensures createAppKit is only called on the client side
+const WalletConnectProvider = dynamic(
+  () => import("@/components/WalletConnectProvider").then((mod) => ({ default: mod.WalletConnectProvider })),
+  { ssr: false }
+);
 
 export default function RootLayout({
   children,
@@ -32,4 +39,3 @@ export default function RootLayout({
     </html>
   );
 }
-
