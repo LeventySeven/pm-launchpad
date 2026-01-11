@@ -391,24 +391,10 @@ const MarketPage: React.FC<MarketPageProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
         {/* Chart + Info */}
         <div className="lg:col-span-8 space-y-8">
-          <div className="flex items-start gap-6">
-            <img src={market.imageUrl} alt={localizedTitle} className="w-16 h-16 rounded-full bg-zinc-950 object-cover grayscale opacity-90 border border-zinc-900" />
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-100 leading-tight mb-3">{localizedTitle}</h1>
-              <div className="flex flex-wrap items-center gap-4 text-xs font-medium uppercase tracking-wide text-zinc-500">
-                <span className="flex items-center gap-2 text-zinc-200 font-mono"><Clock size={14}/> {timeLeft}</span>
-                <span className="flex items-center gap-2"><ShieldCheck size={14}/> 
-                  {lang === 'RU' ? 'Объем' : 'Vol'}: {market.volume}
-                </span>
-                <span className="flex items-center gap-2 text-zinc-400">
-                  <CalendarDays size={14} />
-                  {lang === 'RU' ? `Окончание: ${formattedEndDate}` : `Ends: ${formattedEndDate}`}
-                </span>
-                {renderOutcomeBadge()}
-              </div>
-            </div>
-
-            <div className="ml-auto flex items-center gap-2">
+          {/* Market Header: Circular Image at Top */}
+          <div className="relative">
+            {/* Bookmark button - top right */}
+            <div className="absolute top-0 right-0 z-10">
               <button
                 type="button"
                 onClick={() => {
@@ -426,6 +412,31 @@ const MarketPage: React.FC<MarketPageProps> = ({
               >
                 <Bookmark size={18} fill={bookmarked ? "currentColor" : "none"} />
               </button>
+            </div>
+
+            {/* Circular Market Image - centered at top */}
+            <div className="flex justify-center mb-6">
+              <img 
+                src={market.imageUrl} 
+                alt={localizedTitle} 
+                className="w-24 h-24 rounded-full bg-zinc-950 object-cover flex-shrink-0 border border-zinc-900" 
+              />
+            </div>
+
+            {/* Market Title */}
+            <div className="text-center mb-4">
+              <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-100 leading-tight mb-3">{localizedTitle}</h1>
+              <div className="flex flex-wrap items-center justify-center gap-4 text-xs font-medium uppercase tracking-wide text-zinc-500">
+                <span className="flex items-center gap-2 text-zinc-200 font-mono"><Clock size={14}/> {timeLeft}</span>
+                <span className="flex items-center gap-2"><ShieldCheck size={14}/> 
+                  {lang === 'RU' ? 'Объем' : 'Vol'}: {market.volume}
+                </span>
+                <span className="flex items-center gap-2 text-zinc-400">
+                  <CalendarDays size={14} />
+                  {lang === 'RU' ? `Окончание: ${formattedEndDate}` : `Ends: ${formattedEndDate}`}
+                </span>
+                {renderOutcomeBadge()}
+              </div>
             </div>
           </div>
 
@@ -448,18 +459,6 @@ const MarketPage: React.FC<MarketPageProps> = ({
               <span>{lang === 'RU' ? 'Комментарии' : 'Comments'}</span>
             </button>
           </div>
-
-          {/* Market Image */}
-          {market.imageUrl && (
-            <div className="rounded-2xl border border-zinc-900 bg-black overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img 
-                src={market.imageUrl} 
-                alt={localizedTitle}
-                className="w-full h-auto max-h-64 object-cover"
-              />
-            </div>
-          )}
 
           {/* Chart */}
           <div className="rounded-2xl border border-zinc-900 bg-black p-6 h-[380px] relative">
