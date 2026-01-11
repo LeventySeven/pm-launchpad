@@ -24,11 +24,14 @@ const wagmiAdapter = new WagmiAdapter({
 });
 
 // CRITICAL: Initialize here, but only on the client
-let appKitModal: any = null;
+type AppKitInstance = ReturnType<typeof createAppKit>;
+let appKitModal: AppKitInstance | null = null;
 
-export function initializeAppKit() {
+export function initializeAppKit(): AppKitInstance {
   if (appKitModal) return appKitModal;
 
+  // Type assertion needed due to networks array type incompatibility between @reown/appkit/networks and createAppKit
+  // This is a known type compatibility issue with the package
   appKitModal = createAppKit({
     adapters: [wagmiAdapter],
     projectId,
@@ -40,6 +43,7 @@ export function initializeAppKit() {
       socials: [],
     },
     themeMode: 'dark',
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
 
   return appKitModal;

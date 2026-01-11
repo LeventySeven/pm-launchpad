@@ -28,13 +28,17 @@ import { buildInitialsAvatarDataUrl } from "@/lib/avatar";
 const VCOIN_DECIMALS = 6;
 const toMajorUnits = (minor: number) => minor / Math.pow(10, VCOIN_DECIMALS);
 
-type ErrorLike = unknown;
-const getErrorMessage = (error: ErrorLike) => {
+type ErrorLike = string | Error | { message?: string; data?: { message?: string } } | null | undefined;
+const getErrorMessage = (error: ErrorLike): string => {
   if (typeof error === "string") return error;
   if (error instanceof Error) return error.message;
   if (error && typeof error === "object" && "message" in error) {
-    const msg = (error as { message?: unknown }).message;
+    const msg = error.message;
     if (typeof msg === "string") return msg;
+  }
+  if (error && typeof error === "object" && "data" in error && error.data && typeof error.data === "object" && "message" in error.data) {
+    const dataMsg = error.data.message;
+    if (typeof dataMsg === "string") return dataMsg;
   }
   try {
     return JSON.stringify(error);
@@ -1389,6 +1393,7 @@ export default function HomePage() {
             onLogoClick={() => {
               setSelectedMarketId(null);
               setCurrentView("FEED");
+              void loadMarkets();
             }}
             lang={lang}
             onToggleLang={handleToggleLang}
@@ -1402,6 +1407,7 @@ export default function HomePage() {
               onBack={() => {
                 setMarketBetIntent(null);
                 setSelectedMarketId(null);
+                void loadMarkets();
               }}
               onLogin={() => openAuth("SIGN_IN")}
               betIntent={
@@ -1443,8 +1449,10 @@ export default function HomePage() {
             onChange={(view) => {
               // Bottom nav always navigates back to the main shell
               setMarketBetIntent(null);
-              setSelectedMarketId(null);
-
+              if (selectedMarketId !== null) {
+                setSelectedMarketId(null);
+                void loadMarkets();
+              }
               goToView(view);
             }}
           />
