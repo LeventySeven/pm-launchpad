@@ -1479,7 +1479,13 @@ export default function HomePage() {
               }}
               lang={lang}
               onResolveOutcome={
-                user && selectedMarket.createdBy && selectedMarket.createdBy === user.id ? resolveMarketOutcome : undefined
+                user &&
+                selectedMarket.createdBy &&
+                selectedMarket.createdBy === user.id &&
+                Number.isFinite(Date.parse(selectedMarket.expiresAt)) &&
+                Date.now() >= Date.parse(selectedMarket.expiresAt)
+                  ? resolveMarketOutcome
+                  : undefined
               }
               onPlaceBet={handlePlaceBet}
               onSellPosition={handleSellPosition}

@@ -122,6 +122,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
     return Number.isFinite(parsed) && parsed <= Date.now();
   })();
   const creatorControlsEnabled = Boolean(isCreator && onResolveOutcome);
+  const showCreatorResolveControls = creatorControlsEnabled && (isResolved || eventEnded);
 
   // User's current position for this market
   const userYesPosition = userPositions.find(p => p.outcome === 'YES');
@@ -343,6 +344,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
   const handleResolveOutcomeClick = async (side: 'YES' | 'NO') => {
     if (!creatorControlsEnabled || !onResolveOutcome) return;
     if (!eventEnded) {
+      // Defensive guard; UI should hide the button before event end.
       setResolveError(lang === 'RU' ? 'Событие ещё не закончилось' : 'Event has not ended yet');
       return;
     }
@@ -658,8 +660,8 @@ const MarketPage: React.FC<MarketPageProps> = ({
               </>
             )}
 
-            {/* Creator Controls */}
-            {creatorControlsEnabled && (
+            {/* Creator Controls (only after event end) */}
+            {showCreatorResolveControls && (
               <div className="mt-6 pt-4 border-t border-zinc-900/50 space-y-3">
                 <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 flex items-center gap-2">
                   <ShieldCheck size={12} />
