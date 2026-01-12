@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Market, User, Position, PriceCandle, PublicTrade, Comment } from '../types';
 import Button from './Button';
-import { Bookmark, ChevronLeft, Clock, ShieldCheck, User as UserIcon, Send, ThumbsUp, CalendarDays, Coins, MessageCircle, X, Info } from 'lucide-react';
+import { Bookmark, ChevronLeft, Clock, ShieldCheck, User as UserIcon, Send, ThumbsUp, CalendarDays, Coins, MessageCircle, X, Info, LineChart } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { formatTimeRemaining } from '../lib/time';
 
@@ -390,7 +390,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
         {/* Chart + Info */}
-        <div className="lg:col-span-8 space-y-8">
+        <div className="lg:col-span-8 lg:col-start-1 lg:row-start-1 space-y-6">
           {/* Market Header: Circular Image at Top */}
           <div className="relative">
             {/* Bookmark button - top right */}
@@ -415,18 +415,18 @@ const MarketPage: React.FC<MarketPageProps> = ({
             </div>
 
             {/* Circular Market Image - centered at top */}
-            <div className="flex justify-center mb-6">
+            <div className="mb-4">
               <img 
                 src={market.imageUrl} 
                 alt={localizedTitle} 
-                className="w-24 h-24 rounded-full bg-zinc-950 object-cover flex-shrink-0 border border-zinc-900" 
+                className="w-20 h-20 rounded-full bg-zinc-950 object-cover border border-zinc-900" 
               />
             </div>
 
             {/* Market Title */}
-            <div className="text-center mb-4">
+            <div className="mb-2 pr-12">
               <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-100 leading-tight mb-3">{localizedTitle}</h1>
-              <div className="flex flex-wrap items-center justify-center gap-4 text-xs font-medium uppercase tracking-wide text-zinc-500">
+              <div className="flex flex-wrap items-center gap-4 text-xs font-medium uppercase tracking-wide text-zinc-500">
                 <span className="flex items-center gap-2 text-zinc-200 font-mono"><Clock size={14}/> {timeLeft}</span>
                 <span className="flex items-center gap-2"><ShieldCheck size={14}/> 
                   {lang === 'RU' ? 'Объем' : 'Vol'}: {market.volume}
@@ -444,11 +444,11 @@ const MarketPage: React.FC<MarketPageProps> = ({
           <div className="lg:hidden flex gap-2">
             <button
               type="button"
-              onClick={() => scrollToSection('bid-section')}
+              onClick={() => scrollToSection('chart-section')}
               className="flex-1 h-11 rounded-full border border-zinc-900 bg-black px-4 text-xs font-bold uppercase tracking-wider text-zinc-200 hover:bg-zinc-950/60 transition-colors inline-flex items-center justify-center gap-2"
             >
-              <Coins size={16} className="text-zinc-400" />
-              <span>{lang === 'RU' ? 'Ставка' : 'Bet'}</span>
+              <LineChart size={16} className="text-zinc-400" />
+              <span>{lang === 'RU' ? 'График' : 'Chart'}</span>
             </button>
             <button
               type="button"
@@ -459,81 +459,12 @@ const MarketPage: React.FC<MarketPageProps> = ({
               <span>{lang === 'RU' ? 'Комментарии' : 'Comments'}</span>
             </button>
           </div>
-
-          {/* Chart */}
-          <div className="rounded-2xl border border-zinc-900 bg-black p-6 h-[380px] relative">
-            <div className="flex items-baseline gap-4 mb-8">
-              <span className="text-4xl font-bold tracking-tight text-zinc-100">{displayedChance}%</span>
-              <span className="text-zinc-500 text-sm font-medium uppercase tracking-wide">
-                {lang === 'RU' ? 'Вероятность (Да)' : 'Yes Probability'}
-              </span>
-            </div>
-            {insightsLoading && (
-              <span className="absolute top-6 right-6 text-[11px] uppercase text-zinc-500 tracking-wider">
-                {lang === 'RU' ? 'Обновление...' : 'Updating...'}
-              </span>
-            )}
-            {chartSeries.length > 0 ? (
-              <ResponsiveContainer width="100%" height="80%">
-                <AreaChart data={chartSeries}>
-                  <defs>
-                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ffffff" stopOpacity={0.14}/>
-                      <stop offset="95%" stopColor="#ffffff" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <XAxis 
-                    dataKey="label" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{fill: '#52525b', fontSize: 10}} 
-                    tickFormatter={(value) => String(value)}
-                    minTickGap={40}
-                    dy={10}
-                  />
-                  <YAxis 
-                    hide domain={[0, 100]} 
-                  />
-                  <CartesianGrid vertical={false} stroke="#18181b" strokeDasharray="3 3" />
-                  <Tooltip 
-                    contentStyle={{backgroundColor: '#000000', borderColor: '#27272a', borderRadius: '10px'}}
-                    itemStyle={{color: '#ffffff', fontSize: '12px'}}
-                    labelStyle={{color: '#71717a', fontSize: '10px', textTransform: 'uppercase'}}
-                    labelFormatter={(_, payload) => {
-                      const p = Array.isArray(payload) ? payload[0]?.payload : null;
-                      const ts = p && typeof p.ts === "number" ? p.ts : null;
-                      if (!ts) return "";
-                      return new Date(ts).toLocaleString(lang === 'RU' ? 'ru-RU' : 'en-US', {
-                        month: 'short',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      });
-                    }}
-                    formatter={(value: number) => [`${value}%`, lang === 'RU' ? 'Вероятность' : 'Chance']}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="value" 
-                    stroke="#ffffff" 
-                    strokeWidth={2}
-                    fillOpacity={1} 
-                    fill="url(#colorValue)" 
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-[80%] items-center justify-center text-sm text-neutral-500">
-                {lang === 'RU' ? 'Нет данных для графика' : 'No chart data yet'}
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Bet (trade card) */}
         <div
           id="bid-section"
-          className="scroll-mt-24 lg:col-span-4 lg:col-start-9 lg:row-start-1 lg:row-span-2"
+          className="scroll-mt-24 lg:col-span-4 lg:col-start-9 lg:row-start-1 lg:row-span-3"
         >
           <div className="space-y-6 lg:sticky lg:top-24 lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:pr-1 custom-scrollbar">
             {/* Trading Card */}
@@ -787,8 +718,82 @@ const MarketPage: React.FC<MarketPageProps> = ({
           </div>
         </div>
 
+        {/* Chart (mobile: after bet; desktop: left column row 2) */}
+        <div
+          id="chart-section"
+          className="scroll-mt-24 lg:col-span-8 lg:col-start-1 lg:row-start-2"
+        >
+          <div className="rounded-2xl border border-zinc-900 bg-black p-6 h-[380px] relative">
+            <div className="flex items-baseline gap-4 mb-8">
+              <span className="text-4xl font-bold tracking-tight text-zinc-100">{displayedChance}%</span>
+              <span className="text-zinc-500 text-sm font-medium uppercase tracking-wide">
+                {lang === 'RU' ? 'Вероятность (Да)' : 'Yes Probability'}
+              </span>
+            </div>
+            {insightsLoading && (
+              <span className="absolute top-6 right-6 text-[11px] uppercase text-zinc-500 tracking-wider">
+                {lang === 'RU' ? 'Обновление...' : 'Updating...'}
+              </span>
+            )}
+            {chartSeries.length > 0 ? (
+              <ResponsiveContainer width="100%" height="80%">
+                <AreaChart data={chartSeries}>
+                  <defs>
+                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ffffff" stopOpacity={0.14}/>
+                      <stop offset="95%" stopColor="#ffffff" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis 
+                    dataKey="label" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{fill: '#52525b', fontSize: 10}} 
+                    tickFormatter={(value) => String(value)}
+                    minTickGap={40}
+                    dy={10}
+                  />
+                  <YAxis 
+                    hide domain={[0, 100]} 
+                  />
+                  <CartesianGrid vertical={false} stroke="#18181b" strokeDasharray="3 3" />
+                  <Tooltip 
+                    contentStyle={{backgroundColor: '#000000', borderColor: '#27272a', borderRadius: '10px'}}
+                    itemStyle={{color: '#ffffff', fontSize: '12px'}}
+                    labelStyle={{color: '#71717a', fontSize: '10px', textTransform: 'uppercase'}}
+                    labelFormatter={(_, payload) => {
+                      const p = Array.isArray(payload) ? payload[0]?.payload : null;
+                      const ts = p && typeof p.ts === "number" ? p.ts : null;
+                      if (!ts) return "";
+                      return new Date(ts).toLocaleString(lang === 'RU' ? 'ru-RU' : 'en-US', {
+                        month: 'short',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      });
+                    }}
+                    formatter={(value: number) => [`${value}%`, lang === 'RU' ? 'Вероятность' : 'Chance']}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke="#ffffff" 
+                    strokeWidth={2}
+                    fillOpacity={1} 
+                    fill="url(#colorValue)" 
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-[80%] items-center justify-center text-sm text-neutral-500">
+                {lang === 'RU' ? 'Нет данных для графика' : 'No chart data yet'}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Comments / Activity (on mobile this comes AFTER bid; on desktop it stays under chart) */}
-        <div id="comments-section" className="scroll-mt-24 lg:col-span-8">
+        <div id="comments-section" className="scroll-mt-24 lg:col-span-8 lg:col-start-1 lg:row-start-3">
           <div>
             <div className="flex border-b border-zinc-900 mb-8">
               <button
