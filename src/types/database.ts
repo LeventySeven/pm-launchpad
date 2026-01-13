@@ -7,6 +7,11 @@ export type TradeAction = "buy" | "sell";
 export type WalletTxKind = "deposit" | "withdraw" | "trade" | "payout" | "referral" | "fee";
 export type RewardStatus = "pending" | "paid" | "reversed";
 
+// WalletConnect/On-chain types
+export type OnChainTxStatus = "pending" | "confirmed" | "failed";
+export type OnChainTxType = "deposit" | "bet" | "sell" | "claim" | "withdraw" | "approve";
+export type DepositStatus = "pending" | "confirmed" | "failed" | "credited";
+
 export interface Database {
   public: {
     Tables: {
@@ -49,6 +54,10 @@ export interface Database {
           referral_commission_rate: number | null;
           referral_enabled: boolean | null;
           created_at: string;
+          // WalletConnect fields
+          wallet_address: string | null;
+          chain_id: number | null;
+          wallet_connected_at: string | null;
         };
         Insert: {
           id?: string;
@@ -67,6 +76,10 @@ export interface Database {
           referral_commission_rate?: number | null;
           referral_enabled?: boolean | null;
           created_at?: string;
+          // WalletConnect fields
+          wallet_address?: string | null;
+          chain_id?: number | null;
+          wallet_connected_at?: string | null;
         };
         Update: {
           id?: string;
@@ -85,6 +98,10 @@ export interface Database {
           referral_commission_rate?: number | null;
           referral_enabled?: boolean | null;
           created_at?: string;
+          // WalletConnect fields
+          wallet_address?: string | null;
+          chain_id?: number | null;
+          wallet_connected_at?: string | null;
         };
         Relationships: [];
       };
@@ -519,6 +536,139 @@ export interface Database {
         };
         Relationships: [];
       };
+      // WalletConnect/On-chain tables
+      on_chain_transactions: {
+        Row: {
+          id: string;
+          user_id: string;
+          tx_hash: string;
+          chain_id: number;
+          status: OnChainTxStatus;
+          tx_type: OnChainTxType;
+          amount_minor: number | null;
+          asset_code: string | null;
+          market_id: string | null;
+          trade_id: string | null;
+          nonce: number | null;
+          gas_used: number | null;
+          gas_price_gwei: number | null;
+          block_number: number | null;
+          block_timestamp: string | null;
+          error_message: string | null;
+          metadata: Record<string, unknown>;
+          created_at: string;
+          confirmed_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          tx_hash: string;
+          chain_id: number;
+          status?: OnChainTxStatus;
+          tx_type: OnChainTxType;
+          amount_minor?: number | null;
+          asset_code?: string | null;
+          market_id?: string | null;
+          trade_id?: string | null;
+          nonce?: number | null;
+          gas_used?: number | null;
+          gas_price_gwei?: number | null;
+          block_number?: number | null;
+          block_timestamp?: string | null;
+          error_message?: string | null;
+          metadata?: Record<string, unknown>;
+          created_at?: string;
+          confirmed_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          tx_hash?: string;
+          chain_id?: number;
+          status?: OnChainTxStatus;
+          tx_type?: OnChainTxType;
+          amount_minor?: number | null;
+          asset_code?: string | null;
+          market_id?: string | null;
+          trade_id?: string | null;
+          nonce?: number | null;
+          gas_used?: number | null;
+          gas_price_gwei?: number | null;
+          block_number?: number | null;
+          block_timestamp?: string | null;
+          error_message?: string | null;
+          metadata?: Record<string, unknown>;
+          created_at?: string;
+          confirmed_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          { foreignKeyName: "on_chain_transactions_user_id_fkey"; columns: ["user_id"]; referencedRelation: "users"; referencedColumns: ["id"] },
+          { foreignKeyName: "on_chain_transactions_asset_code_fkey"; columns: ["asset_code"]; referencedRelation: "assets"; referencedColumns: ["code"] },
+          { foreignKeyName: "on_chain_transactions_market_id_fkey"; columns: ["market_id"]; referencedRelation: "markets"; referencedColumns: ["id"] },
+          { foreignKeyName: "on_chain_transactions_trade_id_fkey"; columns: ["trade_id"]; referencedRelation: "trades"; referencedColumns: ["id"] }
+        ];
+      };
+      deposits: {
+        Row: {
+          id: string;
+          user_id: string;
+          tx_hash: string;
+          chain_id: number;
+          amount_minor: number;
+          asset_code: string;
+          status: DepositStatus;
+          from_address: string;
+          block_number: number | null;
+          block_timestamp: string | null;
+          credited_at: string | null;
+          wallet_tx_id: string | null;
+          error_message: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          tx_hash: string;
+          chain_id: number;
+          amount_minor: number;
+          asset_code: string;
+          status?: DepositStatus;
+          from_address: string;
+          block_number?: number | null;
+          block_timestamp?: string | null;
+          credited_at?: string | null;
+          wallet_tx_id?: string | null;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          tx_hash?: string;
+          chain_id?: number;
+          amount_minor?: number;
+          asset_code?: string;
+          status?: DepositStatus;
+          from_address?: string;
+          block_number?: number | null;
+          block_timestamp?: string | null;
+          credited_at?: string | null;
+          wallet_tx_id?: string | null;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          { foreignKeyName: "deposits_user_id_fkey"; columns: ["user_id"]; referencedRelation: "users"; referencedColumns: ["id"] },
+          { foreignKeyName: "deposits_asset_code_fkey"; columns: ["asset_code"]; referencedRelation: "assets"; referencedColumns: ["code"] },
+          { foreignKeyName: "deposits_wallet_tx_id_fkey"; columns: ["wallet_tx_id"]; referencedRelation: "wallet_transactions"; referencedColumns: ["id"] }
+        ];
+      };
     };
     Views: {
       users_public: {
@@ -702,6 +852,10 @@ export interface Database {
       trade_action: TradeAction;
       wallet_tx_kind: WalletTxKind;
       reward_status: RewardStatus;
+      // WalletConnect/On-chain enums
+      on_chain_tx_status: OnChainTxStatus;
+      on_chain_tx_type: OnChainTxType;
+      deposit_status: DepositStatus;
     };
     CompositeTypes: Record<string, never>;
   };

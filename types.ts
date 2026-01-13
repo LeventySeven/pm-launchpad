@@ -127,7 +127,9 @@ export interface User {
   id: string;
   email?: string;
   username?: string;
-  walletAddress?: string;
+  walletAddress?: string | null; // Connected EVM wallet address
+  chainId?: number | null; // Current chain ID (1=Ethereum, 11155111=Sepolia)
+  walletConnectedAt?: string | null; // When wallet was connected
   balance: number; // In major units (e.g., 1.5 VCOIN)
   isAdmin?: boolean;
   pnl?: number; // Total Profit/Loss
@@ -189,3 +191,93 @@ export interface PriceCandle {
   volume: number;
   tradesCount: number;
 }
+
+// ============================================================================
+// WalletConnect / On-Chain Types
+// ============================================================================
+
+export type OnChainTxStatus = "pending" | "confirmed" | "failed";
+export type OnChainTxType = "deposit" | "bet" | "sell" | "claim" | "withdraw" | "approve";
+export type DepositStatus = "pending" | "confirmed" | "failed" | "credited";
+
+/**
+ * On-chain transaction record
+ */
+export interface OnChainTransaction {
+  id: string;
+  userId: string;
+  txHash: string;
+  chainId: number;
+  status: OnChainTxStatus;
+  txType: OnChainTxType;
+  amountMinor: number | null;
+  amountMajor: number | null;
+  assetCode: string | null;
+  marketId: string | null;
+  tradeId: string | null;
+  blockNumber: number | null;
+  blockTimestamp: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  confirmedAt: string | null;
+}
+
+/**
+ * Deposit record
+ */
+export interface Deposit {
+  id: string;
+  userId: string;
+  txHash: string;
+  chainId: number;
+  amountMinor: number;
+  amountMajor: number;
+  assetCode: string;
+  status: DepositStatus;
+  fromAddress: string;
+  blockNumber: number | null;
+  creditedAt: string | null;
+  createdAt: string;
+}
+
+/**
+ * Chain configuration
+ */
+export interface ChainConfig {
+  chainId: number;
+  name: string;
+  isTestnet: boolean;
+  vaultAddress: string;
+  usdcAddress: string;
+  usdtAddress: string;
+  explorerUrl: string;
+  rpcUrl: string;
+}
+
+/**
+ * Supported chains
+ */
+export const SUPPORTED_CHAINS: Record<number, ChainConfig> = {
+  // Sepolia Testnet
+  11155111: {
+    chainId: 11155111,
+    name: "Sepolia",
+    isTestnet: true,
+    vaultAddress: "", // To be set after deployment
+    usdcAddress: "", // To be set after deployment
+    usdtAddress: "", // To be set after deployment
+    explorerUrl: "https://sepolia.etherscan.io",
+    rpcUrl: "https://eth-sepolia.g.alchemy.com/v2/",
+  },
+  // Ethereum Mainnet (future)
+  1: {
+    chainId: 1,
+    name: "Ethereum",
+    isTestnet: false,
+    vaultAddress: "", // To be set after deployment
+    usdcAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // Official USDC
+    usdtAddress: "0xdAC17F958D2ee523a2206206994597C13D831ec7", // Official USDT
+    explorerUrl: "https://etherscan.io",
+    rpcUrl: "https://eth-mainnet.g.alchemy.com/v2/",
+  },
+};

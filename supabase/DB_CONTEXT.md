@@ -6,7 +6,7 @@ Supabase URL: `https://zebqsdwawldoehvupmtm.supabase.co`
 Refresh: `bun run supabase:schema`
 
 ## Resources
-Total: **24**
+Total: **26** (added on_chain_transactions, deposits)
 
 ### `assets`
 - `code`: `string(text)` — NOT NULL, PK
@@ -209,6 +209,9 @@ Total: **24**
 - `telegram_photo_url`: `string(text)`
 - `telegram_auth_date`: `string(timestamp with time zone)`
 - `avatar_url`: `string(text)`
+- `wallet_address`: `string(text)` — UNIQUE (EVM wallet address)
+- `chain_id`: `integer(integer)` — Current chain ID (1=Ethereum, 11155111=Sepolia)
+- `wallet_connected_at`: `string(timestamp with time zone)`
 
 ### `users_public`
 - `id`: `string(uuid)` — PK
@@ -243,6 +246,45 @@ Total: **24**
 - `market_title_rus`: `string(text)`
 - `market_title_eng`: `string(text)`
 - `created_at`: `string(timestamp with time zone)`
+
+### `on_chain_transactions`
+- `id`: `string(uuid)` — NOT NULL, PK
+- `user_id`: `string(uuid)` — NOT NULL, FK → users.id
+- `tx_hash`: `string(text)` — NOT NULL
+- `chain_id`: `integer(integer)` — NOT NULL
+- `status`: `string(public.on_chain_tx_status)` — NOT NULL (pending/confirmed/failed)
+- `tx_type`: `string(public.on_chain_tx_type)` — NOT NULL (deposit/bet/sell/claim/withdraw/approve)
+- `amount_minor`: `integer(bigint)`
+- `asset_code`: `string(text)` — FK → assets.code
+- `market_id`: `string(uuid)` — FK → markets.id
+- `trade_id`: `string(uuid)` — FK → trades.id
+- `nonce`: `integer(bigint)`
+- `gas_used`: `integer(bigint)`
+- `gas_price_gwei`: `number(numeric)`
+- `block_number`: `integer(bigint)`
+- `block_timestamp`: `string(timestamp with time zone)`
+- `error_message`: `string(text)`
+- `metadata`: `jsonb`
+- `created_at`: `string(timestamp with time zone)` — NOT NULL
+- `confirmed_at`: `string(timestamp with time zone)`
+- `updated_at`: `string(timestamp with time zone)` — NOT NULL
+
+### `deposits`
+- `id`: `string(uuid)` — NOT NULL, PK
+- `user_id`: `string(uuid)` — NOT NULL, FK → users.id
+- `tx_hash`: `string(text)` — NOT NULL
+- `chain_id`: `integer(integer)` — NOT NULL
+- `amount_minor`: `integer(bigint)` — NOT NULL
+- `asset_code`: `string(text)` — NOT NULL, FK → assets.code
+- `status`: `string(public.deposit_status)` — NOT NULL (pending/confirmed/failed/credited)
+- `from_address`: `string(text)` — NOT NULL
+- `block_number`: `integer(bigint)`
+- `block_timestamp`: `string(timestamp with time zone)`
+- `credited_at`: `string(timestamp with time zone)`
+- `wallet_tx_id`: `string(uuid)` — FK → wallet_transactions.id
+- `error_message`: `string(text)`
+- `created_at`: `string(timestamp with time zone)` — NOT NULL
+- `updated_at`: `string(timestamp with time zone)` — NOT NULL
 
 ## SQL functions in repo
 (These are the SQL files you deploy/apply in Supabase; names extracted from the repo, not from introspection.)

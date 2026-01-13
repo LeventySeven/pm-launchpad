@@ -45,3 +45,30 @@ supabase/.env
 
 # Supabase introspection artifacts (generated; optional)
 supabase/openapi.public.json
+
+# Hardhat / Smart Contracts
+cache/
+artifacts/
+typechain-types/
+src/types/contracts/
+deployments/*.json
+!deployments/.gitkeep
+
+# Hardhat node
+.openzeppelin/
+
+# Common secrets / keys (defense-in-depth)
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+secrets.*
+**/secrets/**
+
+# Hardhat / Foundry extra outputs (if added later)
+broadcast/
+out/
+forge-cache/
+coverage.json
+gas-report.txt
