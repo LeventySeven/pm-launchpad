@@ -16,7 +16,7 @@ import "./interfaces/IERC20.sol";
  * Security:
  * - Ownable for admin functions (pause, emergency withdraw)
  * - ReentrancyGuard equivalent via checks-effects-interactions
- * - No private keys on backend - all operations require user signature
+ * - Trading uses EIP-712 authorized quotes (backend signs quotes; backend never holds user funds/keys)
  */
 contract PredictionMarketVault {
     // ============================================================================
@@ -25,6 +25,10 @@ contract PredictionMarketVault {
 
     address public owner;
     bool public paused;
+
+    // Authorized signer for EIP-712 quotes (settable by owner).
+    // Backend holds this key and signs pricing quotes; users still sign and submit txs.
+    address public quoteSigner;
 
     // Supported tokens (USDC, USDT)
     mapping(address => bool) public supportedTokens;
@@ -43,6 +47,26 @@ contract PredictionMarketVault {
 
     // Market total pools for settlement calculations: marketId => outcome => total shares
     mapping(bytes32 => mapping(uint8 => uint256)) public marketPools;
+
+    // ============================================================================
+    // EIP-712 (Quote authorization)
+    // ============================================================================
+
+    string private constant _EIP712_NAME = "PredictionMarketVault";
+    string private constant _EIP712_VERSION = "1";
+
+    bytes32 private constant _EIP712_DOMAIN_TYPEHASH =
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+
+    bytes32 private constant _BET_QUOTE_TYPEHASH =
+        keccak256("BetQuote(address user,bytes32 marketId,uint8 outcome,address token,uint256 collateral,uint256 shares,uint256 nonce,uint256 deadline)");
+
+    bytes32 private constant _SELL_QUOTE_TYPEHASH =
+        keccak256("SellQuote(address user,bytes32 marketId,uint8 outcome,address token,uint256 shares,uint256 payout,uint256 nonce,uint256 deadline)");
+
+    // secp256k1n / 2 (ECDSA malleability guard)
+    uint256 private constant _SECP256K1N_HALF =
+        0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0;
 
     // ============================================================================
     // Events - Indexed for Alchemy webhook filtering
@@ -98,6 +122,7 @@ contract PredictionMarketVault {
     event Paused(address indexed by);
     event Unpaused(address indexed by);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event QuoteSignerUpdated(address indexed previousSigner, address indexed newSigner);
 
     // ============================================================================
     // Modifiers
@@ -124,11 +149,69 @@ contract PredictionMarketVault {
 
     constructor(address[] memory _tokens) {
         owner = msg.sender;
+        quoteSigner = msg.sender;
         
         for (uint256 i = 0; i < _tokens.length; i++) {
             supportedTokens[_tokens[i]] = true;
             emit TokenAdded(_tokens[i]);
         }
+    }
+
+    // ============================================================================
+    // Internal ERC20 helpers (SafeERC20-like)
+    // Some ERC20 tokens do not return a boolean; treat empty return data as success.
+    // ============================================================================
+
+    function _safeTransferFrom(address token, address from, address to, uint256 amount) internal {
+        (bool ok, bytes memory data) = token.call(
+            abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, amount)
+        );
+        require(ok && (data.length == 0 || abi.decode(data, (bool))), "Transfer failed");
+    }
+
+    function _safeTransfer(address token, address to, uint256 amount) internal {
+        (bool ok, bytes memory data) = token.call(
+            abi.encodeWithSelector(IERC20.transfer.selector, to, amount)
+        );
+        require(ok && (data.length == 0 || abi.decode(data, (bool))), "Transfer failed");
+    }
+
+    // ============================================================================
+    // Internal EIP-712 helpers
+    // ============================================================================
+
+    function _domainSeparatorV4() internal view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                _EIP712_DOMAIN_TYPEHASH,
+                keccak256(bytes(_EIP712_NAME)),
+                keccak256(bytes(_EIP712_VERSION)),
+                block.chainid,
+                address(this)
+            )
+        );
+    }
+
+    function _hashTypedDataV4(bytes32 structHash) internal view returns (bytes32) {
+        return keccak256(abi.encodePacked("\x19\x01", _domainSeparatorV4(), structHash));
+    }
+
+    function _recoverSigner(bytes32 digest, bytes calldata signature) internal pure returns (address) {
+        require(signature.length == 65, "Invalid signature length");
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            r := calldataload(signature.offset)
+            s := calldataload(add(signature.offset, 32))
+            v := byte(0, calldataload(add(signature.offset, 64)))
+        }
+        require(v == 27 || v == 28, "Invalid signature v");
+        require(uint256(s) <= _SECP256K1N_HALF, "Invalid signature s");
+        address signer = ecrecover(digest, v, r, s);
+        require(signer != address(0), "Invalid signature");
+        return signer;
     }
 
     // ============================================================================
@@ -149,8 +232,7 @@ contract PredictionMarketVault {
         require(amount > 0, "Zero amount");
 
         // Transfer tokens from user to vault
-        bool success = IERC20(token).transferFrom(msg.sender, address(this), amount);
-        require(success, "Transfer failed");
+        _safeTransferFrom(token, msg.sender, address(this), amount);
 
         // Update balance
         balances[msg.sender][token] += amount;
@@ -175,8 +257,7 @@ contract PredictionMarketVault {
         balances[msg.sender][token] -= amount;
 
         // Transfer tokens to user
-        bool success = IERC20(token).transfer(msg.sender, amount);
-        require(success, "Transfer failed");
+        _safeTransfer(token, msg.sender, amount);
 
         emit Withdrawn(msg.sender, token, amount, balances[msg.sender][token]);
     }
@@ -196,7 +277,8 @@ contract PredictionMarketVault {
         uint256 collateral,
         uint256 shares,
         address token,
-        uint256 deadline
+        uint256 deadline,
+        bytes calldata quoteSignature
     ) 
         external 
         whenNotPaused 
@@ -209,6 +291,25 @@ contract PredictionMarketVault {
         require(marketOutcomes[marketId] == 0, "Market already resolved");
         require(balances[msg.sender][token] >= collateral, "Insufficient balance");
 
+        // Verify authorized quote (prevents user-supplied collateral/shares manipulation).
+        uint256 currentNonce = nonces[msg.sender];
+        bytes32 structHash = keccak256(
+            abi.encode(
+                _BET_QUOTE_TYPEHASH,
+                msg.sender,
+                marketId,
+                outcome,
+                token,
+                collateral,
+                shares,
+                currentNonce,
+                deadline
+            )
+        );
+        bytes32 digest = _hashTypedDataV4(structHash);
+        address signer = _recoverSigner(digest, quoteSignature);
+        require(signer == quoteSigner, "Invalid quote");
+
         // Deduct collateral from user's vault balance
         balances[msg.sender][token] -= collateral;
 
@@ -218,8 +319,8 @@ contract PredictionMarketVault {
         // Update market pool
         marketPools[marketId][outcome] += shares;
 
-        // Increment nonce for replay protection
-        uint256 currentNonce = nonces[msg.sender]++;
+        // Increment nonce for replay protection (after using currentNonce in signature check)
+        nonces[msg.sender] = currentNonce + 1;
 
         emit BetPlaced(msg.sender, marketId, outcome, collateral, shares, currentNonce);
     }
@@ -239,7 +340,8 @@ contract PredictionMarketVault {
         uint256 shares,
         uint256 payout,
         address token,
-        uint256 deadline
+        uint256 deadline,
+        bytes calldata quoteSignature
     ) 
         external 
         whenNotPaused 
@@ -251,6 +353,25 @@ contract PredictionMarketVault {
         require(marketOutcomes[marketId] == 0, "Market already resolved");
         require(positions[msg.sender][marketId][outcome] >= shares, "Insufficient shares");
 
+        // Verify authorized quote (prevents user-supplied payout manipulation).
+        uint256 currentNonce = nonces[msg.sender];
+        bytes32 structHash = keccak256(
+            abi.encode(
+                _SELL_QUOTE_TYPEHASH,
+                msg.sender,
+                marketId,
+                outcome,
+                token,
+                shares,
+                payout,
+                currentNonce,
+                deadline
+            )
+        );
+        bytes32 digest = _hashTypedDataV4(structHash);
+        address signer = _recoverSigner(digest, quoteSignature);
+        require(signer == quoteSigner, "Invalid quote");
+
         // Reduce position
         positions[msg.sender][marketId][outcome] -= shares;
         
@@ -261,7 +382,7 @@ contract PredictionMarketVault {
         balances[msg.sender][token] += payout;
 
         // Increment nonce
-        uint256 currentNonce = nonces[msg.sender]++;
+        nonces[msg.sender] = currentNonce + 1;
 
         emit PositionSold(msg.sender, marketId, outcome, shares, payout, currentNonce);
     }
@@ -431,7 +552,17 @@ contract PredictionMarketVault {
      */
     function emergencyWithdraw(address token, uint256 amount) external onlyOwner {
         require(paused, "Must be paused");
-        bool success = IERC20(token).transfer(owner, amount);
-        require(success, "Transfer failed");
+        _safeTransfer(token, owner, amount);
+    }
+
+    /**
+     * @dev Set the authorized quote signer (backend key) for EIP-712 pricing quotes.
+     * This key can be rotated without redeploying the vault.
+     */
+    function setQuoteSigner(address newSigner) external onlyOwner {
+        require(newSigner != address(0), "Zero address");
+        address old = quoteSigner;
+        quoteSigner = newSigner;
+        emit QuoteSignerUpdated(old, newSigner);
     }
 }

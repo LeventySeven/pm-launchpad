@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { wagmiAdapter, initializeAppKit } from '@/lib/appKit';
+import { wagmiConfig, initializeAppKit } from '@/lib/appKit';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,7 +22,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <WagmiProvider config={wagmiAdapter.wagmiConfig}>
+    // reconnectOnMount ensures we rehydrate the WalletConnect session (persisted by AppKit/Wagmi)
+    // so users don't need to reconnect on refresh/app reopen.
+    <WagmiProvider config={wagmiConfig} reconnectOnMount={true}>
       <QueryClientProvider client={queryClient}>
         {children}
       </QueryClientProvider>

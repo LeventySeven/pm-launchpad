@@ -1,6 +1,6 @@
 import { createAppKit } from '@reown/appkit/react';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
-import { mainnet, arbitrum, base, polygon } from '@reown/appkit/networks';
+import { sepolia, mainnet, arbitrum, base, polygon } from '@reown/appkit/networks';
 
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '';
 
@@ -15,7 +15,9 @@ const metadata = {
   icons: [],
 };
 
-const networks = [mainnet, arbitrum, base, polygon];
+// Put Sepolia first so testnet is the default during migration.
+// (AppKit/Wagmi will still allow switching to mainnet and other supported networks.)
+const networks = [sepolia, mainnet, arbitrum, base, polygon];
 
 const wagmiAdapter = new WagmiAdapter({
   ssr: false,
@@ -49,4 +51,6 @@ export function initializeAppKit(): AppKitInstance {
   return appKitModal;
 }
 
+// Export for Wagmi hooks usage across the app.
+export const wagmiConfig = wagmiAdapter.wagmiConfig;
 export { wagmiAdapter };

@@ -283,6 +283,7 @@ export interface Database {
           category_label_ru: string | null;
           category_label_en: string | null;
           created_by: string | null;
+          onchain_market_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -303,6 +304,7 @@ export interface Database {
           category_label_ru?: string | null;
           category_label_en?: string | null;
           created_by?: string | null;
+          onchain_market_id?: string | null;
           created_at?: string;
         };
         Update: {
@@ -323,10 +325,40 @@ export interface Database {
           category_label_ru?: string | null;
           category_label_en?: string | null;
           created_by?: string | null;
+          onchain_market_id?: string | null;
           created_at?: string;
         };
         Relationships: [
           { foreignKeyName: "markets_settlement_asset_code_fkey"; columns: ["settlement_asset_code"]; referencedRelation: "assets"; referencedColumns: ["code"] }
+        ];
+      };
+      market_onchain_map: {
+        Row: {
+          market_id: string;
+          chain_id: number;
+          vault_address: string;
+          onchain_market_id: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          market_id: string;
+          chain_id: number;
+          vault_address: string;
+          onchain_market_id: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          market_id?: string;
+          chain_id?: number;
+          vault_address?: string;
+          onchain_market_id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          { foreignKeyName: "market_onchain_map_market_id_fkey"; columns: ["market_id"]; referencedRelation: "markets"; referencedColumns: ["id"] }
         ];
       };
       market_amm_state: {

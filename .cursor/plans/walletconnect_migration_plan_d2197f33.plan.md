@@ -10,16 +10,16 @@ todos:
     status: completed
   - id: appkit-config
     content: Update lib/appKit.ts with Sepolia network, export wagmiConfig, configure autoConnect
-    status: pending
+    status: completed
   - id: wallet-trpc
     content: Create wallet.ts tRPC router with linkWallet, unlinkWallet, prepareDeposit, prepareWithdraw
-    status: pending
+    status: completed
   - id: market-tx-endpoints
     content: Add prepareBet, prepareSell, prepareClaim endpoints to market.ts router
-    status: pending
+    status: completed
   - id: alchemy-webhook
     content: Create /api/webhooks/alchemy route to handle on-chain events and sync Supabase
-    status: pending
+    status: completed
   - id: profile-wallet-ui
     content: Enhance ProfilePage WalletConnectSection with balance display, network badge, Etherscan link
     status: pending

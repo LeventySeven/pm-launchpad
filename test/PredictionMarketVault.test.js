@@ -47,7 +47,7 @@ describe("PredictionMarketVault", function () {
   });
 
   it("placeBet updates position and balance", async function () {
-    const { vault, mockUSDC, user1 } = await loadFixture(deployContractsFixture);
+    const { vault, mockUSDC, owner, user1 } = await loadFixture(deployContractsFixture);
     const vaultAddress = await vault.getAddress();
     const usdcAddress = await mockUSDC.getAddress();
 
@@ -61,7 +61,41 @@ describe("PredictionMarketVault", function () {
     const shares = ethers.parseUnits("150", 6);
     const deadline = Math.floor(Date.now() / 1000) + 3600;
 
-    await vault.connect(user1).placeBet(marketId, YES, collateral, shares, usdcAddress, deadline);
+    const network = await ethers.provider.getNetwork();
+    const nonce = await vault.getNonce(user1.address);
+
+    const domain = {
+      name: "PredictionMarketVault",
+      version: "1",
+      chainId: Number(network.chainId),
+      verifyingContract: vaultAddress,
+    };
+    const types = {
+      BetQuote: [
+        { name: "user", type: "address" },
+        { name: "marketId", type: "bytes32" },
+        { name: "outcome", type: "uint8" },
+        { name: "token", type: "address" },
+        { name: "collateral", type: "uint256" },
+        { name: "shares", type: "uint256" },
+        { name: "nonce", type: "uint256" },
+        { name: "deadline", type: "uint256" },
+      ],
+    };
+    const message = {
+      user: user1.address,
+      marketId,
+      outcome: YES,
+      token: usdcAddress,
+      collateral,
+      shares,
+      nonce,
+      deadline,
+    };
+
+    const sig = await owner.signTypedData(domain, types, message);
+
+    await vault.connect(user1).placeBet(marketId, YES, collateral, shares, usdcAddress, deadline, sig);
 
     expect(await vault.getPosition(user1.address, marketId, YES)).to.equal(shares);
     expect(await vault.getBalance(user1.address, usdcAddress)).to.equal(depositAmount - collateral);
