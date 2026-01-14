@@ -1,6 +1,6 @@
-import { ethers } from "hardhat";
-import fs from "node:fs";
-import path from "node:path";
+const { ethers } = require("hardhat");
+const fs = require("node:fs");
+const path = require("node:path");
 
 /**
  * Deploy contracts to Sepolia testnet
@@ -66,4 +66,3 @@ main().catch((e) => {
   console.error(e);
   process.exitCode = 1;
 });
-

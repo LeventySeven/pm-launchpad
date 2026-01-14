@@ -1,10 +1,15 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LogOut, Mail, User as UserIcon, Shield, Pencil, X, Image, CheckCircle2, XCircle, ArrowUpRight, ArrowDownRight, Clock, Wallet } from 'lucide-react';
 import Button from './Button';
 import type { Bet, Market, Trade, User, UserCommentSummary } from '../types';
 import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
+import { useChainId, usePublicClient, useWalletClient } from 'wagmi';
+import type { Hex } from 'viem';
+import { trpcClient } from '@/src/utils/trpcClient';
+import { ERC20_ABI, PREDICTION_MARKET_VAULT_ABI } from '@/lib/contracts/abis';
+import { getChainName, getContractAddresses } from '@/lib/contracts/addresses';
 
 type ProfilePageProps = {
   user: User | null;
@@ -131,6 +136,16 @@ const sampleAvatarHue = async (src: string): Promise<number | null> => {
 const WalletConnectSection: React.FC<{ lang: 'RU' | 'EN' }> = ({ lang }) => {
   const { open } = useAppKit();
   const { address, isConnected, status } = useAppKitAccount();
+  const chainId = useChainId();
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
+  const [walletBalMajor, setWalletBalMajor] = useState<number | null>(null);
+  const [vaultBalMajor, setVaultBalMajor] = useState<number | null>(null);
+  const [fundsError, setFundsError] = useState<string | null>(null);
+  const [fundsBusy, setFundsBusy] = useState(false);
+  const [depositOpen, setDepositOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [amountDraft, setAmountDraft] = useState<string>('');
 
   const handleConnectClick = () => {
     try {
@@ -154,6 +169,123 @@ const WalletConnectSection: React.FC<{ lang: 'RU' | 'EN' }> = ({ lang }) => {
   };
 
   const isConnecting = status === 'connecting' || status === 'reconnecting';
+  const chainLabel = getChainName(chainId);
+
+  const refreshBalances = useCallback(async () => {
+    if (!isConnected || !address) return;
+    const addrs = getContractAddresses(chainId);
+    const vault = addrs?.vault;
+    const usdc = addrs?.usdc;
+    if (!vault || !usdc) return;
+    if (vault === '0x0000000000000000000000000000000000000000') return;
+    if (usdc === '0x0000000000000000000000000000000000000000') return;
+
+    try {
+      setFundsError(null);
+      const decimals = 6;
+      const [walletBal, vaultBal] = await Promise.all([
+        (publicClient as any).readContract({
+          address: usdc,
+          abi: ERC20_ABI,
+          functionName: 'balanceOf',
+          args: [address],
+        }) as Promise<bigint>,
+        (publicClient as any).readContract({
+          address: vault,
+          abi: PREDICTION_MARKET_VAULT_ABI,
+          functionName: 'getBalance',
+          args: [address, usdc],
+        }) as Promise<bigint>,
+      ]);
+      setWalletBalMajor(Number(walletBal) / Math.pow(10, decimals));
+      setVaultBalMajor(Number(vaultBal) / Math.pow(10, decimals));
+    } catch (e) {
+      setFundsError(lang === 'RU' ? 'Не удалось загрузить балансы' : 'Failed to load balances');
+    }
+  }, [address, chainId, isConnected, publicClient, lang]);
+
+  useEffect(() => {
+    void refreshBalances();
+  }, [refreshBalances]);
+
+  const parseAmount = () => {
+    const normalized = amountDraft.replace(',', '.').trim();
+    const v = Number(normalized);
+    return Number.isFinite(v) && v > 0 ? v : null;
+  };
+
+  const handleDeposit = async () => {
+    const amount = parseAmount();
+    if (!amount) {
+      setFundsError(lang === 'RU' ? 'Введите сумму' : 'Enter an amount');
+      return;
+    }
+    if (!walletClient || !address) {
+      setFundsError(lang === 'RU' ? 'Кошелек недоступен' : 'Wallet unavailable');
+      return;
+    }
+    setFundsBusy(true);
+    setFundsError(null);
+    try {
+      const prep = await trpcClient.wallet.prepareDeposit.mutate({ assetCode: 'USDC', amount });
+      const approveHash = await walletClient.sendTransaction({
+        account: walletClient.account!,
+        to: prep.approveTx.to as `0x${string}`,
+        data: prep.approveTx.data as Hex,
+        value: BigInt(prep.approveTx.value || '0'),
+      });
+      await publicClient.waitForTransactionReceipt({ hash: approveHash });
+
+      const depositHash = await walletClient.sendTransaction({
+        account: walletClient.account!,
+        to: prep.depositTx.to as `0x${string}`,
+        data: prep.depositTx.data as Hex,
+        value: BigInt(prep.depositTx.value || '0'),
+      });
+      await publicClient.waitForTransactionReceipt({ hash: depositHash });
+
+      setDepositOpen(false);
+      setAmountDraft('');
+      await refreshBalances();
+    } catch (e) {
+      console.error('deposit failed', e);
+      setFundsError(lang === 'RU' ? 'Не удалось выполнить депозит' : 'Deposit failed');
+    } finally {
+      setFundsBusy(false);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    const amount = parseAmount();
+    if (!amount) {
+      setFundsError(lang === 'RU' ? 'Введите сумму' : 'Enter an amount');
+      return;
+    }
+    if (!walletClient || !address) {
+      setFundsError(lang === 'RU' ? 'Кошелек недоступен' : 'Wallet unavailable');
+      return;
+    }
+    setFundsBusy(true);
+    setFundsError(null);
+    try {
+      const prep = await trpcClient.wallet.prepareWithdraw.mutate({ assetCode: 'USDC', amount });
+      const withdrawHash = await walletClient.sendTransaction({
+        account: walletClient.account!,
+        to: prep.withdrawTx.to as `0x${string}`,
+        data: prep.withdrawTx.data as Hex,
+        value: BigInt(prep.withdrawTx.value || '0'),
+      });
+      await publicClient.waitForTransactionReceipt({ hash: withdrawHash });
+      setWithdrawOpen(false);
+      setAmountDraft('');
+      await refreshBalances();
+    } catch (e) {
+      console.error('withdraw failed', e);
+      setFundsError(lang === 'RU' ? 'Не удалось вывести средства' : 'Withdraw failed');
+    } finally {
+      setFundsBusy(false);
+    }
+  };
 
   return (
     <div className="mt-4 border border-zinc-900 bg-black rounded-2xl p-4">
@@ -167,8 +299,18 @@ const WalletConnectSection: React.FC<{ lang: 'RU' | 'EN' }> = ({ lang }) => {
               {lang === 'RU' ? 'WalletConnect' : 'WalletConnect'}
             </div>
             {isConnected && address ? (
-              <div className="text-sm font-mono text-zinc-300">
-                {truncateAddress(address)}
+              <div className="space-y-1">
+                <div className="text-sm font-mono text-zinc-300">{truncateAddress(address)}</div>
+                <div className="text-[10px] uppercase tracking-wider text-zinc-500">
+                  {chainLabel}
+                </div>
+                <div className="text-[11px] text-zinc-500">
+                  {lang === 'RU' ? 'USDC (кошелек):' : 'USDC (wallet):'}{' '}
+                  <span className="font-mono text-zinc-200">{walletBalMajor === null ? '—' : walletBalMajor.toFixed(2)}</span>
+                  {' • '}
+                  {lang === 'RU' ? 'Vault:' : 'Vault:'}{' '}
+                  <span className="font-mono text-zinc-200">{vaultBalMajor === null ? '—' : vaultBalMajor.toFixed(2)}</span>
+                </div>
               </div>
             ) : (
               <div className="text-sm text-zinc-500">
@@ -213,6 +355,77 @@ const WalletConnectSection: React.FC<{ lang: 'RU' | 'EN' }> = ({ lang }) => {
           )}
         </div>
       </div>
+
+      {isConnected && address && (
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Button
+            fullWidth
+            variant="primary"
+            className="h-10 rounded-full"
+            onClick={() => {
+              setFundsError(null);
+              setDepositOpen(true);
+              setWithdrawOpen(false);
+            }}
+            disabled={fundsBusy}
+          >
+            {lang === 'RU' ? 'Депозит USDC' : 'Deposit USDC'}
+          </Button>
+          <Button
+            fullWidth
+            variant="outline"
+            className="h-10 rounded-full border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60"
+            onClick={() => {
+              setFundsError(null);
+              setWithdrawOpen(true);
+              setDepositOpen(false);
+            }}
+            disabled={fundsBusy}
+          >
+            {lang === 'RU' ? 'Вывести USDC' : 'Withdraw USDC'}
+          </Button>
+        </div>
+      )}
+
+      {fundsError && <div className="mt-3 text-xs text-[rgba(245,68,166,1)]">{fundsError}</div>}
+
+      {(depositOpen || withdrawOpen) && (
+        <div className="mt-4 rounded-2xl border border-zinc-900 bg-zinc-950/30 p-4">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+            {depositOpen ? (lang === 'RU' ? 'Депозит в Vault' : 'Deposit into Vault') : (lang === 'RU' ? 'Вывод из Vault' : 'Withdraw from Vault')}
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <input
+              value={amountDraft}
+              onChange={(e) => setAmountDraft(e.target.value)}
+              inputMode="decimal"
+              placeholder="0.00"
+              className="flex-1 h-11 rounded-full bg-zinc-950 border border-zinc-900 px-4 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700"
+            />
+            <Button
+              className="h-11 rounded-full px-5"
+              onClick={() => void (depositOpen ? handleDeposit() : handleWithdraw())}
+              disabled={fundsBusy}
+            >
+              {fundsBusy ? (lang === 'RU' ? 'Подождите…' : 'Please wait…') : (depositOpen ? (lang === 'RU' ? 'Пополнить' : 'Deposit') : (lang === 'RU' ? 'Вывести' : 'Withdraw'))}
+            </Button>
+          </div>
+          <div className="mt-2 flex justify-end">
+            <button
+              type="button"
+              className="text-xs text-zinc-500 hover:text-zinc-200"
+              onClick={() => {
+                setDepositOpen(false);
+                setWithdrawOpen(false);
+                setAmountDraft('');
+              }}
+              disabled={fundsBusy}
+            >
+              {lang === 'RU' ? 'Закрыть' : 'Close'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -16,9 +16,10 @@
     "supabase:schema:check": "bun --env-file .env scripts/supabase/validate-schema.ts",
     "contracts:compile": "hardhat compile",
     "contracts:test": "hardhat test",
-    "contracts:deploy:local": "hardhat run scripts/deploy/deploy-local.js --network localhost",
-    "contracts:deploy:sepolia": "hardhat run scripts/deploy/deploy-sepolia.js --network sepolia",
+    "contracts:deploy:local": "hardhat run scripts/deploy/deploy-local.cjs --network localhost",
+    "contracts:deploy:sepolia": "hardhat run scripts/deploy/deploy-sepolia.cjs --network sepolia",
     "contracts:node": "hardhat node",
+    "contracts:node:kill": "bash scripts/kill-hardhat-node.sh",
     "contracts:typechain": "hardhat compile && hardhat typechain"
   },
   "dependencies": {

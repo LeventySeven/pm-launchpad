@@ -3,7 +3,7 @@ import { z } from "zod";
 import { publicProcedure, router } from "../trpc";
 import type { Database } from "../../../types/database";
 import { encodeFunctionData, createPublicClient, http } from "viem";
-import { sepolia, mainnet } from "viem/chains";
+import { hardhat, mainnet, polygonAmoy, sepolia } from "viem/chains";
 import { ERC20_ABI, PREDICTION_MARKET_VAULT_ABI } from "@/lib/contracts/abis";
 
 type UserRow = Database["public"]["Tables"]["users"]["Row"];
@@ -19,16 +19,28 @@ const preparedTxOutput = z.object({
 });
 
 const resolveChain = (chainId: number) => {
+  if (chainId === 31337) return hardhat;
   if (chainId === 11155111) return sepolia;
+  if (chainId === 80002) return polygonAmoy;
   if (chainId === 1) return mainnet;
   return null;
 };
 
 const getRpcUrl = (chainId: number) => {
+  if (chainId === 31337) {
+    return process.env.LOCAL_RPC_URL || "http://127.0.0.1:8545";
+  }
   if (chainId === 11155111) {
     return (
       process.env.ALCHEMY_SEPOLIA_URL ||
       (process.env.ALCHEMY_API_KEY ? `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}` : "")
+    );
+  }
+  if (chainId === 80002) {
+    return (
+      process.env.ALCHEMY_POLYGON_AMOY_URL ||
+      process.env.POLYGON_AMOY_RPC_URL ||
+      (process.env.ALCHEMY_API_KEY ? `https://polygon-amoy.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}` : "")
     );
   }
   if (chainId === 1) {
@@ -41,16 +53,26 @@ const getRpcUrl = (chainId: number) => {
 };
 
 const getVaultAddressForChain = (chainId: number) => {
+  if (chainId === 31337) return process.env.NEXT_PUBLIC_VAULT_ADDRESS_LOCAL || "";
   if (chainId === 11155111) return process.env.NEXT_PUBLIC_VAULT_ADDRESS_SEPOLIA || "";
+  if (chainId === 80002) return process.env.NEXT_PUBLIC_VAULT_ADDRESS_AMOY || "";
   if (chainId === 1) return process.env.NEXT_PUBLIC_VAULT_ADDRESS_MAINNET || "";
   return "";
 };
 
 const getTokenAddressForChain = (chainId: number, assetCode: string) => {
   const code = assetCode.toUpperCase();
+  if (chainId === 31337) {
+    if (code === "USDC") return process.env.NEXT_PUBLIC_USDC_ADDRESS_LOCAL || "";
+    if (code === "USDT") return process.env.NEXT_PUBLIC_USDT_ADDRESS_LOCAL || "";
+  }
   if (chainId === 11155111) {
     if (code === "USDC") return process.env.NEXT_PUBLIC_USDC_ADDRESS_SEPOLIA || "";
     if (code === "USDT") return process.env.NEXT_PUBLIC_USDT_ADDRESS_SEPOLIA || "";
+  }
+  if (chainId === 80002) {
+    if (code === "USDC") return process.env.NEXT_PUBLIC_USDC_ADDRESS_AMOY || "";
+    if (code === "USDT") return process.env.NEXT_PUBLIC_USDT_ADDRESS_AMOY || "";
   }
   if (chainId === 1) {
     // Mainnet token addresses are stable defaults; allow override via env if desired.

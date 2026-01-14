@@ -1,37 +1,97 @@
 ---
+name: ""
+overview: ""
+todos: []
+---
+
+---
+
 name: WalletConnect Migration Plan
-overview: Migrate from virtual currency (VCOIN) to real USDC/USDT on Sepolia testnet using Reown AppKit for wallet integration and Solidity smart contracts for on-chain escrow, while preserving all existing functionality.
+
+overview: Migrate from virtual currency (VCOIN) to real USDC/USDT with a **local-first Hardhat workflow**, then deploy to **Polygon Amoy testnet** using Reown AppKit for wallet integration and Solidity smart contracts for on-chain escrow, while preserving all existing functionality.
+
+overview: Migrate from virtual currency (VCOIN) to real USDC/USDT with a **local Hardhat-first workflow**, while preserving all existing functionality. Testnet and mainnet are explicitly deferred until local flows are stable.
+
 todos:
+
+  - id: local-hardhat-first
+
+content: Run local workflow (Hardhat node + local deploy + quoteSigner configured) and validate end-to-end flows
+
+status: completed
+
   - id: db-schema
-    content: Create Supabase migration for wallet_address, chain_id, on_chain_transactions, deposits tables
-    status: completed
+
+content: Create Supabase migration for wallet_address, chain_id, on_chain_transactions, deposits tables
+
+status: completed
+
   - id: smart-contracts
-    content: Develop PredictionMarketVault.sol and MockUSDC.sol with Hardhat, deploy to Sepolia
-    status: completed
+
+content: Develop PredictionMarketVault.sol and MockUSDC.sol with Hardhat, validate locally
+
+status: completed
+
+  - id: eip712-quote-signer
+
+content: Require backend-authorized EIP-712 quote signatures for bet/sell (secure non-custodial quoting)
+
+status: completed
+
+  - id: market-onchain-map
+
+content: Add multi-chain market_onchain_map table to reconcile Supabase UUID markets with on-chain bytes32 IDs
+
+status: completed
+
   - id: appkit-config
-    content: Update lib/appKit.ts with Sepolia network, export wagmiConfig, configure autoConnect
-    status: completed
+
+content: Update lib/appKit.ts with Sepolia network, export wagmiConfig, configure autoConnect
+
+status: completed
+
   - id: wallet-trpc
-    content: Create wallet.ts tRPC router with linkWallet, unlinkWallet, prepareDeposit, prepareWithdraw
-    status: completed
+
+content: Create wallet.ts tRPC router with linkWallet, unlinkWallet, prepareDeposit, prepareWithdraw
+
+status: completed
+
   - id: market-tx-endpoints
-    content: Add prepareBet, prepareSell, prepareClaim endpoints to market.ts router
-    status: completed
+
+content: Add prepareBet, prepareSell, prepareClaim endpoints to market.ts router
+
+status: completed
+
   - id: alchemy-webhook
-    content: Create /api/webhooks/alchemy route to handle on-chain events and sync Supabase
-    status: completed
+
+content: Create /api/webhooks/alchemy route to handle on-chain events and sync Supabase
+
+status: completed
+
   - id: profile-wallet-ui
-    content: Enhance ProfilePage WalletConnectSection with balance display, network badge, Etherscan link
-    status: pending
+
+content: Enhance ProfilePage WalletConnectSection with balance display, network badge, Etherscan link
+
+status: pending
+
   - id: market-signing
-    content: Update MarketPage bet flow to use wagmi useSendTransaction for on-chain signing
-    status: pending
+
+content: Update MarketPage bet flow to use wagmi useSendTransaction for on-chain signing
+
+status: pending
+
   - id: wallet-page-deposit
-    content: Add deposit/withdraw UI to WalletPage with ERC20 approval flow
-    status: pending
+
+content: Add deposit/withdraw UI to WalletPage with ERC20 approval flow
+
+status: pending
+
   - id: dual-currency
-    content: Modify place_bet_tx SQL to support dual VCOIN/USDC paths during transition
-    status: pending
+
+content: Modify place_bet_tx SQL to support dual VCOIN/USDC paths during transition
+
+status: pending
+
 ---
 
 # WalletConnect Migration Plan
@@ -44,7 +104,7 @@ todos:
 - LMSR AMM with off-chain calculations (`place_bet_tx`, `sell_position_tx`)
 - Virtual currency (VCOIN) with 6 decimals in `wallet_balances`
 - Telegram-first auth with custom JWT
-- Basic Reown AppKit setup in `lib/appKit.ts` (mainnet only, no Sepolia)
+- Reown AppKit configured for **local Hardhat (31337)** during development/testing
 - `ProfilePage` has wallet connect/disconnect UI but no transaction signing
 
 **Functions to Preserve:**
@@ -53,6 +113,32 @@ todos:
 - Comments, bookmarks, leaderboard, referrals
 - Profile management, avatar uploads
 - All tRPC endpoints in `market.ts` and `user.ts`
+
+---
+
+## Development Workflow: Local Hardhat First (then testnet, then mainnet)
+
+We will **test everything locally on Hardhat** before moving to any testnet, and only then mainnet:
+
+- **Local (Hardhat)**:
+  - Focus: contract logic, EIP-712 quote signing flow, event decoding, and DB sync logic (without real money / real networks)
+  - Commands:
+    - `bun run contracts:node` (starts local RPC at `127.0.0.1:8545`)
+    - If you see `EADDRINUSE 127.0.0.1:8545`: run `bun run contracts:node:kill` then start node again
+    - `bun run contracts:deploy:local` (deploys MockUSDC + Vault and **sets `quoteSigner`** automatically)
+  - Notes:
+    - Because `package.json` has `"type": "module"`, Hardhat scripts that use CommonJS must be `.cjs`
+
+- **Testnet (later)**:
+  - Only after local flows are stable
+  - Requires funded deployer wallet + RPC + webhook/indexer strategy
+
+- **Mainnet (much later)**:
+  - Only after testnet soak + audits + monitoring
+
+Hardhat warning:
+
+- Hardhat may warn on Node.js versions outside its supported range. Prefer **Node 20 LTS** for reliability.
 
 ---
 
@@ -95,21 +181,25 @@ Add new tables:
 - Events: Deposited, BetPlaced, PositionSold, WinningsClaimed
 ```
 
-**Contract 2: `MockUSDC.sol`** (testnet only)
+**Contract 2: `MockUSDC.sol`** (dev + testnet)
 
-- Simple ERC20 for Sepolia testing
+- Simple ERC20 for local and testnet testing (6 decimals)
 - Faucet function for test tokens
 
 **Tooling:**
 
 - Hardhat/Foundry for compilation
 - TypeChain for auto-generated TypeScript types
-- Deploy scripts for Sepolia
+- Deploy scripts for local, and Polygon Amoy
 
 **Contract addresses to store:**
 
-- `NEXT_PUBLIC_VAULT_ADDRESS_SEPOLIA`
-- `NEXT_PUBLIC_USDC_ADDRESS_SEPOLIA`
+- Local (Hardhat):
+  - `NEXT_PUBLIC_VAULT_ADDRESS_LOCAL`
+  - `NEXT_PUBLIC_USDC_ADDRESS_LOCAL`
+- Polygon Amoy:
+  - `NEXT_PUBLIC_VAULT_ADDRESS_AMOY`
+  - `NEXT_PUBLIC_USDC_ADDRESS_AMOY`
 
 ---
 
@@ -119,17 +209,22 @@ Add new tables:
 
 Current issues:
 
-- Only mainnet networks configured
-- No Sepolia testnet support
+- Missing local Hardhat + Polygon Amoy network configuration
 - No wagmi hooks exported for transactions
 
 Updates needed:
 
 ```typescript
-import { sepolia, mainnet } from '@reown/appkit/networks';
+import { polygonAmoy } from 'viem/chains';
 
-// Add Sepolia as default for testnet
-const networks = [sepolia, mainnet, ...];
+const hardhatLocal = {
+  id: 31337,
+  name: 'Hardhat (Local)',
+  rpcUrls: { default: { http: ['http://127.0.0.1:8545'] } },
+  testnet: true,
+};
+
+const networks = [hardhatLocal, polygonAmoy];
 
 // Export wagmiConfig for transaction hooks
 export const wagmiConfig = wagmiAdapter.wagmiConfig;
@@ -203,25 +298,30 @@ Webhook security:
 
 Enhance `WalletConnectSection`:
 
-- Show USDC balance from on-chain query
-- Network badge (Sepolia/Ethereum)
-- View on Etherscan link
-- Handle `chainChanged` events
+- Show USDC wallet balance + Vault balance (on-chain reads)
+- Network badge (Hardhat local / Polygon Amoy)
+- Deposit/Withdraw UI (approve + deposit, withdraw)
+- Keep DB wallet link in sync with connected wallet (address + chainId)
 
 **File: [components/MarketPage.tsx](components/MarketPage.tsx)**
 
 Update bet flow:
 
-1. Check `isConnected` from AppKit
-2. If not connected: show "Connect Wallet First"
-3. If connected: call `prepareBet` tRPC
-4. Use wagmi `useSendTransaction` hook to sign
-5. Show pending state until webhook confirms
-```typescript
-import { useSendTransaction, useWaitForTransaction } from 'wagmi';
+1. If market settlement asset is `VCOIN`: keep existing flow (RPC -> DB tx)
+2. If market settlement asset is `USDC/USDT`:
 
-const { sendTransaction, data: txHash } = useSendTransaction();
-const { isLoading, isSuccess } = useWaitForTransaction({ hash: txHash });
+   - Ensure wallet is connected and linked in DB (`user.linkWallet`)
+   - Call `market.prepareBet` to get calldata + EIP-712 quote signature
+   - Send tx via wagmi (wallet signs)
+   - Locally (Hardhat): show tx success + read contract state for balances/positions
+   - On testnet (Amoy): show tx pending until webhook/indexer confirms and DB updates
+```typescript
+import { useWalletClient, usePublicClient } from 'wagmi';
+
+const { data: walletClient } = useWalletClient();
+const publicClient = usePublicClient();
+const txHash = await walletClient.sendTransaction({ to, data, value });
+await publicClient.waitForTransactionReceipt({ hash: txHash });
 ```
 
 
@@ -243,6 +343,12 @@ During migration, support both:
 - `VCOIN` (existing virtual) - for users without wallets
 - `USDC` (real) - for connected wallets
 
+Implementation rule:
+
+- A market’s `settlement_asset_code` determines its mode:
+  - `VCOIN` → keep existing SQL/RPC flows (`place_bet_tx`, `sell_position_tx`)
+  - `USDC/USDT` → use on-chain prepare+sign flows (`prepareBet`, `prepareSell`, `prepareClaim`)
+
 **File: [db/functions/place_bet_tx.sql](db/functions/place_bet_tx.sql)**
 
 Add conditional logic:
@@ -258,22 +364,38 @@ END IF;
 
 ---
 
-## Phase 8: Environment Configuration
+## Phase 8: Environment Configuration (Local now; testnet/mainnet later)
 
 **New env variables:**
 
 ```bash
-# Alchemy
-ALCHEMY_API_KEY=xxx
-ALCHEMY_WEBHOOK_SECRET=xxx
+# Local Hardhat
+LOCAL_RPC_URL=http://127.0.0.1:8545
 
-# Contract addresses (Sepolia)
-NEXT_PUBLIC_CHAIN_ID=11155111
-NEXT_PUBLIC_VAULT_ADDRESS=0x...
-NEXT_PUBLIC_USDC_ADDRESS=0x...
+# Testnet (deferred)
+# ALCHEMY_API_KEY=xxx
+# ALCHEMY_WEBHOOK_SECRET=xxx
+
+# Backend quote signing (EIP-712)
+# NOTE: This is a real private key stored on the backend. Protect it (never expose to client, never commit).
+QUOTE_SIGNER_PRIVATE_KEY=0x...
+
+# Contract addresses (Local)
+NEXT_PUBLIC_CHAIN_ID=31337
+NEXT_PUBLIC_VAULT_ADDRESS_LOCAL=0x...
+NEXT_PUBLIC_USDC_ADDRESS_LOCAL=0x...
 
 # WalletConnect (existing)
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=xxx
+```
+
+**Local-only env (optional helpers):**
+
+```bash
+# Local Hardhat (31337) helpers (not used by production)
+NEXT_PUBLIC_CHAIN_ID=31337
+NEXT_PUBLIC_VAULT_ADDRESS_LOCAL=0x...
+NEXT_PUBLIC_USDC_ADDRESS_LOCAL=0x...
 ```
 
 ---
@@ -333,7 +455,7 @@ flowchart TB
 - **Network detection:** Auto-switch prompts for wrong chain
 - **Transaction failures:** Retry logic with nonce management
 - **Webhook reliability:** Idempotent handlers, dead letter queue
-- **Security:** No private keys on backend, non-custodial design
+- **Security:** Funds are non-custodial (users sign txs), but backend holds a **quote signer private key** for EIP-712 authorized quotes. Protect with secret management (KMS/Secret Manager), rotate keys, and scope permissions. Never expose to clients.
 
 ---
 
@@ -349,7 +471,7 @@ flowchart TB
 
 **Modified Files:**
 
-- `lib/appKit.ts` - Add Sepolia, export config
+- `lib/appKit.ts` - Add Hardhat local + Polygon Amoy, export config
 - `src/server/trpc/routers/user.ts` - Wallet linking
 - `src/server/trpc/routers/market.ts` - Prepare tx endpoints
 - `components/ProfilePage.tsx` - Enhanced wallet UI

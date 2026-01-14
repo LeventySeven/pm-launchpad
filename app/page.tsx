@@ -23,6 +23,8 @@ import { marketCategoriesSchema } from "@/src/schemas/marketCategories";
 import { myCommentsSchema } from "@/src/schemas/myComments";
 import { marketBookmarksSchema } from "@/src/schemas/bookmarks";
 import { buildInitialsAvatarDataUrl } from "@/lib/avatar";
+import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
+import type { Hex } from "viem";
 
 // VCOIN decimals for display
 const VCOIN_DECIMALS = 6;
@@ -70,6 +72,89 @@ export default function HomePage() {
     }
   });
   const [user, setUser] = useState<User | null>(null);
+  // Wallet state (from wagmi/AppKit)
+  const { address: connectedWalletAddress, isConnected: isWalletConnected } = useAccount();
+  const connectedChainId = useChainId();
+  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
+
+  // Keep DB wallet link in sync with actual connected wallet/chain.
+  const walletSyncInFlight = useRef(false);
+  const lastWalletSyncKey = useRef<string>("");
+
+  useEffect(() => {
+    if (!user) return;
+
+    const normalizedAddress = connectedWalletAddress ? connectedWalletAddress.toLowerCase() : null;
+    const dbAddress = user.walletAddress ? String(user.walletAddress).toLowerCase() : null;
+    const dbChainId = typeof user.chainId === "number" ? user.chainId : null;
+
+    const syncKey = `${user.id}:${normalizedAddress ?? "none"}:${connectedChainId}:${isWalletConnected ? "1" : "0"}`;
+    if (walletSyncInFlight.current) return;
+    if (lastWalletSyncKey.current === syncKey) return;
+
+    // If wallet is disconnected, unlink (best effort).
+    if (!isWalletConnected || !normalizedAddress) {
+      if (!dbAddress) {
+        lastWalletSyncKey.current = syncKey;
+        return;
+      }
+      walletSyncInFlight.current = true;
+      void (async () => {
+        try {
+          await trpcClient.user.unlinkWallet.mutate();
+          setUser((prev) => (prev ? { ...prev, walletAddress: null, chainId: null, walletConnectedAt: null } : prev));
+        } catch (err) {
+          console.warn("unlinkWallet failed (ignored)", err);
+        } finally {
+          lastWalletSyncKey.current = syncKey;
+          walletSyncInFlight.current = false;
+        }
+      })();
+      return;
+    }
+
+    // If wallet is connected, link or update chain.
+    if (normalizedAddress && isWalletConnected) {
+      const needsLink = !dbAddress || dbAddress !== normalizedAddress;
+      const needsChainUpdate = dbChainId !== connectedChainId;
+
+      if (!needsLink && !needsChainUpdate) {
+        lastWalletSyncKey.current = syncKey;
+        return;
+      }
+
+      walletSyncInFlight.current = true;
+      void (async () => {
+        try {
+          if (needsLink) {
+            const linked = await trpcClient.user.linkWallet.mutate({
+              walletAddress: normalizedAddress,
+              chainId: connectedChainId,
+            });
+            setUser((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    walletAddress: linked.walletAddress,
+                    chainId: linked.chainId,
+                    walletConnectedAt: linked.walletConnectedAt,
+                  }
+                : prev
+            );
+          } else if (needsChainUpdate) {
+            await trpcClient.user.updateWalletChain.mutate({ chainId: connectedChainId });
+            setUser((prev) => (prev ? { ...prev, chainId: connectedChainId } : prev));
+          }
+        } catch (err) {
+          console.warn("wallet sync failed (ignored)", err);
+        } finally {
+          lastWalletSyncKey.current = syncKey;
+          walletSyncInFlight.current = false;
+        }
+      })();
+    }
+  }, [user, connectedWalletAddress, connectedChainId, isWalletConnected]);
   const [pendingReferralCode, setPendingReferralCode] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     try {
@@ -1118,6 +1203,13 @@ export default function HomePage() {
         return;
       }
 
+      const marketForAsset =
+        selectedMarket && selectedMarket.id === marketId
+          ? selectedMarket
+          : feedMarkets.find((m) => m.id === marketId) || filteredMarkets.find((m) => m.id === marketId) || null;
+      const settlementAsset = String(marketForAsset?.settlementAsset || "VCOIN").toUpperCase();
+      const isOnChain = settlementAsset === "USDC" || settlementAsset === "USDT";
+
       // Verify auth is still valid before placing bet (in case cookies expired or weren't set)
       const authCheck = await refreshUser();
       if (!authCheck) {
@@ -1133,6 +1225,67 @@ export default function HomePage() {
         return;
       }
 
+      if (isOnChain) {
+        // On-chain bet flow (USDC/USDT): prepare calldata + signature on backend, sign+send tx on client.
+        if (!isWalletConnected || !connectedWalletAddress) {
+          setBetConfirm({
+            open: true,
+            marketTitle,
+            side,
+            amount,
+            newBalance: undefined,
+            errorMessage: lang === "RU" ? "Подключите кошелек, чтобы торговать USDC/USDT." : "Connect a wallet to trade USDC/USDT.",
+          });
+          return;
+        }
+        if (!walletClient) {
+          setBetConfirm({
+            open: true,
+            marketTitle,
+            side,
+            amount,
+            newBalance: undefined,
+            errorMessage: lang === "RU" ? "Кошелек недоступен для подписи транзакции." : "Wallet client unavailable for signing.",
+          });
+          return;
+        }
+
+        // Best-effort: ensure DB wallet link matches the currently connected wallet/chain.
+        const normalized = connectedWalletAddress.toLowerCase();
+        if (!user.walletAddress || user.walletAddress.toLowerCase() !== normalized || user.chainId !== connectedChainId) {
+          await trpcClient.user.linkWallet.mutate({ walletAddress: normalized, chainId: connectedChainId });
+          setUser((prev) => (prev ? { ...prev, walletAddress: normalized, chainId: connectedChainId } : prev));
+        }
+
+        const prep = await trpcClient.market.prepareBet.mutate({
+          marketId,
+          side,
+          amount,
+          assetCode: settlementAsset as "USDC" | "USDT",
+        });
+
+        const hash = (await (walletClient as any).sendTransaction({
+          account: walletClient.account!,
+          to: prep.tx.to as `0x${string}`,
+          data: prep.tx.data as Hex,
+          value: BigInt(prep.tx.value || "0"),
+        })) as Hex;
+
+        // Wait for local confirmation (for UX); DB reconciliation happens via indexing on testnets.
+        await publicClient.waitForTransactionReceipt({ hash });
+
+        setBetConfirm({
+          open: true,
+          marketTitle,
+          side,
+          amount,
+          newBalance: undefined,
+          errorMessage: null,
+        });
+        return;
+      }
+
+      // Legacy VCOIN flow (unchanged)
       const res = await trpcClient.market.placeBet.mutate({
         amount,
         marketId,
@@ -1141,9 +1294,7 @@ export default function HomePage() {
 
       // Update user balance from response (minor units -> major)
       const newBalanceMajor = toMajorUnits(res.newBalanceMinor);
-      setUser((prev) =>
-        prev ? { ...prev, balance: newBalanceMajor } : prev
-      );
+      setUser((prev) => (prev ? { ...prev, balance: newBalanceMajor } : prev));
 
       await loadMarkets();
       await refreshUser();
@@ -1324,6 +1475,41 @@ export default function HomePage() {
     if (!user) return;
 
     try {
+      const marketForAsset =
+        selectedMarket && selectedMarket.id === marketId
+          ? selectedMarket
+          : feedMarkets.find((m) => m.id === marketId) || filteredMarkets.find((m) => m.id === marketId) || null;
+      const settlementAsset = String(marketForAsset?.settlementAsset || "VCOIN").toUpperCase();
+      const isOnChain = settlementAsset === "USDC" || settlementAsset === "USDT";
+
+      if (isOnChain) {
+        if (!isWalletConnected || !connectedWalletAddress) throw new Error("WALLET_NOT_CONNECTED");
+        if (!walletClient) throw new Error("WALLET_CLIENT_UNAVAILABLE");
+
+        const normalized = connectedWalletAddress.toLowerCase();
+        if (!user.walletAddress || user.walletAddress.toLowerCase() !== normalized || user.chainId !== connectedChainId) {
+          await trpcClient.user.linkWallet.mutate({ walletAddress: normalized, chainId: connectedChainId });
+          setUser((prev) => (prev ? { ...prev, walletAddress: normalized, chainId: connectedChainId } : prev));
+        }
+
+        const prep = await trpcClient.market.prepareSell.mutate({
+          marketId,
+          side,
+          shares,
+          assetCode: settlementAsset as "USDC" | "USDT",
+        });
+
+        const hash = (await (walletClient as any).sendTransaction({
+          account: walletClient.account!,
+          to: prep.tx.to as `0x${string}`,
+          data: prep.tx.data as Hex,
+          value: BigInt(prep.tx.value || "0"),
+        })) as Hex;
+
+        await publicClient.waitForTransactionReceipt({ hash });
+        return;
+      }
+
       const res = await trpcClient.market.sellPosition.mutate({
         marketId,
         side,
@@ -1331,9 +1517,7 @@ export default function HomePage() {
       });
 
       const newBalanceMajor = toMajorUnits(res.newBalanceMinor);
-      setUser((prev) =>
-        prev ? { ...prev, balance: newBalanceMajor } : prev
-      );
+      setUser((prev) => (prev ? { ...prev, balance: newBalanceMajor } : prev));
 
       await loadMarkets();
       await refreshUser();
@@ -1345,6 +1529,33 @@ export default function HomePage() {
       await loadMyBets();
       throw err;
     }
+  };
+
+  const handleClaimWinnings = async ({
+    marketId,
+    assetCode,
+  }: {
+    marketId: string;
+    assetCode: "USDC" | "USDT";
+  }) => {
+    if (!user) return;
+    if (!isWalletConnected || !connectedWalletAddress) throw new Error("WALLET_NOT_CONNECTED");
+    if (!walletClient) throw new Error("WALLET_CLIENT_UNAVAILABLE");
+
+    const normalized = connectedWalletAddress.toLowerCase();
+    if (!user.walletAddress || user.walletAddress.toLowerCase() !== normalized || user.chainId !== connectedChainId) {
+      await trpcClient.user.linkWallet.mutate({ walletAddress: normalized, chainId: connectedChainId });
+      setUser((prev) => (prev ? { ...prev, walletAddress: normalized, chainId: connectedChainId } : prev));
+    }
+
+    const prep = await trpcClient.market.prepareClaim.mutate({ marketId, assetCode });
+    const hash = (await (walletClient as any).sendTransaction({
+      account: walletClient.account!,
+      to: prep.tx.to as `0x${string}`,
+      data: prep.tx.data as Hex,
+      value: BigInt(prep.tx.value || "0"),
+    })) as Hex;
+    await publicClient.waitForTransactionReceipt({ hash });
   };
 
   const handlePostMarketComment = useCallback(
@@ -1489,6 +1700,7 @@ export default function HomePage() {
               }
               onPlaceBet={handlePlaceBet}
               onSellPosition={handleSellPosition}
+              onClaimWinnings={handleClaimWinnings}
               comments={marketComments}
                 onOpenUserProfile={(userId) => void openPublicProfile(userId)}
               onPostComment={handlePostMarketComment}

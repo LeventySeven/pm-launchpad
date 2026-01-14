@@ -1,6 +1,5 @@
 import { createAppKit } from '@reown/appkit/react';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
-import { sepolia, mainnet, arbitrum, base, polygon } from '@reown/appkit/networks';
 
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '';
 
@@ -15,9 +14,25 @@ const metadata = {
   icons: [],
 };
 
-// Put Sepolia first so testnet is the default during migration.
-// (AppKit/Wagmi will still allow switching to mainnet and other supported networks.)
-const networks = [sepolia, mainnet, arbitrum, base, polygon];
+// Local-only for now:
+// - Default to local Hardhat chain (31337) for development/testing.
+// NOTE: Many wallets require you to add the local RPC manually (MetaMask: "Add network" -> localhost:8545).
+const hardhatLocal = {
+  id: 31337,
+  name: 'Hardhat (Local)',
+  network: 'hardhat',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['http://127.0.0.1:8545'] },
+    public: { http: ['http://127.0.0.1:8545'] },
+  },
+  blockExplorers: {
+    default: { name: 'Local', url: '' },
+  },
+  testnet: true,
+};
+
+const networks = [hardhatLocal];
 
 const wagmiAdapter = new WagmiAdapter({
   ssr: false,

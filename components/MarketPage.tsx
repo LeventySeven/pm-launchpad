@@ -4,6 +4,10 @@ import Button from './Button';
 import { Bookmark, ChevronLeft, Clock, ShieldCheck, User as UserIcon, Send, ThumbsUp, CalendarDays, Coins, MessageCircle, X, Info, LineChart } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { formatTimeRemaining } from '../lib/time';
+import { useAccount, useChainId, usePublicClient } from 'wagmi';
+import { ERC20_ABI, PREDICTION_MARKET_VAULT_ABI } from '../lib/contracts/abis';
+import { getContractAddresses } from '../lib/contracts/addresses';
+import { uuidToBytes32 } from '../lib/contracts/utils';
 
 type ErrorLike = string | Error | { message?: string } | null | undefined;
 
@@ -31,6 +35,7 @@ interface MarketPageProps {
   onRequireBetAuth?: (params: { marketId: string; side: 'YES' | 'NO'; amount: number; marketTitle: string }) => void;
   onPlaceBet: (params: { side: 'YES' | 'NO'; amount: number; marketId: string; marketTitle: string }) => Promise<void>;
   onSellPosition?: (params: { marketId: string; side: 'YES' | 'NO'; shares: number }) => Promise<void>;
+  onClaimWinnings?: (params: { marketId: string; assetCode: 'USDC' | 'USDT' }) => Promise<void>;
   onResolveOutcome?: (params: { marketId: string; outcome: 'YES' | 'NO' }) => Promise<void>;
   comments: Comment[];
   onOpenUserProfile?: (userId: string) => void;
@@ -57,6 +62,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
   onRequireBetAuth,
   onPlaceBet,
   onSellPosition,
+  onClaimWinnings,
   onResolveOutcome,
   comments,
   onOpenUserProfile,
@@ -86,12 +92,88 @@ const MarketPage: React.FC<MarketPageProps> = ({
   const [replyTo, setReplyTo] = useState<{ id: string; label: string } | null>(null);
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
 
+  // On-chain (USDC/USDT) helpers (used for local-first testing and later testnets).
+  const { address: walletAddress, isConnected: walletConnected } = useAccount();
+  const chainId = useChainId();
+  const publicClient = usePublicClient();
+  const isOnChainMarket = market.settlementAsset === 'USDC' || market.settlementAsset === 'USDT';
+  const [vaultBalanceMajor, setVaultBalanceMajor] = useState<number | null>(null);
+  const [walletBalanceMajor, setWalletBalanceMajor] = useState<number | null>(null);
+  const [onchainYesShares, setOnchainYesShares] = useState<number | null>(null);
+  const [onchainNoShares, setOnchainNoShares] = useState<number | null>(null);
+  const [onchainLoadError, setOnchainLoadError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!betIntent) return;
     setTradeType(betIntent.side);
     const el = document.getElementById("bid-section");
     el?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [betIntent?.nonce]);
+
+  useEffect(() => {
+    if (!isOnChainMarket) return;
+    if (!walletConnected || !walletAddress) return;
+    const addrs = getContractAddresses(chainId);
+    const vault = addrs?.vault;
+    const token =
+      market.settlementAsset === 'USDT'
+        ? addrs?.usdt
+        : addrs?.usdc;
+    if (!vault || !token) return;
+    if (vault === '0x0000000000000000000000000000000000000000') return;
+    if (token === '0x0000000000000000000000000000000000000000') return;
+
+    let cancelled = false;
+    setOnchainLoadError(null);
+
+    void (async () => {
+      try {
+        const marketIdBytes32 = uuidToBytes32(market.id);
+        // NOTE: USDC/USDT in this app are modeled as 6 decimals.
+        const decimals = 6;
+
+        const [vaultBal, walletBal, yesPos, noPos] = await Promise.all([
+          (publicClient as any).readContract({
+            address: vault,
+            abi: PREDICTION_MARKET_VAULT_ABI,
+            functionName: 'getBalance',
+            args: [walletAddress, token],
+          }) as Promise<bigint>,
+          (publicClient as any).readContract({
+            address: token,
+            abi: ERC20_ABI,
+            functionName: 'balanceOf',
+            args: [walletAddress],
+          }) as Promise<bigint>,
+          (publicClient as any).readContract({
+            address: vault,
+            abi: PREDICTION_MARKET_VAULT_ABI,
+            functionName: 'getPosition',
+            args: [walletAddress, marketIdBytes32, 1],
+          }) as Promise<bigint>,
+          (publicClient as any).readContract({
+            address: vault,
+            abi: PREDICTION_MARKET_VAULT_ABI,
+            functionName: 'getPosition',
+            args: [walletAddress, marketIdBytes32, 2],
+          }) as Promise<bigint>,
+        ]);
+
+        if (cancelled) return;
+        setVaultBalanceMajor(Number(vaultBal) / Math.pow(10, decimals));
+        setWalletBalanceMajor(Number(walletBal) / Math.pow(10, decimals));
+        setOnchainYesShares(Number(yesPos) / 1e6);
+        setOnchainNoShares(Number(noPos) / 1e6);
+      } catch (e) {
+        if (cancelled) return;
+        setOnchainLoadError(lang === 'RU' ? 'Не удалось загрузить on-chain данные' : 'Failed to load on-chain data');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chainId, isOnChainMarket, market.id, market.settlementAsset, publicClient, walletAddress, walletConnected, lang]);
 
   // Use closesAt for trading deadline, expiresAt for event end
   const tradingDeadline = market.closesAt || market.expiresAt;
@@ -341,6 +423,21 @@ const MarketPage: React.FC<MarketPageProps> = ({
     }
   };
 
+  const handleClaimClick = async () => {
+    if (!isOnChainMarket || !onClaimWinnings) return;
+    if (!user) return;
+    if (!walletConnected) {
+      setPlaceError(lang === 'RU' ? 'Подключите кошелек' : 'Connect your wallet');
+      return;
+    }
+    try {
+      setPlaceError(null);
+      await onClaimWinnings({ marketId: market.id, assetCode: market.settlementAsset as 'USDC' | 'USDT' });
+    } catch (e) {
+      setPlaceError(getErrorMessage(e, 'Не удалось получить выигрыш', 'Failed to claim winnings', lang));
+    }
+  };
+
   const handleResolveOutcomeClick = async (side: 'YES' | 'NO') => {
     if (!creatorControlsEnabled || !onResolveOutcome) return;
     if (!eventEnded) {
@@ -530,6 +627,78 @@ const MarketPage: React.FC<MarketPageProps> = ({
                 </div>
 
                 <div className="space-y-6">
+                  {isOnChainMarket && (
+                    <div className="rounded-2xl border border-zinc-900 bg-zinc-950/40 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                            {lang === 'RU' ? 'On-chain режим' : 'On-chain mode'}
+                          </div>
+                          <div className="mt-1 text-sm font-semibold text-zinc-100">
+                            {market.settlementAsset} {lang === 'RU' ? 'в хранилище' : 'vault settlement'}
+                          </div>
+                          <div className="mt-1 text-xs text-zinc-500">
+                            {lang === 'RU'
+                              ? 'Для ставок нужно пополнить баланс в Vault (Deposit).'
+                              : 'You must deposit into the Vault before betting.'}
+                          </div>
+                        </div>
+                        <div className="text-right text-xs text-zinc-500 font-mono">
+                          {walletConnected ? `#${chainId}` : ''}
+                        </div>
+                      </div>
+
+                      {onchainLoadError && (
+                        <div className="mt-3 text-xs text-red-400">{onchainLoadError}</div>
+                      )}
+
+                      <div className="mt-3 grid grid-cols-2 gap-3">
+                        <div className="rounded-xl border border-zinc-900 bg-black/40 p-3">
+                          <div className="text-[10px] uppercase tracking-wider text-zinc-500">
+                            {lang === 'RU' ? 'Кошелек' : 'Wallet'}
+                          </div>
+                          <div className="mt-1 text-sm font-mono text-zinc-100">
+                            {walletBalanceMajor === null ? '—' : `${walletBalanceMajor.toFixed(2)}`}
+                          </div>
+                        </div>
+                        <div className="rounded-xl border border-zinc-900 bg-black/40 p-3">
+                          <div className="text-[10px] uppercase tracking-wider text-zinc-500">
+                            Vault
+                          </div>
+                          <div className="mt-1 text-sm font-mono text-zinc-100">
+                            {vaultBalanceMajor === null ? '—' : `${vaultBalanceMajor.toFixed(2)}`}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-3">
+                        <div className="rounded-xl border border-zinc-900 bg-black/40 p-3">
+                          <div className="text-[10px] uppercase tracking-wider text-zinc-500">YES</div>
+                          <div className="mt-1 text-sm font-mono text-zinc-100">
+                            {onchainYesShares === null ? '—' : `${onchainYesShares.toFixed(2)} sh`}
+                          </div>
+                        </div>
+                        <div className="rounded-xl border border-zinc-900 bg-black/40 p-3">
+                          <div className="text-[10px] uppercase tracking-wider text-zinc-500">NO</div>
+                          <div className="mt-1 text-sm font-mono text-zinc-100">
+                            {onchainNoShares === null ? '—' : `${onchainNoShares.toFixed(2)} sh`}
+                          </div>
+                        </div>
+                      </div>
+
+                      {isResolved && winningSide && onClaimWinnings && (
+                        <Button
+                          fullWidth
+                          className="mt-4"
+                          onClick={handleClaimClick}
+                          disabled={!walletConnected}
+                        >
+                          {lang === 'RU' ? 'Получить выигрыш (Claim)' : 'Claim winnings'}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
                   <div className="relative">
                     <label className="text-xs font-medium text-zinc-400 mb-2 block">
                       {lang === 'RU' ? 'Сумма' : 'Amount'}
@@ -598,7 +767,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                   )}
                 </div>
 
-                {user && onSellPosition && sellablePositions.length > 0 && (
+                {user && onSellPosition && !isOnChainMarket && sellablePositions.length > 0 && (
                   <div className="mt-6 space-y-3">
                     <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">
                       {lang === 'RU' ? 'Активные ставки' : 'Your Active Bets'}
@@ -654,6 +823,51 @@ const MarketPage: React.FC<MarketPageProps> = ({
                           </Button>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {user && onSellPosition && isOnChainMarket && (
+                  <div className="mt-6 space-y-3">
+                    <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+                      {lang === 'RU' ? 'On-chain позиция' : 'On-chain position'}
+                    </p>
+                    <div className="space-y-3">
+                      {([
+                        { outcome: 'YES' as const, shares: onchainYesShares ?? 0 },
+                        { outcome: 'NO' as const, shares: onchainNoShares ?? 0 },
+                      ]).map((p) => (
+                        <div key={p.outcome} className="bg-zinc-950/40 border border-zinc-900 rounded-2xl p-3">
+                          <div className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2 text-white">
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm bg-[rgba(245,68,166,1)] border border-[rgba(245,68,166,1)] text-white">
+                                {p.outcome}
+                              </span>
+                              <span className="font-medium">{lang === 'RU' ? 'Акций' : 'Shares'}</span>
+                            </div>
+                            <span className="font-mono text-white">{p.shares.toFixed(2)} sh</span>
+                          </div>
+                          <Button
+                            fullWidth
+                            className="mt-3 !bg-zinc-800 !text-white hover:!bg-zinc-700"
+                            onClick={() =>
+                              onSellPosition({
+                                marketId: market.id,
+                                side: p.outcome,
+                                shares: p.shares,
+                              })
+                            }
+                            disabled={!walletConnected || p.shares <= 0}
+                          >
+                            {lang === 'RU' ? 'Продать' : 'Sell'} {p.outcome}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="text-[11px] text-zinc-500">
+                      {lang === 'RU'
+                        ? 'On-chain сделки появятся в истории после индексации (на тестнете).'
+                        : 'On-chain trades will appear in history after indexing (on testnet).'}
                     </div>
                   </div>
                 )}

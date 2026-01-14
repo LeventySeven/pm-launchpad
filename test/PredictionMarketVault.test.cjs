@@ -1,6 +1,6 @@
-import { expect } from "chai";
-import { ethers } from "hardhat";
-import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
+const { expect } = require("chai");
+const { ethers } = require("hardhat");
+const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("PredictionMarketVault", function () {
   async function deployContractsFixture() {
@@ -46,7 +46,7 @@ describe("PredictionMarketVault", function () {
     expect(await vault.getBalance(user1.address, usdcAddress)).to.equal(depositAmount - withdrawAmount);
   });
 
-  it("placeBet updates position and balance", async function () {
+  it("placeBet updates position and balance (EIP-712 quote)", async function () {
     const { vault, mockUSDC, owner, user1 } = await loadFixture(deployContractsFixture);
     const vaultAddress = await vault.getAddress();
     const usdcAddress = await mockUSDC.getAddress();
@@ -94,7 +94,6 @@ describe("PredictionMarketVault", function () {
     };
 
     const sig = await owner.signTypedData(domain, types, message);
-
     await vault.connect(user1).placeBet(marketId, YES, collateral, shares, usdcAddress, deadline, sig);
 
     expect(await vault.getPosition(user1.address, marketId, YES)).to.equal(shares);
