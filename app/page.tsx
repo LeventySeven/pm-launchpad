@@ -1021,7 +1021,13 @@ export default function HomePage() {
     (view: ViewType) => {
       // UX: when switching tabs (bottom nav or swipe), always start at the top.
       if (typeof window !== "undefined") {
-        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+        // Body is non-scrollable in Telegram; our scroll container is `.tg-scroll`.
+        const scroller = document.querySelector(".tg-scroll");
+        if (scroller instanceof HTMLElement) {
+          scroller.scrollTo({ top: 0, left: 0, behavior: "auto" });
+        } else {
+          window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+        }
       }
       setMarketBetIntent(null);
       setCurrentView(view);
