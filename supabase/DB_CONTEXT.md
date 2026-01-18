@@ -1,18 +1,35 @@
 # Supabase DB Context (public)
 
-Generated at: `2026-01-08T04:46:42.166Z`
+Generated at: `2026-01-16T23:22:22.360Z`
 Supabase URL: `https://zebqsdwawldoehvupmtm.supabase.co`
 
 Refresh: `bun run supabase:schema`
 
 ## Resources
-Total: **26** (added on_chain_transactions, deposits)
+Total: **28**
 
 ### `assets`
 - `code`: `string(text)` — NOT NULL, PK
 - `decimals`: `integer(integer)` — NOT NULL
 - `is_enabled`: `boolean(boolean)` — NOT NULL
 - `created_at`: `string(timestamp with time zone)` — NOT NULL
+
+### `deposits`
+- `id`: `string(uuid)` — NOT NULL, PK
+- `user_id`: `string(uuid)` — NOT NULL, FK → users.id
+- `tx_sig`: `string(text)` — NOT NULL
+- `solana_cluster`: `string(text)` — NOT NULL
+- `amount_minor`: `integer(bigint)` — NOT NULL
+- `asset_code`: `string(text)` — NOT NULL, FK → assets.code
+- `status`: `string(public.deposit_status)` — NOT NULL
+- `from_pubkey`: `string(text)` — NOT NULL
+- `block_number`: `integer(bigint)`
+- `block_timestamp`: `string(timestamp with time zone)`
+- `credited_at`: `string(timestamp with time zone)`
+- `wallet_tx_id`: `string(uuid)` — FK → wallet_transactions.id
+- `error_message`: `string(text)`
+- `created_at`: `string(timestamp with time zone)` — NOT NULL
+- `updated_at`: `string(timestamp with time zone)` — NOT NULL
 
 ### `leaderboard_public`
 - `user_id`: `string(uuid)` — PK
@@ -72,6 +89,14 @@ Total: **26** (added on_chain_transactions, deposits)
 - `author_avatar_url`: `string(text)`
 - `likes_count`: `integer(integer)`
 
+### `market_onchain_map`
+- `market_id`: `string(uuid)` — NOT NULL, PK, FK → markets.id
+- `solana_cluster`: `string(text)` — NOT NULL, PK
+- `program_id`: `string(text)` — NOT NULL
+- `market_pda`: `string(text)` — NOT NULL
+- `created_at`: `string(timestamp with time zone)` — NOT NULL
+- `updated_at`: `string(timestamp with time zone)` — NOT NULL
+
 ### `market_price_candles`
 - `market_id`: `string(uuid)` — NOT NULL, PK, FK → markets.id
 - `bucket`: `string(timestamp with time zone)` — NOT NULL, PK
@@ -84,7 +109,7 @@ Total: **26** (added on_chain_transactions, deposits)
 
 ### `markets`
 - `id`: `string(uuid)` — NOT NULL, PK
-- `title_rus`: `string(text)` — NOT NULL
+- `title_rus`: `string(text)`
 - `title_eng`: `string(text)`
 - `description`: `string(text)`
 - `state`: `string(public.market_state)` — NOT NULL
@@ -100,6 +125,30 @@ Total: **26** (added on_chain_transactions, deposits)
 - `category_label_ru`: `string(text)`
 - `category_label_en`: `string(text)`
 - `created_by`: `string(uuid)` — FK → users.id
+- `image_url`: `string(text)`
+- `onchain_market_id`: `string(text)`
+
+### `on_chain_transactions`
+- `id`: `string(uuid)` — NOT NULL, PK
+- `user_id`: `string(uuid)` — NOT NULL, FK → users.id
+- `tx_sig`: `string(text)` — NOT NULL
+- `solana_cluster`: `string(text)` — NOT NULL
+- `status`: `string(public.on_chain_tx_status)` — NOT NULL
+- `tx_type`: `string(public.on_chain_tx_type)` — NOT NULL
+- `amount_minor`: `integer(bigint)`
+- `asset_code`: `string(text)` — FK → assets.code
+- `market_id`: `string(uuid)` — FK → markets.id
+- `trade_id`: `string(uuid)` — FK → trades.id
+- `nonce`: `integer(bigint)`
+- `gas_used`: `integer(bigint)`
+- `gas_price_gwei`: `number(numeric)`
+- `block_number`: `integer(bigint)`
+- `block_timestamp`: `string(timestamp with time zone)`
+- `error_message`: `string(text)`
+- `metadata`: `n/a(jsonb)`
+- `created_at`: `string(timestamp with time zone)` — NOT NULL
+- `confirmed_at`: `string(timestamp with time zone)`
+- `updated_at`: `string(timestamp with time zone)` — NOT NULL
 
 ### `positions`
 - `user_id`: `string(uuid)` — NOT NULL, PK, FK → users.id
@@ -209,9 +258,9 @@ Total: **26** (added on_chain_transactions, deposits)
 - `telegram_photo_url`: `string(text)`
 - `telegram_auth_date`: `string(timestamp with time zone)`
 - `avatar_url`: `string(text)`
-- `wallet_address`: `string(text)` — UNIQUE (EVM wallet address)
-- `chain_id`: `integer(integer)` — Current chain ID (1=Ethereum, 11155111=Sepolia)
-- `wallet_connected_at`: `string(timestamp with time zone)`
+- `solana_wallet_address`: `string(text)`
+- `solana_cluster`: `string(text)`
+- `solana_wallet_connected_at`: `string(timestamp with time zone)`
 
 ### `users_public`
 - `id`: `string(uuid)` — PK
@@ -219,6 +268,9 @@ Total: **26** (added on_chain_transactions, deposits)
 - `display_name`: `string(text)`
 - `avatar_url`: `string(text)`
 - `telegram_photo_url`: `string(text)`
+
+### `waitlist`
+- `email`: `string(text)` — NOT NULL, PK
 
 ### `wallet_balances`
 - `user_id`: `string(uuid)` — NOT NULL, PK, FK → users.id
@@ -246,45 +298,6 @@ Total: **26** (added on_chain_transactions, deposits)
 - `market_title_rus`: `string(text)`
 - `market_title_eng`: `string(text)`
 - `created_at`: `string(timestamp with time zone)`
-
-### `on_chain_transactions`
-- `id`: `string(uuid)` — NOT NULL, PK
-- `user_id`: `string(uuid)` — NOT NULL, FK → users.id
-- `tx_hash`: `string(text)` — NOT NULL
-- `chain_id`: `integer(integer)` — NOT NULL
-- `status`: `string(public.on_chain_tx_status)` — NOT NULL (pending/confirmed/failed)
-- `tx_type`: `string(public.on_chain_tx_type)` — NOT NULL (deposit/bet/sell/claim/withdraw/approve)
-- `amount_minor`: `integer(bigint)`
-- `asset_code`: `string(text)` — FK → assets.code
-- `market_id`: `string(uuid)` — FK → markets.id
-- `trade_id`: `string(uuid)` — FK → trades.id
-- `nonce`: `integer(bigint)`
-- `gas_used`: `integer(bigint)`
-- `gas_price_gwei`: `number(numeric)`
-- `block_number`: `integer(bigint)`
-- `block_timestamp`: `string(timestamp with time zone)`
-- `error_message`: `string(text)`
-- `metadata`: `jsonb`
-- `created_at`: `string(timestamp with time zone)` — NOT NULL
-- `confirmed_at`: `string(timestamp with time zone)`
-- `updated_at`: `string(timestamp with time zone)` — NOT NULL
-
-### `deposits`
-- `id`: `string(uuid)` — NOT NULL, PK
-- `user_id`: `string(uuid)` — NOT NULL, FK → users.id
-- `tx_hash`: `string(text)` — NOT NULL
-- `chain_id`: `integer(integer)` — NOT NULL
-- `amount_minor`: `integer(bigint)` — NOT NULL
-- `asset_code`: `string(text)` — NOT NULL, FK → assets.code
-- `status`: `string(public.deposit_status)` — NOT NULL (pending/confirmed/failed/credited)
-- `from_address`: `string(text)` — NOT NULL
-- `block_number`: `integer(bigint)`
-- `block_timestamp`: `string(timestamp with time zone)`
-- `credited_at`: `string(timestamp with time zone)`
-- `wallet_tx_id`: `string(uuid)` — FK → wallet_transactions.id
-- `error_message`: `string(text)`
-- `created_at`: `string(timestamp with time zone)` — NOT NULL
-- `updated_at`: `string(timestamp with time zone)` — NOT NULL
 
 ## SQL functions in repo
 (These are the SQL files you deploy/apply in Supabase; names extracted from the repo, not from introspection.)

@@ -6,6 +6,7 @@ import type { Database } from "../../../types/database";
 import { randomBytes } from "node:crypto";
 import { leaderboardUsersSchema } from "../../../schemas/leaderboard";
 import { buildInitialsAvatarDataUrl } from "@/lib/avatar";
+import { PublicKey } from "@solana/web3.js";
 
 const DEFAULT_ASSET = "VCOIN";
 const VCOIN_DECIMALS = 6;
@@ -43,14 +44,14 @@ const userShape = {
   balance: z.number(),
   createdAt: z.string(),
   isAdmin: z.boolean(),
-  // WalletConnect fields
-  walletAddress: z.string().nullable(),
-  chainId: z.number().nullable(),
-  walletConnectedAt: z.string().nullable(),
+  // Solana wallet fields
+  solanaWalletAddress: z.string().nullable(),
+  solanaCluster: z.string().nullable(),
+  solanaWalletConnectedAt: z.string().nullable(),
 };
 
 const selectColumns =
-  "id, email, username, display_name, avatar_url, telegram_photo_url, referral_code, referral_commission_rate, referral_enabled, created_at, is_admin, wallet_address, chain_id, wallet_connected_at";
+  "id, email, username, display_name, avatar_url, telegram_photo_url, referral_code, referral_commission_rate, referral_enabled, created_at, is_admin, solana_wallet_address, solana_cluster, solana_wallet_connected_at";
 
 const USERS_TABLE = "users" as const;
 const WALLET_BALANCES_TABLE = "wallet_balances" as const;
@@ -71,11 +72,28 @@ const formatUser = (row: UserRow, balanceMinor: number = 0) => ({
   balance: toMajorUnits(balanceMinor, VCOIN_DECIMALS),
   createdAt: new Date(row.created_at).toISOString(),
   isAdmin: Boolean(row.is_admin),
-  // WalletConnect fields
-  walletAddress: row.wallet_address ?? null,
-  chainId: row.chain_id ?? null,
-  walletConnectedAt: row.wallet_connected_at ? new Date(row.wallet_connected_at).toISOString() : null,
+  // Solana wallet fields
+  solanaWalletAddress: row.solana_wallet_address ?? null,
+  solanaCluster: row.solana_cluster ?? null,
+  solanaWalletConnectedAt: row.solana_wallet_connected_at
+    ? new Date(row.solana_wallet_connected_at).toISOString()
+    : null,
 });
+
+const normalizeSolanaPubkey = (value: string): string => {
+  try {
+    // PublicKey constructor validates base58 and length.
+    return new PublicKey(value).toBase58();
+  } catch {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "INVALID_SOLANA_WALLET_ADDRESS" });
+  }
+};
+
+const normalizeSolanaCluster = (value: string): "devnet" | "testnet" | "mainnet-beta" => {
+  const v = value.trim().toLowerCase();
+  if (v === "devnet" || v === "testnet" || v === "mainnet-beta") return v;
+  throw new TRPCError({ code: "BAD_REQUEST", message: "INVALID_SOLANA_CLUSTER" });
+};
 
 const normalizeDisplayName = (value: string) => value.trim().replace(/\s+/g, " ");
 
@@ -774,68 +792,59 @@ export const userRouter = router({
     }),
 
   // ============================================================================
-  // WalletConnect Endpoints
+  // Solana Wallet Endpoints
   // ============================================================================
 
   /**
-   * Link a wallet address to the current user.
-   * Called from frontend after successful WalletConnect connection.
+   * Link a Solana wallet pubkey to the current user.
+   * Called from frontend after successful Solana Wallet Adapter connection.
    */
   linkWallet: publicProcedure
     .input(
       z.object({
-        walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/, "Invalid Ethereum address"),
-        chainId: z.number().int().positive(),
+        solanaWalletAddress: z.string().min(32).max(64),
+        solanaCluster: z.enum(["devnet", "testnet", "mainnet-beta"]),
       })
     )
     .output(
       z.object({
-        walletAddress: z.string(),
-        chainId: z.number(),
-        walletConnectedAt: z.string(),
+        solanaWalletAddress: z.string(),
+        solanaCluster: z.enum(["devnet", "testnet", "mainnet-beta"]),
+        solanaWalletConnectedAt: z.string(),
       })
     )
     .mutation(async ({ ctx, input }) => {
       const { supabaseService, authUser } = ctx;
-      if (!authUser) {
-        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
-      }
+      if (!authUser) throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
 
-      const normalizedAddress = input.walletAddress.toLowerCase();
+      const normalizedAddress = normalizeSolanaPubkey(input.solanaWalletAddress);
+      const cluster = normalizeSolanaCluster(input.solanaCluster);
 
       // Check if this wallet is already linked to another user
       const { data: existingUser, error: existingError } = await supabaseService
         .from("users")
-        .select("id, wallet_address")
-        .eq("wallet_address", normalizedAddress)
+        .select("id, solana_wallet_address")
+        .eq("solana_wallet_address", normalizedAddress)
         .neq("id", authUser.id)
         .maybeSingle();
 
       if (existingError) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: existingError.message,
-        });
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: existingError.message });
       }
-
       if (existingUser) {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: "WALLET_ALREADY_LINKED",
-        });
+        throw new TRPCError({ code: "CONFLICT", message: "WALLET_ALREADY_LINKED" });
       }
 
       const now = new Date().toISOString();
-
       const { data: updated, error: updateError } = await supabaseService
         .from("users")
         .update({
-          wallet_address: normalizedAddress,
-          chain_id: input.chainId,
-          wallet_connected_at: now,
+          solana_wallet_address: normalizedAddress,
+          solana_cluster: cluster,
+          solana_wallet_connected_at: now,
         })
         .eq("id", authUser.id)
-        .select("wallet_address, chain_id, wallet_connected_at")
+        .select("solana_wallet_address, solana_cluster, solana_wallet_connected_at")
         .single();
 
       if (updateError || !updated) {
@@ -846,68 +855,55 @@ export const userRouter = router({
       }
 
       return {
-        walletAddress: String(updated.wallet_address),
-        chainId: Number(updated.chain_id),
-        walletConnectedAt: new Date(updated.wallet_connected_at).toISOString(),
+        solanaWalletAddress: String((updated as any).solana_wallet_address),
+        solanaCluster: normalizeSolanaCluster(String((updated as any).solana_cluster)),
+        solanaWalletConnectedAt: new Date(String((updated as any).solana_wallet_connected_at)).toISOString(),
       };
     }),
 
   /**
-   * Unlink wallet from the current user.
-   * Called from frontend when user disconnects their wallet.
+   * Unlink Solana wallet from the current user.
    */
   unlinkWallet: publicProcedure
-    .output(
-      z.object({
-        success: z.boolean(),
-      })
-    )
+    .output(z.object({ success: z.boolean() }))
     .mutation(async ({ ctx }) => {
       const { supabaseService, authUser } = ctx;
-      if (!authUser) {
-        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
-      }
+      if (!authUser) throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
 
       const { error: updateError } = await supabaseService
         .from("users")
         .update({
-          wallet_address: null,
-          chain_id: null,
-          wallet_connected_at: null,
+          solana_wallet_address: null,
+          solana_cluster: null,
+          solana_wallet_connected_at: null,
         })
         .eq("id", authUser.id);
 
       if (updateError) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: updateError.message,
-        });
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: updateError.message });
       }
-
       return { success: true };
     }),
 
   /**
-   * Get wallet connection status for the current user.
+   * Get Solana wallet connection status for the current user.
    */
   getWalletStatus: publicProcedure
     .output(
       z.object({
         isConnected: z.boolean(),
-        walletAddress: z.string().nullable(),
-        chainId: z.number().nullable(),
-        walletConnectedAt: z.string().nullable(),
+        solanaWalletAddress: z.string().nullable(),
+        solanaCluster: z.enum(["devnet", "testnet", "mainnet-beta"]).nullable(),
+        solanaWalletConnectedAt: z.string().nullable(),
       })
     )
     .query(async ({ ctx }) => {
       const { supabaseService, authUser } = ctx;
-      if (!authUser) {
-        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
-      }
+      if (!authUser) throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
 
       const { data, error } = await supabaseService
         .from("users")
-        .select("wallet_address, chain_id, wallet_connected_at")
+        .select("solana_wallet_address, solana_cluster, solana_wallet_connected_at")
         .eq("id", authUser.id)
         .single();
 
@@ -918,42 +914,34 @@ export const userRouter = router({
         });
       }
 
-      const row = data as Pick<UserRow, "wallet_address" | "chain_id" | "wallet_connected_at">;
+      const row = data as Pick<UserRow, "solana_wallet_address" | "solana_cluster" | "solana_wallet_connected_at">;
+      const cluster = row.solana_cluster ? normalizeSolanaCluster(String(row.solana_cluster)) : null;
 
       return {
-        isConnected: Boolean(row.wallet_address),
-        walletAddress: row.wallet_address ?? null,
-        chainId: row.chain_id ?? null,
-        walletConnectedAt: row.wallet_connected_at
-          ? new Date(row.wallet_connected_at).toISOString()
+        isConnected: Boolean(row.solana_wallet_address),
+        solanaWalletAddress: row.solana_wallet_address ?? null,
+        solanaCluster: cluster,
+        solanaWalletConnectedAt: row.solana_wallet_connected_at
+          ? new Date(row.solana_wallet_connected_at).toISOString()
           : null,
       };
     }),
 
   /**
-   * Update wallet chain ID (when user switches networks).
+   * Update Solana cluster (when user switches networks).
+   * Note: procedure name is preserved for API compatibility.
    */
   updateWalletChain: publicProcedure
-    .input(
-      z.object({
-        chainId: z.number().int().positive(),
-      })
-    )
-    .output(
-      z.object({
-        chainId: z.number(),
-      })
-    )
+    .input(z.object({ solanaCluster: z.enum(["devnet", "testnet", "mainnet-beta"]) }))
+    .output(z.object({ solanaCluster: z.enum(["devnet", "testnet", "mainnet-beta"]) }))
     .mutation(async ({ ctx, input }) => {
       const { supabaseService, authUser } = ctx;
-      if (!authUser) {
-        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
-      }
+      if (!authUser) throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
 
       // Verify user has a wallet linked
       const { data: user, error: userError } = await supabaseService
         .from("users")
-        .select("wallet_address")
+        .select("solana_wallet_address")
         .eq("id", authUser.id)
         .single();
 
@@ -964,25 +952,20 @@ export const userRouter = router({
         });
       }
 
-      if (!user.wallet_address) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "NO_WALLET_LINKED",
-        });
+      if (!(user as any).solana_wallet_address) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "NO_WALLET_LINKED" });
       }
 
+      const cluster = normalizeSolanaCluster(input.solanaCluster);
       const { error: updateError } = await supabaseService
         .from("users")
-        .update({ chain_id: input.chainId })
+        .update({ solana_cluster: cluster })
         .eq("id", authUser.id);
 
       if (updateError) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: updateError.message,
-        });
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: updateError.message });
       }
 
-      return { chainId: input.chainId };
+      return { solanaCluster: cluster };
     }),
 });

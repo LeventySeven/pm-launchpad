@@ -1,0 +1,26 @@
+[package]
+name = "prediction_market_vault"
+version = "0.1.0"
+description = "Solana/Anchor replacement for the EVM PredictionMarketVault"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "prediction_market_vault"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+anchor-debug = []
+custom-heap = []
+custom-panic = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "=0.32.1", features = ["init-if-needed"] }
+spl-associated-token-account = { version = "=7.0.0", features = ["no-entrypoint"] }
+spl-token = { version = "=8.0.0", features = ["no-entrypoint"] }
+

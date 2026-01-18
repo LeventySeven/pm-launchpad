@@ -23,8 +23,7 @@ import { marketCategoriesSchema } from "@/src/schemas/marketCategories";
 import { myCommentsSchema } from "@/src/schemas/myComments";
 import { marketBookmarksSchema } from "@/src/schemas/bookmarks";
 import { buildInitialsAvatarDataUrl } from "@/lib/avatar";
-import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
-import type { Hex } from "viem";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 
 // VCOIN decimals for display
 const VCOIN_DECIMALS = 6;
@@ -72,11 +71,11 @@ export default function HomePage() {
     }
   });
   const [user, setUser] = useState<User | null>(null);
-  // Wallet state (from wagmi/AppKit)
-  const { address: connectedWalletAddress, isConnected: isWalletConnected } = useAccount();
-  const connectedChainId = useChainId();
-  const { data: walletClient } = useWalletClient();
-  const publicClient = usePublicClient();
+  // Wallet state (Solana Wallet Adapter)
+  const { publicKey, connected: isWalletConnected, sendTransaction } = useWallet();
+  const { connection } = useConnection();
+  const connectedWalletAddress = publicKey ? publicKey.toBase58() : null;
+  const solanaCluster = (process.env.NEXT_PUBLIC_SOLANA_CLUSTER || "devnet").toLowerCase();
 
   // Keep DB wallet link in sync with actual connected wallet/chain.
   const walletSyncInFlight = useRef(false);
@@ -85,17 +84,18 @@ export default function HomePage() {
   useEffect(() => {
     if (!user) return;
 
-    const normalizedAddress = connectedWalletAddress ? connectedWalletAddress.toLowerCase() : null;
-    const dbAddress = user.walletAddress ? String(user.walletAddress).toLowerCase() : null;
-    const dbChainId = typeof user.chainId === "number" ? user.chainId : null;
+    // Solana pubkeys are base58 (case-sensitive) - do NOT lowercase them
+    const walletPubkey = connectedWalletAddress ?? null;
+    const dbPubkey = (user as any).solanaWalletAddress ? String((user as any).solanaWalletAddress) : null;
+    const dbCluster = (user as any).solanaCluster ? String((user as any).solanaCluster).toLowerCase() : null;
 
-    const syncKey = `${user.id}:${normalizedAddress ?? "none"}:${connectedChainId}:${isWalletConnected ? "1" : "0"}`;
+    const syncKey = `${user.id}:${walletPubkey ?? "none"}:${solanaCluster}:${isWalletConnected ? "1" : "0"}`;
     if (walletSyncInFlight.current) return;
     if (lastWalletSyncKey.current === syncKey) return;
 
     // If wallet is disconnected, unlink (best effort).
-    if (!isWalletConnected || !normalizedAddress) {
-      if (!dbAddress) {
+    if (!isWalletConnected || !walletPubkey) {
+      if (!dbPubkey) {
         lastWalletSyncKey.current = syncKey;
         return;
       }
@@ -103,7 +103,16 @@ export default function HomePage() {
       void (async () => {
         try {
           await trpcClient.user.unlinkWallet.mutate();
-          setUser((prev) => (prev ? { ...prev, walletAddress: null, chainId: null, walletConnectedAt: null } : prev));
+          setUser((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  solanaWalletAddress: null,
+                  solanaCluster: null,
+                  solanaWalletConnectedAt: null,
+                }
+              : prev
+          );
         } catch (err) {
           console.warn("unlinkWallet failed (ignored)", err);
         } finally {
@@ -115,9 +124,9 @@ export default function HomePage() {
     }
 
     // If wallet is connected, link or update chain.
-    if (normalizedAddress && isWalletConnected) {
-      const needsLink = !dbAddress || dbAddress !== normalizedAddress;
-      const needsChainUpdate = dbChainId !== connectedChainId;
+    if (walletPubkey && isWalletConnected) {
+      const needsLink = !dbPubkey || dbPubkey !== walletPubkey;
+      const needsChainUpdate = dbCluster !== solanaCluster;
 
       if (!needsLink && !needsChainUpdate) {
         lastWalletSyncKey.current = syncKey;
@@ -129,22 +138,22 @@ export default function HomePage() {
         try {
           if (needsLink) {
             const linked = await trpcClient.user.linkWallet.mutate({
-              walletAddress: normalizedAddress,
-              chainId: connectedChainId,
-            });
+              solanaWalletAddress: walletPubkey,
+              solanaCluster,
+            } as any);
             setUser((prev) =>
               prev
                 ? {
                     ...prev,
-                    walletAddress: linked.walletAddress,
-                    chainId: linked.chainId,
-                    walletConnectedAt: linked.walletConnectedAt,
+                    solanaWalletAddress: (linked as any).solanaWalletAddress ?? walletPubkey,
+                    solanaCluster: (linked as any).solanaCluster ?? solanaCluster,
+                    solanaWalletConnectedAt: (linked as any).solanaWalletConnectedAt ?? null,
                   }
                 : prev
             );
           } else if (needsChainUpdate) {
-            await trpcClient.user.updateWalletChain.mutate({ chainId: connectedChainId });
-            setUser((prev) => (prev ? { ...prev, chainId: connectedChainId } : prev));
+            await trpcClient.user.updateWalletChain.mutate({ solanaCluster } as any);
+            setUser((prev) => (prev ? { ...prev, solanaCluster } : prev));
           }
         } catch (err) {
           console.warn("wallet sync failed (ignored)", err);
@@ -154,7 +163,7 @@ export default function HomePage() {
         }
       })();
     }
-  }, [user, connectedWalletAddress, connectedChainId, isWalletConnected]);
+  }, [user, connectedWalletAddress, solanaCluster, isWalletConnected]);
   const [pendingReferralCode, setPendingReferralCode] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     try {
@@ -1226,61 +1235,18 @@ export default function HomePage() {
       }
 
       if (isOnChain) {
-        // On-chain bet flow (USDC/USDT): prepare calldata + signature on backend, sign+send tx on client.
-        if (!isWalletConnected || !connectedWalletAddress) {
-          setBetConfirm({
-            open: true,
-            marketTitle,
-            side,
-            amount,
-            newBalance: undefined,
-            errorMessage: lang === "RU" ? "Подключите кошелек, чтобы торговать USDC/USDT." : "Connect a wallet to trade USDC/USDT.",
-          });
-          return;
-        }
-        if (!walletClient) {
-          setBetConfirm({
-            open: true,
-            marketTitle,
-            side,
-            amount,
-            newBalance: undefined,
-            errorMessage: lang === "RU" ? "Кошелек недоступен для подписи транзакции." : "Wallet client unavailable for signing.",
-          });
-          return;
-        }
-
-        // Best-effort: ensure DB wallet link matches the currently connected wallet/chain.
-        const normalized = connectedWalletAddress.toLowerCase();
-        if (!user.walletAddress || user.walletAddress.toLowerCase() !== normalized || user.chainId !== connectedChainId) {
-          await trpcClient.user.linkWallet.mutate({ walletAddress: normalized, chainId: connectedChainId });
-          setUser((prev) => (prev ? { ...prev, walletAddress: normalized, chainId: connectedChainId } : prev));
-        }
-
-        const prep = await trpcClient.market.prepareBet.mutate({
-          marketId,
-          side,
-          amount,
-          assetCode: settlementAsset as "USDC" | "USDT",
-        });
-
-        const hash = (await (walletClient as any).sendTransaction({
-          account: walletClient.account!,
-          to: prep.tx.to as `0x${string}`,
-          data: prep.tx.data as Hex,
-          value: BigInt(prep.tx.value || "0"),
-        })) as Hex;
-
-        // Wait for local confirmation (for UX); DB reconciliation happens via indexing on testnets.
-        await publicClient.waitForTransactionReceipt({ hash });
-
+        // During Solana migration we intentionally disable EVM on-chain flows here.
+        // These will be re-enabled once the Solana program + tx-prep endpoints are implemented.
         setBetConfirm({
           open: true,
           marketTitle,
           side,
           amount,
           newBalance: undefined,
-          errorMessage: null,
+          errorMessage:
+            lang === "RU"
+              ? "Ончейн рынки (USDC/USDT) временно недоступны: переносим их на Solana."
+              : "On-chain USDC/USDT markets are temporarily unavailable while migrating to Solana.",
         });
         return;
       }
@@ -1483,31 +1449,7 @@ export default function HomePage() {
       const isOnChain = settlementAsset === "USDC" || settlementAsset === "USDT";
 
       if (isOnChain) {
-        if (!isWalletConnected || !connectedWalletAddress) throw new Error("WALLET_NOT_CONNECTED");
-        if (!walletClient) throw new Error("WALLET_CLIENT_UNAVAILABLE");
-
-        const normalized = connectedWalletAddress.toLowerCase();
-        if (!user.walletAddress || user.walletAddress.toLowerCase() !== normalized || user.chainId !== connectedChainId) {
-          await trpcClient.user.linkWallet.mutate({ walletAddress: normalized, chainId: connectedChainId });
-          setUser((prev) => (prev ? { ...prev, walletAddress: normalized, chainId: connectedChainId } : prev));
-        }
-
-        const prep = await trpcClient.market.prepareSell.mutate({
-          marketId,
-          side,
-          shares,
-          assetCode: settlementAsset as "USDC" | "USDT",
-        });
-
-        const hash = (await (walletClient as any).sendTransaction({
-          account: walletClient.account!,
-          to: prep.tx.to as `0x${string}`,
-          data: prep.tx.data as Hex,
-          value: BigInt(prep.tx.value || "0"),
-        })) as Hex;
-
-        await publicClient.waitForTransactionReceipt({ hash });
-        return;
+        throw new Error("SOLANA_ONCHAIN_TEMP_DISABLED");
       }
 
       const res = await trpcClient.market.sellPosition.mutate({
@@ -1539,23 +1481,7 @@ export default function HomePage() {
     assetCode: "USDC" | "USDT";
   }) => {
     if (!user) return;
-    if (!isWalletConnected || !connectedWalletAddress) throw new Error("WALLET_NOT_CONNECTED");
-    if (!walletClient) throw new Error("WALLET_CLIENT_UNAVAILABLE");
-
-    const normalized = connectedWalletAddress.toLowerCase();
-    if (!user.walletAddress || user.walletAddress.toLowerCase() !== normalized || user.chainId !== connectedChainId) {
-      await trpcClient.user.linkWallet.mutate({ walletAddress: normalized, chainId: connectedChainId });
-      setUser((prev) => (prev ? { ...prev, walletAddress: normalized, chainId: connectedChainId } : prev));
-    }
-
-    const prep = await trpcClient.market.prepareClaim.mutate({ marketId, assetCode });
-    const hash = (await (walletClient as any).sendTransaction({
-      account: walletClient.account!,
-      to: prep.tx.to as `0x${string}`,
-      data: prep.tx.data as Hex,
-      value: BigInt(prep.tx.value || "0"),
-    })) as Hex;
-    await publicClient.waitForTransactionReceipt({ hash });
+    throw new Error("SOLANA_ONCHAIN_TEMP_DISABLED");
   };
 
   const handlePostMarketComment = useCallback(

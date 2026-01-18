@@ -54,10 +54,10 @@ export interface Database {
           referral_commission_rate: number | null;
           referral_enabled: boolean | null;
           created_at: string;
-          // WalletConnect fields
-          wallet_address: string | null;
-          chain_id: number | null;
-          wallet_connected_at: string | null;
+          // Solana wallet fields
+          solana_wallet_address: string | null;
+          solana_cluster: string | null;
+          solana_wallet_connected_at: string | null;
         };
         Insert: {
           id?: string;
@@ -76,10 +76,10 @@ export interface Database {
           referral_commission_rate?: number | null;
           referral_enabled?: boolean | null;
           created_at?: string;
-          // WalletConnect fields
-          wallet_address?: string | null;
-          chain_id?: number | null;
-          wallet_connected_at?: string | null;
+          // Solana wallet fields
+          solana_wallet_address?: string | null;
+          solana_cluster?: string | null;
+          solana_wallet_connected_at?: string | null;
         };
         Update: {
           id?: string;
@@ -98,10 +98,10 @@ export interface Database {
           referral_commission_rate?: number | null;
           referral_enabled?: boolean | null;
           created_at?: string;
-          // WalletConnect fields
-          wallet_address?: string | null;
-          chain_id?: number | null;
-          wallet_connected_at?: string | null;
+          // Solana wallet fields
+          solana_wallet_address?: string | null;
+          solana_cluster?: string | null;
+          solana_wallet_connected_at?: string | null;
         };
         Relationships: [];
       };
@@ -335,25 +335,25 @@ export interface Database {
       market_onchain_map: {
         Row: {
           market_id: string;
-          chain_id: number;
-          vault_address: string;
-          onchain_market_id: string;
+          solana_cluster: string;
+          program_id: string;
+          market_pda: string;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           market_id: string;
-          chain_id: number;
-          vault_address: string;
-          onchain_market_id: string;
+          solana_cluster: string;
+          program_id: string;
+          market_pda: string;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           market_id?: string;
-          chain_id?: number;
-          vault_address?: string;
-          onchain_market_id?: string;
+          solana_cluster?: string;
+          program_id?: string;
+          market_pda?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -568,13 +568,13 @@ export interface Database {
         };
         Relationships: [];
       };
-      // WalletConnect/On-chain tables
+      // Solana on-chain tables
       on_chain_transactions: {
         Row: {
           id: string;
           user_id: string;
-          tx_hash: string;
-          chain_id: number;
+          tx_sig: string;
+          solana_cluster: string;
           status: OnChainTxStatus;
           tx_type: OnChainTxType;
           amount_minor: number | null;
@@ -595,8 +595,8 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
-          tx_hash: string;
-          chain_id: number;
+          tx_sig: string;
+          solana_cluster: string;
           status?: OnChainTxStatus;
           tx_type: OnChainTxType;
           amount_minor?: number | null;
@@ -617,8 +617,8 @@ export interface Database {
         Update: {
           id?: string;
           user_id?: string;
-          tx_hash?: string;
-          chain_id?: number;
+          tx_sig?: string;
+          solana_cluster?: string;
           status?: OnChainTxStatus;
           tx_type?: OnChainTxType;
           amount_minor?: number | null;
@@ -647,12 +647,12 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          tx_hash: string;
-          chain_id: number;
+          tx_sig: string;
+          solana_cluster: string;
           amount_minor: number;
           asset_code: string;
           status: DepositStatus;
-          from_address: string;
+          from_pubkey: string;
           block_number: number | null;
           block_timestamp: string | null;
           credited_at: string | null;
@@ -664,12 +664,12 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
-          tx_hash: string;
-          chain_id: number;
+          tx_sig: string;
+          solana_cluster: string;
           amount_minor: number;
           asset_code: string;
           status?: DepositStatus;
-          from_address: string;
+          from_pubkey: string;
           block_number?: number | null;
           block_timestamp?: string | null;
           credited_at?: string | null;
@@ -681,12 +681,12 @@ export interface Database {
         Update: {
           id?: string;
           user_id?: string;
-          tx_hash?: string;
-          chain_id?: number;
+          tx_sig?: string;
+          solana_cluster?: string;
           amount_minor?: number;
           asset_code?: string;
           status?: DepositStatus;
-          from_address?: string;
+          from_pubkey?: string;
           block_number?: number | null;
           block_timestamp?: string | null;
           credited_at?: string | null;

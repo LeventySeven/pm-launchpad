@@ -19,7 +19,6 @@ const nextConfig: NextConfig = {
     config.externals.push('pino-pretty', 'lokijs', 'encoding');
     return config;
   },
-  transpilePackages: ['@reown/appkit', '@reown/appkit-adapter-wagmi'],
 };
 
 export default nextConfig;

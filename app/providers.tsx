@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
-import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { wagmiConfig, initializeAppKit } from '@/lib/appKit';
+import { useMemo } from 'react';
+import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
+import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
+import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
+import { clusterApiUrl } from '@solana/web3.js';
+import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -14,20 +17,35 @@ const queryClient = new QueryClient({
 });
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  useEffect(() => {
-    // Initialize only on the client
-    if (typeof window !== 'undefined') {
-      initializeAppKit();
+  const solanaCluster = (process.env.NEXT_PUBLIC_SOLANA_CLUSTER || 'devnet').toLowerCase();
+  const network =
+    solanaCluster === 'mainnet-beta'
+      ? WalletAdapterNetwork.Mainnet
+      : solanaCluster === 'testnet'
+        ? WalletAdapterNetwork.Testnet
+        : WalletAdapterNetwork.Devnet;
+
+  const endpoint = useMemo(() => {
+    const explicit = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
+    if (explicit && explicit.trim().length > 0) {
+      const trimmed = explicit.trim();
+      // `@solana/web3.js` throws during (pre)render if the endpoint doesn't start with http(s).
+      return trimmed.startsWith('http://') || trimmed.startsWith('https://')
+        ? trimmed
+        : `https://${trimmed}`;
     }
-  }, []);
+    return clusterApiUrl(network);
+  }, [network]);
+
+  const wallets = useMemo(() => [new PhantomWalletAdapter(), new SolflareWalletAdapter()], []);
 
   return (
-    // reconnectOnMount ensures we rehydrate the WalletConnect session (persisted by AppKit/Wagmi)
-    // so users don't need to reconnect on refresh/app reopen.
-    <WagmiProvider config={wagmiConfig} reconnectOnMount={true}>
-      <QueryClientProvider client={queryClient}>
-        {children}
-      </QueryClientProvider>
-    </WagmiProvider>
+    <ConnectionProvider endpoint={endpoint}>
+      <WalletProvider wallets={wallets} autoConnect={true}>
+        <WalletModalProvider>
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        </WalletModalProvider>
+      </WalletProvider>
+    </ConnectionProvider>
   );
 }

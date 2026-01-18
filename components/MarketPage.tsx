@@ -4,10 +4,7 @@ import Button from './Button';
 import { Bookmark, ChevronLeft, Clock, ShieldCheck, User as UserIcon, Send, ThumbsUp, CalendarDays, Coins, MessageCircle, X, Info, LineChart } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { formatTimeRemaining } from '../lib/time';
-import { useAccount, useChainId, usePublicClient } from 'wagmi';
-import { ERC20_ABI, PREDICTION_MARKET_VAULT_ABI } from '../lib/contracts/abis';
-import { getContractAddresses } from '../lib/contracts/addresses';
-import { uuidToBytes32 } from '../lib/contracts/utils';
+import { useWallet } from '@solana/wallet-adapter-react';
 
 type ErrorLike = string | Error | { message?: string } | null | undefined;
 
@@ -92,10 +89,9 @@ const MarketPage: React.FC<MarketPageProps> = ({
   const [replyTo, setReplyTo] = useState<{ id: string; label: string } | null>(null);
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
 
-  // On-chain (USDC/USDT) helpers (used for local-first testing and later testnets).
-  const { address: walletAddress, isConnected: walletConnected } = useAccount();
-  const chainId = useChainId();
-  const publicClient = usePublicClient();
+  // Solana wallet state (on-chain USDC markets will be re-enabled after Anchor program is wired).
+  const { publicKey, connected: walletConnected } = useWallet();
+  const walletAddress = publicKey ? publicKey.toBase58() : null;
   const isOnChainMarket = market.settlementAsset === 'USDC' || market.settlementAsset === 'USDT';
   const [vaultBalanceMajor, setVaultBalanceMajor] = useState<number | null>(null);
   const [walletBalanceMajor, setWalletBalanceMajor] = useState<number | null>(null);
@@ -112,68 +108,17 @@ const MarketPage: React.FC<MarketPageProps> = ({
 
   useEffect(() => {
     if (!isOnChainMarket) return;
-    if (!walletConnected || !walletAddress) return;
-    const addrs = getContractAddresses(chainId);
-    const vault = addrs?.vault;
-    const token =
-      market.settlementAsset === 'USDT'
-        ? addrs?.usdt
-        : addrs?.usdc;
-    if (!vault || !token) return;
-    if (vault === '0x0000000000000000000000000000000000000000') return;
-    if (token === '0x0000000000000000000000000000000000000000') return;
-
-    let cancelled = false;
-    setOnchainLoadError(null);
-
-    void (async () => {
-      try {
-        const marketIdBytes32 = uuidToBytes32(market.id);
-        // NOTE: USDC/USDT in this app are modeled as 6 decimals.
-        const decimals = 6;
-
-        const [vaultBal, walletBal, yesPos, noPos] = await Promise.all([
-          (publicClient as any).readContract({
-            address: vault,
-            abi: PREDICTION_MARKET_VAULT_ABI,
-            functionName: 'getBalance',
-            args: [walletAddress, token],
-          }) as Promise<bigint>,
-          (publicClient as any).readContract({
-            address: token,
-            abi: ERC20_ABI,
-            functionName: 'balanceOf',
-            args: [walletAddress],
-          }) as Promise<bigint>,
-          (publicClient as any).readContract({
-            address: vault,
-            abi: PREDICTION_MARKET_VAULT_ABI,
-            functionName: 'getPosition',
-            args: [walletAddress, marketIdBytes32, 1],
-          }) as Promise<bigint>,
-          (publicClient as any).readContract({
-            address: vault,
-            abi: PREDICTION_MARKET_VAULT_ABI,
-            functionName: 'getPosition',
-            args: [walletAddress, marketIdBytes32, 2],
-          }) as Promise<bigint>,
-        ]);
-
-        if (cancelled) return;
-        setVaultBalanceMajor(Number(vaultBal) / Math.pow(10, decimals));
-        setWalletBalanceMajor(Number(walletBal) / Math.pow(10, decimals));
-        setOnchainYesShares(Number(yesPos) / 1e6);
-        setOnchainNoShares(Number(noPos) / 1e6);
-      } catch (e) {
-        if (cancelled) return;
-        setOnchainLoadError(lang === 'RU' ? 'Не удалось загрузить on-chain данные' : 'Failed to load on-chain data');
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [chainId, isOnChainMarket, market.id, market.settlementAsset, publicClient, walletAddress, walletConnected, lang]);
+    // During Solana migration we intentionally disable EVM-derived on-chain reads here.
+    setVaultBalanceMajor(null);
+    setWalletBalanceMajor(null);
+    setOnchainYesShares(null);
+    setOnchainNoShares(null);
+    setOnchainLoadError(
+      lang === 'RU'
+        ? 'Ончейн-данные временно недоступны: переносим ончейн-часть на Solana.'
+        : 'On-chain data is temporarily unavailable while migrating to Solana.'
+    );
+  }, [isOnChainMarket, lang]);
 
   // Use closesAt for trading deadline, expiresAt for event end
   const tradingDeadline = market.closesAt || market.expiresAt;
@@ -643,9 +588,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                               : 'You must deposit into the Vault before betting.'}
                           </div>
                         </div>
-                        <div className="text-right text-xs text-zinc-500 font-mono">
-                          {walletConnected ? `#${chainId}` : ''}
-                        </div>
+                        <div className="text-right text-xs text-zinc-500 font-mono">{walletConnected ? 'Solana' : ''}</div>
                       </div>
 
                       {onchainLoadError && (

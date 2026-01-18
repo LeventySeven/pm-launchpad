@@ -66,6 +66,14 @@ deployments/*.json
 secrets.*
 **/secrets/**
 
+# Solana keypairs (private keys - NEVER commit!)
+**/deployer-keypair.json
+**/quote-authority*.json
+**/*-keypair.json
+anchor/deployer-keypair.json
+anchor/quote-authority-keypair.json
+*.keypair.json
+
 # Hardhat / Foundry extra outputs (if added later)
 broadcast/
 out/
