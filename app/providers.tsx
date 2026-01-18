@@ -76,7 +76,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect={true}>
+      {/* Keep autoconnect off for Telegram webviews to avoid silent/blocked redirects. */}
+      <WalletProvider wallets={wallets} autoConnect={false}>
         <WalletModalProvider>
           <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
         </WalletModalProvider>

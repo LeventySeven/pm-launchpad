@@ -5,7 +5,7 @@ import { LogOut, Mail, User as UserIcon, Shield, Pencil, X, Image, CheckCircle2,
 import Button from './Button';
 import type { Bet, Market, Trade, User, UserCommentSummary } from '../types';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import ConnectSolanaWalletButton from './ConnectSolanaWalletButton';
 
 type ProfilePageProps = {
   user: User | null;
@@ -131,7 +131,6 @@ const sampleAvatarHue = async (src: string): Promise<number | null> => {
 
 const SolanaWalletSection: React.FC<{ lang: 'RU' | 'EN' }> = ({ lang }) => {
   const { publicKey, connected } = useWallet();
-  const { setVisible } = useWalletModal();
   const pubkey = publicKey ? publicKey.toBase58() : null;
   const cluster = (process.env.NEXT_PUBLIC_SOLANA_CLUSTER || 'devnet').toLowerCase();
 
@@ -160,13 +159,11 @@ const SolanaWalletSection: React.FC<{ lang: 'RU' | 'EN' }> = ({ lang }) => {
         </div>
 
         <div className="shrink-0 relative">
-          <button
-            type="button"
-            onClick={() => setVisible(true)}
-            className="h-9 px-4 rounded-full bg-[rgba(245,68,166,1)] text-black hover:bg-[rgba(245,68,166,0.90)] font-semibold text-sm"
-          >
-            {connected ? (lang === 'RU' ? 'Сменить' : 'Change') : (lang === 'RU' ? 'Подключить' : 'Connect')}
-          </button>
+          <ConnectSolanaWalletButton
+            className="h-9 px-4 rounded-full bg-[rgba(245,68,166,1)] text-black hover:bg-[rgba(245,68,166,0.90)] font-semibold text-sm disabled:opacity-60"
+            connectedLabel={lang === 'RU' ? 'Сменить' : 'Change'}
+            connectLabel={lang === 'RU' ? 'Подключить' : 'Connect'}
+          />
         </div>
       </div>
 
