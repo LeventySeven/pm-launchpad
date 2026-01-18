@@ -40,6 +40,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
   }
 
   const pnlIsPositive = (pnlMajor ?? 0) >= 0;
+  const pnlColor = pnlIsPositive ? 'text-[rgba(190,255,29,1)]' : 'text-[rgba(245,68,166,1)]';
 
   const yesLabel = lang === 'RU' ? 'Да' : 'Yes';
   const noLabel = lang === 'RU' ? 'Нет' : 'No';
@@ -83,7 +84,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
           <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">
             {lang === 'RU' ? 'Прибыль/Убыток (PnL)' : 'Profit/Loss (PnL)'}
           </div>
-          <div className="text-2xl font-mono font-bold text-[rgba(245,68,166,1)]">
+          <div className={`text-2xl font-mono font-bold ${pnlColor}`}>
             {pnlIsPositive ? '+' : '-'}${Math.abs(pnlMajor).toFixed(2)}
           </div>
           <div className="text-xs text-zinc-500 mt-1">

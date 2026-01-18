@@ -553,7 +553,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                     onClick={() => setTradeType('YES')}
                     className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-full transition-all ${
                       tradeType === 'YES'
-                        ? 'bg-[rgba(245,68,166,1)] text-white shadow-[0_10px_30px_rgba(245,68,166,0.20)]'
+                        ? 'bg-[rgba(190,255,29,1)] text-black shadow-[0_10px_30px_rgba(190,255,29,0.18)]'
                         : 'text-zinc-400 hover:text-white hover:bg-zinc-900/40'
                     }`}
                   >
@@ -726,7 +726,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                               <span
                                 className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm ${
                                   position.outcome === 'YES'
-                                    ? 'bg-[rgba(245,68,166,1)] border border-[rgba(245,68,166,1)] text-white'
+                                    ? 'bg-[rgba(190,255,29,1)] border border-[rgba(190,255,29,1)] text-black'
                                     : 'bg-[rgba(245,68,166,1)] border border-[rgba(245,68,166,1)] text-white'
                                 }`}
                               >
@@ -783,7 +783,11 @@ const MarketPage: React.FC<MarketPageProps> = ({
                         <div key={p.outcome} className="bg-zinc-950/40 border border-zinc-900 rounded-2xl p-3">
                           <div className="flex items-center justify-between text-sm">
                             <div className="flex items-center gap-2 text-white">
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm bg-[rgba(245,68,166,1)] border border-[rgba(245,68,166,1)] text-white">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm border ${
+                                p.outcome === 'YES'
+                                  ? 'bg-[rgba(190,255,29,1)] border-[rgba(190,255,29,1)] text-black'
+                                  : 'bg-[rgba(245,68,166,1)] border-[rgba(245,68,166,1)] text-white'
+                              }`}>
                                 {p.outcome}
                               </span>
                               <span className="font-medium">{lang === 'RU' ? 'Акций' : 'Shares'}</span>

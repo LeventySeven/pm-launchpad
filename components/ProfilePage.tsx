@@ -25,6 +25,7 @@ type ProfilePageProps = {
   commentsError?: string | null;
   bookmarks: Market[];
   onMarketClick: (marketId: string) => void;
+  onSellPosition?: (params: { marketId: string; side: 'YES' | 'NO'; shares: number }) => Promise<void>;
   onLoadBets?: () => void;
   onLoadComments?: () => void;
 };
@@ -223,6 +224,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   commentsError = null,
   bookmarks,
   onMarketClick,
+  onSellPosition,
   onLoadBets,
   onLoadComments,
 }) => {
@@ -265,6 +267,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [sellingKey, setSellingKey] = useState<string | null>(null);
+  const [sellError, setSellError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!avatarFile) {
@@ -721,6 +725,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                     const pnl = currentValue - cost;
                     const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0;
                     const pnlPositive = pnl >= 0;
+                    const canSell = Boolean(onSellPosition && shares > 0);
+                    const rowKey = `${b.marketId}:${b.side}`;
                     return (
                       <button
                         key={b.id}
@@ -741,6 +747,39 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                             <div className="mt-1 text-[11px] text-zinc-500 font-mono">
                               {shares.toFixed(1)} {lang === 'RU' ? 'акций' : 'shares'} @ {(entry * 100).toFixed(0)}¢
                             </div>
+                            {canSell && (
+                              <div className="mt-3">
+                                <Button
+                                  fullWidth
+                                  className="h-9 rounded-full !bg-zinc-800 !text-white hover:!bg-zinc-700"
+                                  disabled={sellingKey === rowKey}
+                                  onClick={async (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (!onSellPosition) return;
+                                    setSellError(null);
+                                    setSellingKey(rowKey);
+                                    try {
+                                      await onSellPosition({
+                                        marketId: b.marketId,
+                                        side: b.side,
+                                        shares,
+                                      });
+                                    } catch {
+                                      setSellError(lang === 'RU' ? 'Не удалось продать позицию' : 'Failed to sell position');
+                                    } finally {
+                                      setSellingKey(null);
+                                    }
+                                  }}
+                                >
+                                  {sellingKey === rowKey
+                                    ? (lang === 'RU' ? 'Продажа…' : 'Selling…')
+                                    : lang === 'RU'
+                                    ? `Продать ${b.side === 'YES' ? 'ДА' : 'НЕТ'}`
+                                    : `Sell ${b.side}`}
+                                </Button>
+                              </div>
+                            )}
                           </div>
                           <div className="text-right flex-shrink-0">
                             <div className="text-sm font-mono font-semibold text-zinc-100">{formatMoney(currentValue)}</div>
@@ -759,6 +798,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                       </button>
                     );
                   })}
+                </div>
+              )}
+              {sellError && (
+                <div className="mt-3 text-xs text-red-400 px-1">
+                  {sellError}
                 </div>
               )}
             </div>

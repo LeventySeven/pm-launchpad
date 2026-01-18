@@ -1916,6 +1916,7 @@ export default function HomePage() {
                     commentsLoading={myCommentsLoading}
                     commentsError={myCommentsError}
                     bookmarks={bookmarkedMarkets}
+                    onSellPosition={handleSellPosition}
                     onLoadBets={() => void loadMyBets()}
                     onLoadComments={() => void loadMyComments()}
                     onMarketClick={(marketId) => {
