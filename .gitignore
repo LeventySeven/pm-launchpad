@@ -34,6 +34,16 @@ coverage/
 .env
 .env.*
 !.env.example
+.env.local
+.env.development
+.env.production
+.env.test
+.env*.local
+
+# Environment variable files with secrets
+*.env
+*.envrc
+.envrc
 
 # Local debug artifacts
 build-output.txt
@@ -53,9 +63,17 @@ typechain-types/
 src/types/contracts/
 deployments/*.json
 !deployments/.gitkeep
+hardhat.config.local.*
+hardhat.config.*.local.*
 
 # Hardhat node
 .openzeppelin/
+
+# Hardhat / Foundry private keys and configs
+*.key.json
+*_key.json
+*_private_key*
+private-keys.json
 
 # Common secrets / keys (defense-in-depth)
 *.pem
@@ -65,6 +83,12 @@ deployments/*.json
 *.keystore
 secrets.*
 **/secrets/**
+*.private
+*.priv
+*_private*
+*_secret*
+*.cert
+*.crt
 
 # Solana keypairs (private keys - NEVER commit!)
 **/deployer-keypair.json
@@ -72,7 +96,17 @@ secrets.*
 **/*-keypair.json
 anchor/deployer-keypair.json
 anchor/quote-authority-keypair.json
+anchor/target/deploy/*-keypair.json
 *.keypair.json
+
+# Anchor build artifacts (large, generated)
+anchor/target/
+anchor/.anchor/
+
+# Rust build artifacts
+**/target/
+*.rs.bk
+Cargo.lock
 
 # Hardhat / Foundry extra outputs (if added later)
 broadcast/
@@ -80,3 +114,50 @@ out/
 forge-cache/
 coverage.json
 gas-report.txt
+
+# Temporary files and backups
+*.tmp
+*.temp
+*.bak
+*.backup
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# IDE and editor files
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+.idea/
+*.sublime-*
+.vim/
+
+# OS files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Logs and debug files
+*.log
+logs/
+*.pid
+*.seed
+*.pid.lock
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# Wallet and crypto files
+*.wallet
+wallets/
+*.mnemonic
+*.seed
+seed.txt

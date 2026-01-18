@@ -47,6 +47,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     // Mobile deep linking (Anza docs): Solana Mobile Wallet Adapter opens installed wallets.
     // On desktop it stays available but is typically unused.
     const appUrl =
+      (typeof window !== 'undefined' ? window.location.origin : undefined) ||
       process.env.NEXT_PUBLIC_APP_URL ||
       process.env.APP_URL ||
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
@@ -59,7 +60,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         appIdentity: {
           name: 'Yalla Market',
           uri: appUrl,
-          icon: '/pink.svg',
+          // Must be a path *relative* to `uri` per MWA docs.
+          icon: 'pink.svg',
         },
         authorizationResultCache: createDefaultAuthorizationResultCache(),
         cluster: mwaCluster,
