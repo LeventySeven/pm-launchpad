@@ -13,6 +13,7 @@ import {
   createDefaultAuthorizationResultCache,
   createDefaultWalletNotFoundHandler,
 } from '@solana-mobile/wallet-adapter-mobile';
+import WalletAutoConnectFromUrl from '@/components/WalletAutoConnectFromUrl';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -79,6 +80,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       {/* Keep autoconnect off for Telegram webviews to avoid silent/blocked redirects. */}
       <WalletProvider wallets={wallets} autoConnect={false}>
         <WalletModalProvider>
+          <WalletAutoConnectFromUrl />
           <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
         </WalletModalProvider>
       </WalletProvider>

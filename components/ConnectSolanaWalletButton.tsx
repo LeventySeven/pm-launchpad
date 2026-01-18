@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { WalletReadyState, WalletNotReadyError } from '@solana/wallet-adapter-base';
@@ -9,6 +9,8 @@ type Props = {
   className?: string;
   connectedLabel?: string;
   connectLabel?: string;
+  selectLabel?: string;
+  connectingLabel?: string;
 };
 
 type ConnectError = Error | { message?: string } | string | null | undefined;
@@ -21,14 +23,28 @@ const toErrorMessage = (e: ConnectError): string => {
   return 'Wallet connection failed';
 };
 
+type TelegramLike = { WebApp?: { openLink?: (url: string) => void } };
+
+function getTelegram(): TelegramLike | null {
+  const w = window as unknown as { Telegram?: TelegramLike };
+  return w.Telegram ?? null;
+}
+
+function withAutoConnectParam(urlToOpen: string): string {
+  const u = new URL(urlToOpen);
+  u.searchParams.set('walletAutoConnect', 'phantom');
+  return u.toString();
+}
+
 function openPhantomBrowse(urlToOpen: string) {
-  const url = encodeURIComponent(urlToOpen);
+  const nextUrl = withAutoConnectParam(urlToOpen);
+  const url = encodeURIComponent(nextUrl);
   const ref = encodeURIComponent(window.location.origin);
   const deepLink = `https://phantom.app/ul/browse/${url}?ref=${ref}`;
 
   // Telegram in-app browser: use their API if available.
-  const tg = (window as any).Telegram?.WebApp;
-  if (tg && typeof tg.openLink === 'function') {
+  const tg = getTelegram()?.WebApp;
+  if (tg?.openLink) {
     tg.openLink(deepLink);
     return;
   }
@@ -38,19 +54,22 @@ function openPhantomBrowse(urlToOpen: string) {
 
 export default function ConnectSolanaWalletButton({
   className,
-  connectedLabel = 'Change',
+  connectedLabel = 'Change wallet',
   connectLabel = 'Connect',
+  selectLabel = 'Select Wallet',
+  connectingLabel = 'Connecting ...',
 }: Props) {
   const { setVisible } = useWalletModal();
   const { wallet, connected, connecting, connect } = useWallet();
   const [error, setError] = useState<string | null>(null);
+  const [pendingConnect, setPendingConnect] = useState(false);
 
   const label = useMemo(() => {
-    if (connecting) return 'Connecting…';
+    if (connecting) return connectingLabel;
     if (connected) return connectedLabel;
     if (wallet) return connectLabel;
-    return connectLabel;
-  }, [connected, connectedLabel, connectLabel, connecting, wallet]);
+    return selectLabel;
+  }, [connected, connectedLabel, connectLabel, connecting, connectingLabel, selectLabel, wallet]);
 
   const onClick = useCallback(() => {
     setError(null);
@@ -60,42 +79,49 @@ export default function ConnectSolanaWalletButton({
       return;
     }
 
-    if (!wallet) {
-      setVisible(true);
+    // Always show the wallet selection modal first (UX preference).
+    setPendingConnect(true);
+    setVisible(true);
+  }, [connected, setVisible]);
+
+  // After the user selects a wallet in the modal, immediately proceed to connect/deeplink.
+  useEffect(() => {
+    if (!pendingConnect) return;
+    if (connected) {
+      setPendingConnect(false);
       return;
     }
+    if (!wallet) return; // wait for selection
 
     // In Telegram webviews, Phantom typically isn't "Installed" (no injection).
-    // If Phantom is selected but not detected, follow Phantom's own universal-link flow:
-    // open this dapp inside Phantom in-wallet browser.
-    if (
-      wallet.adapter.name === 'Phantom' &&
-      wallet.readyState === WalletReadyState.NotDetected &&
-      typeof window !== 'undefined'
-    ) {
+    // When Phantom is selected but not detected, open the dapp in Phantom in-wallet browser.
+    if (wallet.adapter.name === 'Phantom' && wallet.readyState === WalletReadyState.NotDetected) {
+      setPendingConnect(false);
       openPhantomBrowse(window.location.href);
       return;
     }
 
-    connect().catch((e: unknown) => {
-      if (e instanceof WalletNotReadyError) {
-        // If the wallet isn't ready, fall back to the modal so user can pick another option.
-        setVisible(true);
-        return;
-      }
-      setError(toErrorMessage(e as ConnectError));
-    });
-  }, [connected, connect, setVisible, wallet]);
+    connect()
+      .then(() => setPendingConnect(false))
+      .catch((e: unknown) => {
+        setPendingConnect(false);
+        if (e instanceof WalletNotReadyError) {
+          setVisible(true);
+          return;
+        }
+        setError(toErrorMessage(e as ConnectError));
+      });
+  }, [pendingConnect, connected, wallet, connect, setVisible]);
 
   return (
     <div className="inline-flex flex-col items-end gap-1">
       <button
         type="button"
         onClick={onClick}
-        disabled={connecting}
+        disabled={connecting || pendingConnect}
         className={className}
       >
-        {label}
+        {pendingConnect ? selectLabel : label}
       </button>
       {error ? <div className="text-[11px] text-red-300 max-w-[220px] text-right">{error}</div> : null}
     </div>

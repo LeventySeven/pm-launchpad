@@ -161,8 +161,10 @@ const SolanaWalletSection: React.FC<{ lang: 'RU' | 'EN' }> = ({ lang }) => {
         <div className="shrink-0 relative">
           <ConnectSolanaWalletButton
             className="h-9 px-4 rounded-full bg-[rgba(245,68,166,1)] text-black hover:bg-[rgba(245,68,166,0.90)] font-semibold text-sm disabled:opacity-60"
-            connectedLabel={lang === 'RU' ? 'Сменить' : 'Change'}
+            connectedLabel={lang === 'RU' ? 'Сменить кошелёк' : 'Change wallet'}
             connectLabel={lang === 'RU' ? 'Подключить' : 'Connect'}
+            selectLabel={lang === 'RU' ? 'Выбрать кошелёк' : 'Select Wallet'}
+            connectingLabel={lang === 'RU' ? 'Подключение ...' : 'Connecting ...'}
           />
         </div>
       </div>
