@@ -34,11 +34,14 @@ body {
 /* Scroll container for Telegram Mini App: keeps scrolling inside our app */
 .tg-scroll {
   height: 100svh;
+  height: 100dvh; /* more stable on mobile when browser UI shows/hides */
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  /* Ensure smooth scrolling on mobile */
-  scroll-behavior: smooth;
+  /* Avoid "sagging"/jumping caused by scroll anchoring + dynamic content */
+  overflow-anchor: none;
+  /* Smooth scrolling can feel janky inside Telegram webviews; keep it instant */
+  scroll-behavior: auto;
 }
 
 /* Safe area utilities for iOS notches and home indicators */

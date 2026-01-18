@@ -764,6 +764,11 @@ export const userRouter = router({
         .from("leaderboard_public")
         .select("user_id, name, username, avatar_url, balance_minor, pnl_minor, bet_count, referrals, rank")
         .order("rank", { ascending: true })
+        // Defense-in-depth: keep ordering stable even if rank ties exist.
+        .order("pnl_minor", { ascending: false })
+        .order("bet_count", { ascending: false })
+        .order("balance_minor", { ascending: false })
+        .order("user_id", { ascending: true })
         .limit(limit);
 
       if (error) {
