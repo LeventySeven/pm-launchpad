@@ -37,13 +37,13 @@ const BottomMenu: React.FC<BottomMenuProps> = ({ currentView, onChange, onCreate
       </button>
 
       <button
-        onClick={() => onChange('FEED')}
+        onClick={() => onChange('CATALOG')}
         className={`flex flex-col items-center justify-center gap-1.5 w-20 ${
-          currentView === 'FEED' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+          currentView === 'CATALOG' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
         }`}
       >
-        <Home size={20} />
-        <span className="text-[11px] font-medium">{lang === 'RU' ? 'Лента' : 'Feed'}</span>
+        <LayoutGrid size={20} />
+        <span className="text-[11px] font-medium">{lang === 'RU' ? 'Каталог' : 'Catalog'}</span>
       </button>
 
       <button
@@ -60,13 +60,13 @@ const BottomMenu: React.FC<BottomMenuProps> = ({ currentView, onChange, onCreate
       </button>
 
       <button
-        onClick={() => onChange('CATALOG')}
+        onClick={() => onChange('FEED')}
         className={`flex flex-col items-center justify-center gap-1.5 w-20 ${
-          currentView === 'CATALOG' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+          currentView === 'FEED' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
         }`}
       >
-        <LayoutGrid size={20} />
-        <span className="text-[11px] font-medium">{lang === 'RU' ? 'Каталог' : 'Catalog'}</span>
+        <Home size={20} />
+        <span className="text-[11px] font-medium">{lang === 'RU' ? 'Мои ставки' : 'My bets'}</span>
       </button>
 
       <button

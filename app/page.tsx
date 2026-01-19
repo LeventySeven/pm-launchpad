@@ -222,7 +222,7 @@ export default function HomePage() {
     if (typeof initData === "string" && initData.trim().length > 0) return initData;
     return getTelegramInitDataFromUrl();
   };
-  const [currentView, setCurrentView] = useState<ViewType>("FEED");
+  const [currentView, setCurrentView] = useState<ViewType>("CATALOG");
   const shellSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const [myPositions, setMyPositions] = useState<Position[]>([]);
@@ -634,7 +634,7 @@ export default function HomePage() {
       setUser(null);
       setMyPositions([]);
       setMyTrades([]);
-      setCurrentView("FEED");
+      setCurrentView("CATALOG");
       setMarketBetIntent(null);
       setSelectedMarketId(null);
     }
@@ -1144,7 +1144,7 @@ export default function HomePage() {
     // Only treat as page swipe if mostly horizontal and large enough.
     if (absX < 60 || absX < absY * 1.2) return;
 
-    const order: ViewType[] = ["FRIENDS", "FEED", "CATALOG", "PROFILE"];
+    const order: ViewType[] = ["FRIENDS", "CATALOG", "FEED", "PROFILE"];
     const idx = Math.max(0, order.indexOf(currentView));
     const nextIdx = dx < 0 ? Math.min(order.length - 1, idx + 1) : Math.max(0, idx - 1);
     const next = order[nextIdx] ?? currentView;
@@ -1679,9 +1679,9 @@ export default function HomePage() {
     switch (currentView) {
       case "FRIENDS":
         return 0;
-      case "FEED":
-        return 1;
       case "CATALOG":
+        return 1;
+      case "FEED":
         return 2;
       case "PROFILE":
         return 3;
@@ -1703,7 +1703,7 @@ export default function HomePage() {
             onHelpClick={() => setShowOnboarding(true)}
             onLogoClick={() => {
               setSelectedMarketId(null);
-              setCurrentView("FEED");
+              setCurrentView("CATALOG");
               void loadMarkets();
             }}
             lang={lang}
@@ -1788,7 +1788,7 @@ export default function HomePage() {
             onLogoClick={() => {
               setMarketBetIntent(null);
               setSelectedMarketId(null);
-              setCurrentView("FEED");
+              setCurrentView("CATALOG");
             }}
             lang={lang}
             onToggleLang={handleToggleLang}
@@ -1816,87 +1816,6 @@ export default function HomePage() {
                     onUserClick={(u) => void openPublicProfile(u.id)}
                     onCreateReferralLink={handleCreateReferralLink}
                   />
-                </div>
-
-                {/* FEED */}
-                <div className="w-1/4">
-                  <div>
-                    {user && bookmarkedMarkets.length > 0 && (
-                      <>
-                        <div className="px-4 pt-3 pb-2">
-                          <div className="text-xs font-bold uppercase tracking-widest text-zinc-500">
-                            {lang === "RU" ? "Закладки" : "Bookmarks"}
-                          </div>
-                        </div>
-                        <div className="px-4 pt-2">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-8">
-                            {bookmarkedMarkets.map((market) => (
-                              <MarketCard
-                                key={`bm-${market.id}`}
-                                market={market}
-                                bookmarked
-                                onClick={() => {
-                                  setMarketBetIntent(null);
-                                  setSelectedMarketId(market.id);
-                                }}
-                                onQuickBet={(side) => handleOpenMarketBet(market, side)}
-                                lang={lang}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      </>
-                    )}
-
-                    <div className="px-4 pt-3 pb-2">
-                      <div className="text-xs font-bold uppercase tracking-widest text-zinc-500">
-                        {lang === "RU" ? "Мои ставки" : "My bets"}
-                      </div>
-                    </div>
-
-                    <div className="px-4 pt-2">
-                      {loadingMarkets ? (
-                        <div className="text-center py-10 text-zinc-500">
-                          {marketsLoadingMessage || (lang === "RU" ? "Загрузка рынков..." : "Loading markets...")}
-                        </div>
-                      ) : !user ? (
-                        <div className="text-center py-20 text-zinc-500 px-4">
-                          <p className="text-lg mb-2">{lang === "RU" ? "Войдите, чтобы увидеть ваши ставки" : "Log in to see your bets"}</p>
-                          <p className="text-sm">
-                            {lang === "RU" ? "Каталог доступен без входа." : "The catalog is available without logging in."}
-                          </p>
-                        </div>
-                      ) : feedMarkets.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-8">
-                          {feedMarkets
-                            .map((market) => (
-                              <MarketCard
-                                key={market.id}
-                                market={market}
-                                bookmarked={bookmarkedMarketIds.has(market.id)}
-                                onClick={() => {
-                                  setMarketBetIntent(null);
-                                  setSelectedMarketId(market.id);
-                                }}
-                                onQuickBet={(side) => handleOpenMarketBet(market, side)}
-                                lang={lang}
-                              />
-                            ))}
-                        </div>
-                      ) : marketsError ? (
-                        <div className="text-center py-20 text-zinc-500 px-4">
-                          <p className="text-sm">{marketsError}</p>
-                        </div>
-                      ) : (
-                        <div className="text-center py-20 text-zinc-500 px-4">
-                          <p className="text-lg mb-2">{lang === "RU" ? "У вас пока нет ставок" : "No bets yet"}</p>
-                          <p className="text-sm">
-                            {lang === "RU" ? "Откройте рынок в каталоге, чтобы сделать ставку." : "Open a market in the catalog to place a bet."}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
                 </div>
 
                 {/* CATALOG */}
@@ -1980,6 +1899,86 @@ export default function HomePage() {
                         <div className="text-center py-20 text-zinc-500 px-4">
                           <p className="text-lg mb-2">{lang === "RU" ? "Ничего не найдено" : "Nothing found"}</p>
                           <p className="text-sm">{lang === "RU" ? "Попробуйте другой запрос" : "Try a different search"}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* MY BETS (formerly FEED) */}
+                <div className="w-1/4">
+                  <div>
+                    {user && bookmarkedMarkets.length > 0 && (
+                      <>
+                        <div className="px-4 pt-3 pb-2">
+                          <div className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+                            {lang === "RU" ? "Закладки" : "Bookmarks"}
+                          </div>
+                        </div>
+                        <div className="px-4 pt-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-8">
+                            {bookmarkedMarkets.map((market) => (
+                              <MarketCard
+                                key={`bm-${market.id}`}
+                                market={market}
+                                bookmarked
+                                onClick={() => {
+                                  setMarketBetIntent(null);
+                                  setSelectedMarketId(market.id);
+                                }}
+                                onQuickBet={(side) => handleOpenMarketBet(market, side)}
+                                lang={lang}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    <div className="px-4 pt-3 pb-2">
+                      <div className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+                        {lang === "RU" ? "Мои ставки" : "My bets"}
+                      </div>
+                    </div>
+
+                    <div className="px-4 pt-2">
+                      {loadingMarkets ? (
+                        <div className="text-center py-10 text-zinc-500">
+                          {marketsLoadingMessage || (lang === "RU" ? "Загрузка рынков..." : "Loading markets...")}
+                        </div>
+                      ) : !user ? (
+                        <div className="text-center py-20 text-zinc-500 px-4">
+                          <p className="text-lg mb-2">{lang === "RU" ? "Войдите, чтобы увидеть ваши ставки" : "Log in to see your bets"}</p>
+                          <p className="text-sm">
+                            {lang === "RU" ? "Каталог доступен без входа." : "The catalog is available without logging in."}
+                          </p>
+                        </div>
+                      ) : feedMarkets.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-8">
+                          {feedMarkets.map((market) => (
+                            <MarketCard
+                              key={market.id}
+                              market={market}
+                              bookmarked={bookmarkedMarketIds.has(market.id)}
+                              onClick={() => {
+                                setMarketBetIntent(null);
+                                setSelectedMarketId(market.id);
+                              }}
+                              onQuickBet={(side) => handleOpenMarketBet(market, side)}
+                              lang={lang}
+                            />
+                          ))}
+                        </div>
+                      ) : marketsError ? (
+                        <div className="text-center py-20 text-zinc-500 px-4">
+                          <p className="text-sm">{marketsError}</p>
+                        </div>
+                      ) : (
+                        <div className="text-center py-20 text-zinc-500 px-4">
+                          <p className="text-lg mb-2">{lang === "RU" ? "У вас пока нет ставок" : "No bets yet"}</p>
+                          <p className="text-sm">
+                            {lang === "RU" ? "Откройте рынок в каталоге, чтобы сделать ставку." : "Open a market in the catalog to place a bet."}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -2080,7 +2079,7 @@ export default function HomePage() {
           closePublicProfile();
           setMarketBetIntent(null);
           setSelectedMarketId(marketId);
-          setCurrentView("FEED");
+          setCurrentView("CATALOG");
         }}
       />
       <AdminMarketModal
