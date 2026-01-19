@@ -12,7 +12,7 @@ import ProfilePage from "@/components/ProfilePage";
 import PublicUserProfileModal from "@/components/PublicUserProfileModal";
 import type { Market, User, Bet, Position, Trade, PriceCandle, PublicTrade, LeaderboardUser, Comment as MarketComment } from "@/types";
 import { trpcClient } from "@/src/utils/trpcClient";
-import { Search, X, AlertCircle } from "lucide-react";
+import { Search, X, AlertCircle, Filter } from "lucide-react";
 import BottomMenu, { type ViewType } from "@/components/BottomMenu";
 import FriendsPage from "@/components/FriendsPage";
 import { leaderboardUsersSchema } from "@/src/schemas/leaderboard";
@@ -56,6 +56,9 @@ export default function HomePage() {
   const [authInitialMode, setAuthInitialMode] = useState<AuthMode>("SIGN_IN");
   const [showReloginWarning, setShowReloginWarning] = useState(false);
   const [reloginRequired, setReloginRequired] = useState(false);
+  type CatalogSort = "ENDING_SOON" | "CREATED_DESC" | "CREATED_ASC" | "VOLUME_DESC" | "VOLUME_ASC";
+  const [catalogSort, setCatalogSort] = useState<CatalogSort>("CREATED_DESC");
+  const [catalogFiltersOpen, setCatalogFiltersOpen] = useState(false);
   type PostAuthAction =
     | { type: "OPEN_CREATE_MARKET" }
     | { type: "PLACE_BET"; marketId: string; side: "YES" | "NO"; amount: number; marketTitle: string }
@@ -805,6 +808,7 @@ export default function HomePage() {
           state: m.state as Market["state"],
           outcome: m.outcome,
           createdBy: m.createdBy ?? null,
+          createdAt: m.createdAt,
           categoryId: m.categoryId ?? null,
           categoryLabelRu: m.categoryLabelRu ?? null,
           categoryLabelEn: m.categoryLabelEn ?? null,
@@ -1040,6 +1044,40 @@ export default function HomePage() {
       }),
     [activeCategoryId, searchQuery, markets, lang]
   );
+
+  const catalogMarkets = useMemo(() => {
+    const parseVol = (v: string) => {
+      const n = Number(String(v).replace(/[^0-9.-]+/g, ""));
+      return Number.isFinite(n) ? n : 0;
+    };
+    const ts = (iso?: string | null) => {
+      if (!iso) return Number.POSITIVE_INFINITY;
+      const t = Date.parse(iso);
+      return Number.isFinite(t) ? t : Number.POSITIVE_INFINITY;
+    };
+
+    const sorted = [...filteredMarkets];
+    switch (catalogSort) {
+      case "ENDING_SOON":
+        sorted.sort((a, b) => ts(a.closesAt ?? a.expiresAt) - ts(b.closesAt ?? b.expiresAt));
+        break;
+      case "CREATED_ASC":
+        sorted.sort((a, b) => ts(a.createdAt) - ts(b.createdAt));
+        break;
+      case "CREATED_DESC":
+        sorted.sort((a, b) => ts(b.createdAt) - ts(a.createdAt));
+        break;
+      case "VOLUME_ASC":
+        sorted.sort((a, b) => parseVol(a.volume) - parseVol(b.volume));
+        break;
+      case "VOLUME_DESC":
+        sorted.sort((a, b) => parseVol(b.volume) - parseVol(a.volume));
+        break;
+      default:
+        break;
+    }
+    return sorted;
+  }, [filteredMarkets, catalogSort]);
 
   // Feed: markets where the user currently has bets (positions).
   const myBetMarketIds = useMemo(() => {
@@ -1870,14 +1908,117 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    <div className="px-4 pt-4">
+                    {/* Sort / filter */}
+                    <div className="px-4 pt-3" data-swipe-ignore="true">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                          {lang === "RU" ? "Фильтры" : "Filters"}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setCatalogFiltersOpen(true)}
+                          className="h-9 rounded-full border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/70 px-3 text-xs font-semibold text-zinc-200 hover:text-white transition-colors inline-flex items-center gap-2"
+                        >
+                          <Filter size={14} className="text-zinc-300" />
+                          <span>{lang === "RU" ? "Фильтр" : "Filter"}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {catalogFiltersOpen && (
+                      <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4" data-swipe-ignore="true">
+                        <div
+                          className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                          onClick={() => setCatalogFiltersOpen(false)}
+                        />
+                        <div className="relative w-full max-w-md rounded-2xl border border-zinc-900 bg-black p-5 shadow-2xl">
+                          <div className="flex items-center justify-between gap-3 mb-4">
+                            <div className="text-sm font-semibold text-zinc-100">
+                              {lang === "RU" ? "Фильтры каталога" : "Catalog filters"}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setCatalogFiltersOpen(false)}
+                              className="h-9 w-9 rounded-full border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60 flex items-center justify-center text-zinc-300"
+                              aria-label={lang === "RU" ? "Закрыть" : "Close"}
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+
+                          <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">
+                            {lang === "RU" ? "Сортировка" : "Sort"}
+                          </div>
+
+                          <div role="radiogroup" className="space-y-2">
+                            {([
+                              {
+                                id: "ENDING_SOON" as const,
+                                labelRu: "Скоро закончится",
+                                labelEn: "Ending soon",
+                              },
+                              {
+                                id: "CREATED_DESC" as const,
+                                labelRu: "Сначала новые",
+                                labelEn: "Newest",
+                              },
+                              {
+                                id: "CREATED_ASC" as const,
+                                labelRu: "Сначала старые",
+                                labelEn: "Oldest",
+                              },
+                              {
+                                id: "VOLUME_DESC" as const,
+                                labelRu: "Объём ↓",
+                                labelEn: "Volume ↓",
+                              },
+                              {
+                                id: "VOLUME_ASC" as const,
+                                labelRu: "Объём ↑",
+                                labelEn: "Volume ↑",
+                              },
+                            ]).map((opt) => {
+                              const selected = catalogSort === opt.id;
+                              return (
+                                <button
+                                  key={opt.id}
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={selected}
+                                  onClick={() => setCatalogSort(opt.id)}
+                                  className={`w-full text-left rounded-xl border px-4 py-3 transition-colors ${
+                                    selected
+                                      ? "border-[rgba(245,68,166,1)] bg-[rgba(245,68,166,0.10)] text-white"
+                                      : "border-zinc-900 bg-zinc-950/30 text-zinc-300 hover:bg-zinc-950/50"
+                                  }`}
+                                >
+                                  <div className="text-sm font-semibold">
+                                    {lang === "RU" ? opt.labelRu : opt.labelEn}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => setCatalogFiltersOpen(false)}
+                            className="mt-4 w-full h-11 rounded-full bg-[rgba(245,68,166,1)] hover:bg-[rgba(245,68,166,0.90)] text-white font-semibold transition-colors"
+                          >
+                            {lang === "RU" ? "Готово" : "Done"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="px-4 pt-3">
                       {loadingMarkets ? (
                         <div className="text-center py-10 text-zinc-500">
                           {marketsLoadingMessage || (lang === "RU" ? "Загрузка рынков..." : "Loading markets...")}
                         </div>
-                      ) : filteredMarkets.length > 0 ? (
+                      ) : catalogMarkets.length > 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-8">
-                          {filteredMarkets.map((market) => (
+                          {catalogMarkets.map((market) => (
                             <MarketCard
                               key={market.id}
                               market={market}
