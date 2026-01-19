@@ -1926,7 +1926,7 @@ export default function HomePage() {
                     </div>
 
                     {catalogFiltersOpen && (
-                      <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4" data-swipe-ignore="true">
+                      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" data-swipe-ignore="true">
                         <div
                           className="absolute inset-0 bg-black/80 backdrop-blur-sm"
                           onClick={() => setCatalogFiltersOpen(false)}
