@@ -836,7 +836,7 @@ export const marketRouter = router({
     .input(z.object({ marketId: z.string().uuid(), bookmarked: z.boolean() }))
     .output(z.object({ marketId: z.string(), bookmarked: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
-      const { supabase, supabaseService, authUser } = ctx;
+      const { supabaseService, authUser } = ctx;
       if (!authUser) {
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
       }
@@ -852,7 +852,8 @@ export const marketRouter = router({
       }
 
       if (input.bookmarked) {
-        const ins = await supabase
+        // Use service client for writes so we don't depend on sb_access_token cookie (we auth via auth_token).
+        const ins = await supabaseService
           .from("market_bookmarks")
           .insert({ user_id: authUser.id, market_id: input.marketId } as Database["public"]["Tables"]["market_bookmarks"]["Insert"]);
         if (ins.error) {
@@ -862,7 +863,7 @@ export const marketRouter = router({
           }
         }
       } else {
-        const del = await supabase
+        const del = await supabaseService
           .from("market_bookmarks")
           .delete()
           .eq("user_id", authUser.id)

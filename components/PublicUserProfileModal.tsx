@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { X, MessageCircle } from "lucide-react";
+import { X, MessageCircle, Clock } from "lucide-react";
 import type { Market } from "../types";
 
 type PublicUser = {
@@ -19,6 +19,13 @@ type PublicComment = {
   likesCount: number;
 };
 
+type PublicBet = {
+  marketId: string;
+  outcome: "YES" | "NO";
+  lastBetAt: string;
+  isActive: boolean;
+};
+
 type PublicUserProfileModalProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -27,6 +34,7 @@ type PublicUserProfileModalProps = {
   error: string | null;
   user: PublicUser | null;
   pnlMajor: number;
+  bets: PublicBet[];
   comments: PublicComment[];
   markets: Market[];
   onMarketClick: (marketId: string) => void;
@@ -117,6 +125,7 @@ const PublicUserProfileModal: React.FC<PublicUserProfileModalProps> = ({
   error,
   user,
   pnlMajor,
+  bets,
   comments,
   markets,
   onMarketClick,
@@ -147,6 +156,17 @@ const PublicUserProfileModal: React.FC<PublicUserProfileModalProps> = ({
   }, [avatarSrc, accentSeed]);
 
   const pnlIsPositive = pnlMajor >= 0;
+  const [tab, setTab] = useState<"BETS" | "COMMENTS">("BETS");
+  const yesLabel = lang === "RU" ? "Да" : "Yes";
+  const noLabel = lang === "RU" ? "Нет" : "No";
+
+  const ongoingBets = useMemo(
+    () =>
+      (bets ?? [])
+        .filter((b) => b.isActive)
+        .sort((a, b) => new Date(b.lastBetAt).getTime() - new Date(a.lastBetAt).getTime()),
+    [bets]
+  );
 
   if (!isOpen) return null;
 
@@ -191,7 +211,7 @@ const PublicUserProfileModal: React.FC<PublicUserProfileModalProps> = ({
             <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">PnL</div>
             <div
               className={`text-2xl font-mono font-bold ${
-                pnlIsPositive ? "text-[rgba(245,68,166,1)]" : "text-[rgba(245,68,166,1)]"
+                pnlIsPositive ? "text-[rgba(190,255,29,1)]" : "text-[rgba(245,68,166,1)]"
               }`}
             >
               {formatSignedMoney(pnlMajor)}
@@ -201,56 +221,129 @@ const PublicUserProfileModal: React.FC<PublicUserProfileModalProps> = ({
 
         <div className="flex-1 min-h-0 overflow-y-auto">
           <div className="p-5">
+            {/* Tabs */}
+            <div className="mb-4 flex items-center gap-2 border border-zinc-900 bg-black rounded-full p-1">
+              <button
+                type="button"
+                onClick={() => setTab("BETS")}
+                className={`flex-1 rounded-full py-2 text-[11px] font-bold uppercase tracking-wider transition ${
+                  tab === "BETS"
+                    ? "bg-zinc-950 text-white border border-zinc-800"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                {lang === "RU" ? "Ставки" : "Bets"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab("COMMENTS")}
+                className={`flex-1 rounded-full py-2 text-[11px] font-bold uppercase tracking-wider transition ${
+                  tab === "COMMENTS"
+                    ? "bg-zinc-950 text-white border border-zinc-800"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                {lang === "RU" ? "Комментарии" : "Comments"}
+              </button>
+            </div>
+
             {loading ? (
               <div className="py-10 text-center text-zinc-500 text-sm">{lang === "RU" ? "Загрузка..." : "Loading..."}</div>
             ) : error ? (
               <div className="py-10 text-center text-zinc-500 text-sm">{error}</div>
             ) : (
-              <div className="space-y-3">
-                {comments.length === 0 ? (
-                  <div className="text-sm text-zinc-500">{lang === "RU" ? "Пока нет комментариев" : "No comments yet"}</div>
-                ) : (
-                  comments.map((c) => {
-                    const m = marketById.get(c.marketId);
-                    const title = m ? ((lang === "RU" ? m.titleRu : m.titleEn) || m.title) : c.marketId;
-                    const when = new Date(c.createdAt).toLocaleString(lang === "RU" ? "ru-RU" : "en-US", {
-                      day: "2-digit",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    });
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        className="w-full text-left border border-zinc-900 bg-black rounded-2xl p-4 hover:bg-zinc-950/40 transition-colors"
-                        onClick={() => onMarketClick(c.marketId)}
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0">
-                            <div className="text-sm font-semibold text-zinc-100 truncate">{title}</div>
-                            <div className="mt-1 text-xs text-zinc-500 flex items-center gap-2">
-                              <span className="inline-flex items-center gap-1">
-                                <MessageCircle size={12} /> {when}
-                              </span>
-                              {c.parentId ? (
-                                <>
-                                  <span className="text-zinc-700">•</span>
-                                  <span className="text-[10px] uppercase tracking-wider text-zinc-400">
-                                    {lang === "RU" ? "Ответ" : "Reply"}
-                                  </span>
-                                </>
-                              ) : null}
+              tab === "BETS" ? (
+                <div className="space-y-3">
+                  {ongoingBets.length === 0 ? (
+                    <div className="text-sm text-zinc-500">
+                      {lang === "RU" ? "Нет активных ставок" : "No ongoing bets"}
+                    </div>
+                  ) : (
+                    ongoingBets.map((b) => {
+                      const m = marketById.get(b.marketId);
+                      const title = m ? ((lang === "RU" ? m.titleRu : m.titleEn) || m.title) : b.marketId;
+                      const when = new Date(b.lastBetAt).toLocaleString(lang === "RU" ? "ru-RU" : "en-US", {
+                        day: "2-digit",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      });
+                      const sideLabel = b.outcome === "YES" ? yesLabel : noLabel;
+                      const sideColor = b.outcome === "YES" ? "text-[rgba(190,255,29,1)]" : "text-[rgba(245,68,166,1)]";
+                      return (
+                        <button
+                          key={`${b.marketId}:${b.outcome}`}
+                          type="button"
+                          className="w-full text-left border border-zinc-900 bg-black rounded-2xl p-4 hover:bg-zinc-950/40 transition-colors"
+                          onClick={() => onMarketClick(b.marketId)}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-zinc-100 truncate">{title}</div>
+                              <div className="mt-1 text-xs text-zinc-500 flex items-center gap-2">
+                                <span className={`font-semibold ${sideColor}`}>{sideLabel}</span>
+                                <span className="text-zinc-700">•</span>
+                                <span className="inline-flex items-center gap-1">
+                                  <Clock size={12} /> {when}
+                                </span>
+                              </div>
                             </div>
-                            <div className="mt-2 text-sm text-zinc-300 line-clamp-3">{c.body}</div>
+                            <div className="text-xs text-zinc-500 flex-shrink-0">
+                              {lang === "RU" ? "Открыта" : "Open"}
+                            </div>
                           </div>
-                          <div className="text-xs text-zinc-500 flex-shrink-0">{lang === "RU" ? "Лайки" : "Likes"}: {c.likesCount}</div>
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {comments.length === 0 ? (
+                    <div className="text-sm text-zinc-500">{lang === "RU" ? "Пока нет комментариев" : "No comments yet"}</div>
+                  ) : (
+                    comments.map((c) => {
+                      const m = marketById.get(c.marketId);
+                      const title = m ? ((lang === "RU" ? m.titleRu : m.titleEn) || m.title) : c.marketId;
+                      const when = new Date(c.createdAt).toLocaleString(lang === "RU" ? "ru-RU" : "en-US", {
+                        day: "2-digit",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      });
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className="w-full text-left border border-zinc-900 bg-black rounded-2xl p-4 hover:bg-zinc-950/40 transition-colors"
+                          onClick={() => onMarketClick(c.marketId)}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-zinc-100 truncate">{title}</div>
+                              <div className="mt-1 text-xs text-zinc-500 flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1">
+                                  <MessageCircle size={12} /> {when}
+                                </span>
+                                {c.parentId ? (
+                                  <>
+                                    <span className="text-zinc-700">•</span>
+                                    <span className="text-[10px] uppercase tracking-wider text-zinc-400">
+                                      {lang === "RU" ? "Ответ" : "Reply"}
+                                    </span>
+                                  </>
+                                ) : null}
+                              </div>
+                              <div className="mt-2 text-sm text-zinc-300 line-clamp-3">{c.body}</div>
+                            </div>
+                            <div className="text-xs text-zinc-500 flex-shrink-0">{lang === "RU" ? "Лайки" : "Likes"}: {c.likesCount}</div>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              )
             )}
           </div>
         </div>

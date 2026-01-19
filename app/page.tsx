@@ -265,6 +265,12 @@ export default function HomePage() {
     avatarUrl: string | null;
     telegramPhotoUrl: string | null;
   };
+  type PublicProfileBet = {
+    marketId: string;
+    outcome: "YES" | "NO";
+    lastBetAt: string;
+    isActive: boolean;
+  };
   type PublicProfileComment = {
     id: string;
     marketId: string;
@@ -279,6 +285,7 @@ export default function HomePage() {
   const [publicProfileUser, setPublicProfileUser] = useState<PublicProfileUser | null>(null);
   const [publicProfilePnl, setPublicProfilePnl] = useState(0);
   const [publicProfileComments, setPublicProfileComments] = useState<PublicProfileComment[]>([]);
+  const [publicProfileBets, setPublicProfileBets] = useState<PublicProfileBet[]>([]);
   type MarketCategoryStrict = { id: string; labelRu: string; labelEn: string };
   const [marketCategories, setMarketCategories] = useState<MarketCategoryStrict[]>([]);
   const [loadingMarketCategories, setLoadingMarketCategories] = useState(false);
@@ -1458,12 +1465,14 @@ export default function HomePage() {
       setPublicProfileUser(null);
       setPublicProfilePnl(0);
       setPublicProfileComments([]);
+      setPublicProfileBets([]);
 
       try {
-        const [u, stats, comments] = await Promise.all([
+        const [u, stats, comments, bets] = await Promise.all([
           trpcClient.user.publicUser.query({ userId }),
           trpcClient.user.publicUserStats.query({ userId }),
           trpcClient.user.publicUserComments.query({ userId, limit: 50 }),
+          trpcClient.user.publicUserVotes.query({ userId, limit: 200 }),
         ]);
 
         setPublicProfileUser({
@@ -1482,6 +1491,14 @@ export default function HomePage() {
             body: requireValue(c.body, "PUBLIC_COMMENT_BODY_MISSING"),
             createdAt: requireValue(c.createdAt, "PUBLIC_COMMENT_CREATED_MISSING"),
             likesCount: Number(c.likesCount ?? 0),
+          }))
+        );
+        setPublicProfileBets(
+          (bets ?? []).map((b) => ({
+            marketId: requireValue(b.marketId, "PUBLIC_BET_MARKET_ID_MISSING"),
+            outcome: requireValue(b.outcome, "PUBLIC_BET_OUTCOME_MISSING"),
+            lastBetAt: requireValue(b.lastBetAt, "PUBLIC_BET_LAST_BET_AT_MISSING"),
+            isActive: Boolean(b.isActive),
           }))
         );
       } catch (err) {
@@ -2056,6 +2073,7 @@ export default function HomePage() {
         error={publicProfileError}
         user={publicProfileUser}
         pnlMajor={publicProfilePnl}
+        bets={publicProfileBets}
         comments={publicProfileComments}
         markets={markets}
         onMarketClick={(marketId) => {
