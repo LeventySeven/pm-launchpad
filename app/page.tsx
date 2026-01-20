@@ -245,7 +245,17 @@ export default function HomePage() {
 
   // Deep link: open a market by URL (?marketId=...).
   useEffect(() => {
-    const marketId = getMarketIdFromUrl();
+    const marketIdFromUrl = getMarketIdFromUrl();
+    const startParamRaw =
+      typeof window !== "undefined" ? (window.Telegram?.WebApp?.initDataUnsafe as { start_param?: string } | undefined)?.start_param : undefined;
+    const startParam = String(startParamRaw ?? "").trim();
+    const marketIdFromStartParam = (() => {
+      if (!startParam) return null;
+      const v = startParam.startsWith("m_") ? startParam.slice(2) : startParam;
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+      return isUuid ? v : null;
+    })();
+    const marketId = marketIdFromUrl ?? marketIdFromStartParam;
     if (!marketId) return;
     pendingDeepLinkMarketIdRef.current = marketId;
     try {

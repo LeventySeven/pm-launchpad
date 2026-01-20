@@ -436,7 +436,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
   const buildShareUrl = () => {
     if (typeof window === "undefined") return "";
     const origin = window.location.origin;
-    return `${origin}/?marketId=${encodeURIComponent(market.id)}`;
+    return `${origin}/market/${encodeURIComponent(market.id)}`;
   };
 
   const copyMarketLink = async () => {
