@@ -198,6 +198,7 @@ export default function HomePage() {
     return null;
   });
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
+  const pendingDeepLinkMarketIdRef = useRef<string | null>(null);
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loadingMarkets, setLoadingMarkets] = useState(false);
   const [loadingUser, setLoadingUser] = useState(false);
@@ -227,6 +228,34 @@ export default function HomePage() {
     if (typeof initData === "string" && initData.trim().length > 0) return initData;
     return getTelegramInitDataFromUrl();
   };
+
+  const getMarketIdFromUrl = () => {
+    if (typeof window === "undefined") return null;
+    try {
+      const url = new URL(window.location.href);
+      const id = url.searchParams.get("marketId") || url.searchParams.get("m");
+      if (!id) return null;
+      const v = id.trim();
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+      return isUuid ? v : null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Deep link: open a market by URL (?marketId=...).
+  useEffect(() => {
+    const marketId = getMarketIdFromUrl();
+    if (!marketId) return;
+    pendingDeepLinkMarketIdRef.current = marketId;
+    try {
+      localStorage.setItem("pending_market_id", marketId);
+    } catch {
+      // ignore
+    }
+    setSelectedMarketId(marketId);
+    setCurrentView("CATALOG");
+  }, []);
   const [currentView, setCurrentView] = useState<ViewType>("CATALOG");
   const shellSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -483,6 +512,18 @@ export default function HomePage() {
       referralEnabled: me.user.referralEnabled,
     });
 
+    // If user came from a deep link, keep them on that market after signup.
+    try {
+      const pendingMarketId = localStorage.getItem("pending_market_id");
+      if (pendingMarketId) {
+        setSelectedMarketId(pendingMarketId);
+        setCurrentView("CATALOG");
+        localStorage.removeItem("pending_market_id");
+      }
+    } catch {
+      // ignore
+    }
+
     setPendingReferralCode(null);
     try {
       localStorage.removeItem("pending_referral_code");
@@ -515,6 +556,18 @@ export default function HomePage() {
       referralCommissionRate: me.user.referralCommissionRate,
       referralEnabled: me.user.referralEnabled,
     });
+
+    // If user came from a deep link, keep them on that market after login.
+    try {
+      const pendingMarketId = localStorage.getItem("pending_market_id");
+      if (pendingMarketId) {
+        setSelectedMarketId(pendingMarketId);
+        setCurrentView("CATALOG");
+        localStorage.removeItem("pending_market_id");
+      }
+    } catch {
+      // ignore
+    }
   };
 
   const handleTelegramLogin = useCallback(async (initData: string) => {

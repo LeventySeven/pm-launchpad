@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Market, User, Position, PriceCandle, PublicTrade, Comment } from '../types';
 import Button from './Button';
-import { Bookmark, ChevronLeft, Clock, ShieldCheck, User as UserIcon, Send, ThumbsUp, CalendarDays, Coins, MessageCircle, X, Info, LineChart } from 'lucide-react';
+import { Bookmark, ChevronLeft, Clock, ShieldCheck, User as UserIcon, Send, ThumbsUp, CalendarDays, Coins, MessageCircle, X, Info, LineChart, Link as LinkIcon, Check } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { formatTimeRemaining } from '../lib/time';
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -88,6 +88,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
   const [resolveError, setResolveError] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<{ id: string; label: string } | null>(null);
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Solana wallet state (on-chain USDC markets will be re-enabled after Anchor program is wired).
   const { publicKey, connected: walletConnected } = useWallet();
@@ -432,6 +433,36 @@ const MarketPage: React.FC<MarketPageProps> = ({
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  const buildShareUrl = () => {
+    if (typeof window === "undefined") return "";
+    const origin = window.location.origin;
+    return `${origin}/?marketId=${encodeURIComponent(market.id)}`;
+  };
+
+  const copyMarketLink = async () => {
+    const url = buildShareUrl();
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      // Fallback: create a temporary input.
+      try {
+        const el = document.createElement("input");
+        el.value = url;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1200);
+      } catch {
+        // ignore
+      }
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 animate-in fade-in duration-500">
       {/* Navigation */}
@@ -448,8 +479,17 @@ const MarketPage: React.FC<MarketPageProps> = ({
         <div className="lg:col-span-8 lg:col-start-1 lg:row-start-1 space-y-6">
           {/* Market Header: Circular Image at Top */}
           <div className="relative">
-            {/* Bookmark button - top right */}
-            <div className="absolute top-0 right-0 z-10">
+            {/* Share + Bookmark buttons - top right */}
+            <div className="absolute top-0 right-0 z-10 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={copyMarketLink}
+                className="h-10 w-10 rounded-full border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60 flex items-center justify-center transition-colors text-zinc-300 hover:text-white"
+                aria-label={lang === "RU" ? "Скопировать ссылку" : "Copy link"}
+                title={lang === "RU" ? "Скопировать ссылку" : "Copy link"}
+              >
+                {copied ? <Check size={18} className="text-[rgba(190,255,29,1)]" /> : <LinkIcon size={18} />}
+              </button>
               <button
                 type="button"
                 onClick={() => {
