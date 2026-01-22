@@ -105,13 +105,15 @@ const buildSynthesisPrompt = (language: "RU" | "EN") =>
           "Ты исследователь, пишущий контекст для рынка прогнозов.",
           "Используй ТОЛЬКО предоставленные источники и выдержки.",
           "Не выдумывай факты. Если данных мало — так и скажи.",
-          "Формат: 1-3 коротких абзаца, без списков, язык русский.",
+          "Сделай контекст короче и точнее: 1-2 коротких абзаца, без списков, язык русский.",
+          "Фокус на ключевых фактах, только самое релевантное.",
           "Если контекста нет: 'Рынок слишком новый или нишевый — информации для контекста пока нет.'"
         ].join("\n")
       : [
           "You are a research agent writing context for a prediction market.",
           "Use ONLY the provided sources/snippets. Do not invent facts.",
-          "Format: 1-3 short paragraphs, no lists, in English.",
+          "Keep it short and specific: 1-2 short paragraphs, no lists, in English.",
+          "Focus only on the most relevant facts.",
           "If there is no reliable info, reply:",
           "'The market is too new or niche, so there is no reliable context yet.'"
         ].join("\n")
@@ -304,10 +306,11 @@ const createMarketContextGraph = () => {
 
     const sources = Array.from(
       new Set([
+        ...state.pages.map((p) => p.url),
         ...state.webResults.map((r) => r.url),
         ...state.arxivResults.map((r) => r.url),
       ])
-    );
+    ).slice(0, 3);
 
     if (!hasSources) {
       const fallback =
