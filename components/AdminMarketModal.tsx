@@ -13,8 +13,8 @@ type AdminMarketModalProps = {
   onReloadCategories?: () => void;
   onCreate: (payload: {
     titleEn: string;
-    description: string;
-    source: string;
+    description?: string | null;
+    source?: string | null;
     closesAt?: string | null;
     expiresAt: string;
     categoryId: string;
@@ -82,12 +82,14 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
       issues.push(t("Название — минимум 3 символа", "Title — at least 3 characters"));
     }
 
-    if (description.trim().length < 3) {
-      issues.push(t("Описание — обязательное", "Description — required"));
+    const desc = description.trim();
+    if (desc.length > 0 && desc.length < 3) {
+      issues.push(t("Описание — минимум 3 символа", "Description — at least 3 characters"));
     }
 
-    if (source.trim().length < 3) {
-      issues.push(t("Источник — обязательный", "Source — required"));
+    const src = source.trim();
+    if (src.length > 0 && src.length < 3) {
+      issues.push(t("Источник — минимум 3 символа", "Source — at least 3 characters"));
     }
 
     const expiresAtMs = Date.parse(expiresAt);
@@ -112,7 +114,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
     }
 
     return issues;
-  }, [titleEn, expiresAt, categoryId, categoriesLoading, categoriesStrict, t]);
+  }, [titleEn, description, source, expiresAt, categoryId, categoriesLoading, categoriesStrict, t]);
 
   const canSubmit = validationIssues.length === 0 && !loading;
 
@@ -177,8 +179,8 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
 
       await onCreate({
         titleEn: titleEn.trim(),
-        description: description.trim(),
-        source: source.trim(),
+        description: description.trim() || null,
+        source: source.trim() || null,
         expiresAt,
         categoryId,
         imageUrl: finalImageUrl,

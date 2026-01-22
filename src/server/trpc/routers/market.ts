@@ -192,6 +192,7 @@ const marketOutput = z.object({
   titleRu: z.string(),
   titleEn: z.string(),
   description: z.string().nullable(),
+  source: z.string().nullable(),
   imageUrl: z.string(),
   state: z.string(),
   createdAt: z.string(),
@@ -1341,8 +1342,8 @@ export const marketRouter = router({
     .input(
       z.object({
         titleEn: z.string().min(3), // Allow any characters including special characters
-        description: z.string().min(3), // Required
-        source: z.string().min(3), // Required
+        description: z.string().optional().nullable(), // Optional
+        source: z.string().optional().nullable(), // Optional
         closesAt: z.string().optional().nullable(),
         expiresAt: z.string(), // Accepts datetime-local format (YYYY-MM-DDTHH:MM)
         categoryId: z.string().min(1),
@@ -1392,16 +1393,16 @@ export const marketRouter = router({
 
       // Validate trimmed title is not empty
       const titleEnTrimmed = input.titleEn.trim();
-      const descriptionTrimmed = input.description.trim();
-      const sourceTrimmed = input.source.trim();
+      const descriptionTrimmed = input.description?.trim() ?? "";
+      const sourceTrimmed = input.source?.trim() ?? "";
       if (titleEnTrimmed.length < 3) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Title must be at least 3 characters" });
       }
-      if (descriptionTrimmed.length < 3) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Description is required" });
+      if (descriptionTrimmed.length > 0 && descriptionTrimmed.length < 3) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Description must be at least 3 characters" });
       }
-      if (sourceTrimmed.length < 3) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Source is required" });
+      if (sourceTrimmed.length > 0 && sourceTrimmed.length < 3) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Source must be at least 3 characters" });
       }
 
       // Insert market - title_rus is optional (nullable) for English-only markets
@@ -1410,8 +1411,8 @@ export const marketRouter = router({
         .insert({
           title_rus: null, // Optional field - focusing on English audience
           title_eng: titleEnTrimmed,
-          description: descriptionTrimmed,
-          source: sourceTrimmed,
+          description: descriptionTrimmed || null,
+          source: sourceTrimmed || null,
           image_url: input.imageUrl?.trim() || null,
           state: "open",
           closes_at: new Date(closesAtMs).toISOString(),
