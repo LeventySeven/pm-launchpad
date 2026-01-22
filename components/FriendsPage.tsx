@@ -21,11 +21,11 @@ type FriendsPageProps = {
   }>;
   leaderboardSort: 'PNL' | 'BETS';
   onLeaderboardSortChange: (sort: 'PNL' | 'BETS') => void;
+  onOpenLeaderboardSort: () => void;
 };
 
-const FriendsPage: React.FC<FriendsPageProps> = ({ lang, user, leaderboardUsers, leaderboardLoading, leaderboardError, onLogin, onUserClick, onCreateReferralLink, leaderboardSort, onLeaderboardSortChange }) => {
+const FriendsPage: React.FC<FriendsPageProps> = ({ lang, user, leaderboardUsers, leaderboardLoading, leaderboardError, onLogin, onUserClick, onCreateReferralLink, leaderboardSort, onLeaderboardSortChange, onOpenLeaderboardSort }) => {
   const [tab, setTab] = useState<'LEADERBOARD' | 'REFERRALS'>('LEADERBOARD');
-  const [leaderPickerOpen, setLeaderPickerOpen] = useState(false);
 
   const t = useMemo(
     () => ({
@@ -85,7 +85,7 @@ const FriendsPage: React.FC<FriendsPageProps> = ({ lang, user, leaderboardUsers,
               </div>
               <button
                 type="button"
-                onClick={() => setLeaderPickerOpen(true)}
+                onClick={onOpenLeaderboardSort}
                 className="h-10 w-10 rounded-full border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/70 flex items-center justify-center text-zinc-200 hover:text-white transition-colors"
                 aria-label={t.sort}
                 title={t.sort}
@@ -100,55 +100,6 @@ const FriendsPage: React.FC<FriendsPageProps> = ({ lang, user, leaderboardUsers,
         <Referrals user={user} onLogin={onLogin} lang={lang} onCreateReferralLink={onCreateReferralLink} />
       )}
 
-      {leaderPickerOpen && tab === "LEADERBOARD" && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4" data-swipe-ignore="true">
-          <div
-            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-            onClick={() => setLeaderPickerOpen(false)}
-          />
-          <div className="relative w-full max-w-md rounded-2xl border border-zinc-900 bg-black p-5 shadow-2xl">
-            <div className="flex items-center justify-between gap-3 mb-4">
-              <div className="text-sm font-semibold text-zinc-100">{t.sort}</div>
-              <button
-                type="button"
-                onClick={() => setLeaderPickerOpen(false)}
-                className="h-9 w-9 rounded-full border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60 flex items-center justify-center text-zinc-300"
-                aria-label={t.close}
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">
-              {t.sort}
-            </div>
-            <div role="radiogroup" className="space-y-2">
-              {([
-                { id: "PNL" as const, labelRu: "PnL", labelEn: "PnL" },
-                { id: "BETS" as const, labelRu: "Ставки", labelEn: "Bets" },
-              ]).map((opt) => {
-                const selected = leaderboardSort === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    onClick={() => onLeaderboardSortChange(opt.id)}
-                    className={`w-full text-left rounded-xl border px-4 py-3 transition-colors ${
-                      selected
-                        ? "border-[rgba(245,68,166,1)] bg-[rgba(245,68,166,0.10)] text-white"
-                        : "border-zinc-900 bg-zinc-950/30 text-zinc-300 hover:bg-zinc-950/50"
-                    }`}
-                  >
-                    <div className="text-sm font-semibold">{lang === "RU" ? opt.labelRu : opt.labelEn}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
