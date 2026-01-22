@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Market, User, Position, PriceCandle, PublicTrade, Comment } from '../types';
 import Button from './Button';
-import { Bookmark, ChevronLeft, Clock, ShieldCheck, User as UserIcon, Send, ThumbsUp, CalendarDays, Coins, MessageCircle, X, Info, LineChart, Link as LinkIcon, Check } from 'lucide-react';
+import { Bookmark, ChevronLeft, Clock, ShieldCheck, User as UserIcon, Send, ThumbsUp, CalendarDays, Coins, MessageCircle, X, Info, LineChart, Link as LinkIcon, Check, Loader2, BookOpen } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { formatTimeRemaining } from '../lib/time';
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -46,6 +46,11 @@ interface MarketPageProps {
   insightsError?: string | null;
   commentsError?: string | null;
   activityError?: string | null;
+  marketContext?: string | null;
+  marketContextSources?: string[];
+  marketContextLoading?: boolean;
+  marketContextError?: string | null;
+  onFetchMarketContext?: (marketId: string) => void;
 }
 
 const MarketPage: React.FC<MarketPageProps> = ({
@@ -73,6 +78,11 @@ const MarketPage: React.FC<MarketPageProps> = ({
   insightsError = null,
   commentsError = null,
   activityError = null,
+  marketContext = null,
+  marketContextSources = [],
+  marketContextLoading = false,
+  marketContextError = null,
+  onFetchMarketContext,
 }) => {
   const [activeTab, setActiveTab] = useState<'COMMENTS' | 'ACTIVITY'>('COMMENTS');
   const [commentText, setCommentText] = useState('');
@@ -1025,6 +1035,67 @@ const MarketPage: React.FC<MarketPageProps> = ({
               </div>
             )}
           </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2 border-zinc-800 text-zinc-200 hover:text-white"
+              onClick={() => onFetchMarketContext?.(market.id)}
+              disabled={marketContextLoading}
+            >
+              {marketContextLoading ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <BookOpen size={16} />
+              )}
+              {lang === 'RU' ? 'Контекст рынка' : 'Market context'}
+            </Button>
+            {marketContext && (
+              <span className="text-xs text-zinc-500">
+                {lang === 'RU' ? 'Контекст готов' : 'Context ready'}
+              </span>
+            )}
+          </div>
+          {marketContextError && (
+            <div className="mt-3 rounded-xl border border-zinc-900 bg-zinc-950/40 px-4 py-3 text-xs text-zinc-400">
+              {getErrorMessage(
+                marketContextError,
+                'Не удалось загрузить контекст',
+                'Failed to load context',
+                lang
+              )}
+            </div>
+          )}
+          {marketContext && (
+            <div className="mt-4 rounded-2xl border border-zinc-900 bg-black p-6">
+              <div className="text-xs uppercase tracking-wider text-zinc-500 mb-3">
+                {lang === 'RU' ? 'Контекст рынка' : 'Market context'}
+              </div>
+              <p className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">
+                {marketContext}
+              </p>
+              {marketContextSources.length > 0 && (
+                <div className="mt-4 text-xs text-zinc-400">
+                  <div className="uppercase tracking-wider text-zinc-500">
+                    {lang === 'RU' ? 'Источники' : 'Sources'}
+                  </div>
+                  <div className="mt-2 flex flex-col gap-1">
+                    {marketContextSources.map((url) => (
+                      <a
+                        key={url}
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-zinc-300 underline underline-offset-4 hover:text-white"
+                      >
+                        {url}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Comments / Activity (on mobile this comes AFTER bid; on desktop it stays under chart) */}

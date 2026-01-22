@@ -298,6 +298,10 @@ export default function HomePage() {
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [marketCandles, setMarketCandles] = useState<PriceCandle[]>([]);
   const [marketPublicTrades, setMarketPublicTrades] = useState<PublicTrade[]>([]);
+  type MarketContextPayload = { context: string; sources: string[]; updatedAt: string };
+  const [marketContextById, setMarketContextById] = useState<Record<string, MarketContextPayload>>({});
+  const [marketContextLoadingId, setMarketContextLoadingId] = useState<string | null>(null);
+  const [marketContextError, setMarketContextError] = useState<string | null>(null);
   const [marketComments, setMarketComments] = useState<MarketComment[]>([]);
   const [marketInsightsLoading, setMarketInsightsLoading] = useState(false);
   const [marketInsightsError, setMarketInsightsError] = useState<string | null>(null);
@@ -1839,6 +1843,28 @@ export default function HomePage() {
     }
   }, [maybeRequireRelogin]);
 
+  const handleFetchMarketContext = useCallback(async (marketId: string) => {
+    if (!marketId || marketContextLoadingId === marketId) return;
+    setMarketContextError(null);
+    setMarketContextLoadingId(marketId);
+    try {
+      const result = await trpcClient.market.generateMarketContext.mutate({ marketId });
+      setMarketContextById((prev) => ({
+        ...prev,
+        [marketId]: {
+          context: result.context,
+          sources: result.sources,
+          updatedAt: result.updatedAt,
+        },
+      }));
+    } catch (err) {
+      console.error("generateMarketContext failed", err);
+      setMarketContextError(getErrorMessage(err));
+    } finally {
+      setMarketContextLoadingId(null);
+    }
+  }, [marketContextLoadingId]);
+
   const shellViewIndex = (() => {
     switch (currentView) {
       case "FRIENDS":
@@ -1922,6 +1948,11 @@ export default function HomePage() {
               insightsError={marketInsightsError}
               commentsError={marketCommentsError}
               activityError={marketActivityError}
+              marketContext={marketContextById[selectedMarket.id]?.context ?? null}
+              marketContextSources={marketContextById[selectedMarket.id]?.sources ?? []}
+              marketContextLoading={marketContextLoadingId === selectedMarket.id}
+              marketContextError={marketContextError}
+              onFetchMarketContext={handleFetchMarketContext}
             />
           </main>
           <BottomMenu

@@ -87,8 +87,8 @@ const FriendsPage: React.FC<FriendsPageProps> = ({ lang, user, leaderboardUsers,
                 type="button"
                 onClick={() => setLeaderPickerOpen(true)}
                 className="h-10 w-10 rounded-full border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/70 flex items-center justify-center text-zinc-200 hover:text-white transition-colors"
-                aria-label={t.pickLeader}
-                title={t.pickLeader}
+                aria-label={t.sort}
+                title={t.sort}
               >
                 <Filter size={16} className="text-zinc-300" />
               </button>

@@ -273,6 +273,32 @@ export interface Database {
         };
         Relationships: [];
       };
+      market_context: {
+        Row: {
+          market_id: string;
+          context: string;
+          sources: JsonValue;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          market_id: string;
+          context: string;
+          sources?: JsonValue;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          market_id?: string;
+          context?: string;
+          sources?: JsonValue;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          { foreignKeyName: "market_context_market_id_fkey"; columns: ["market_id"]; referencedRelation: "markets"; referencedColumns: ["id"] }
+        ];
+      };
       markets: {
         Row: {
           id: string;

@@ -6,6 +6,7 @@ import {
   calculateSellProceeds,
   toMajorUnits,
 } from "../helpers/pricing";
+import { generateMarketContext } from "../../ai/marketContextAgent";
 import type { Database } from "../../../types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -52,6 +53,7 @@ type MarketCommentInsert = Database["public"]["Tables"]["market_comments"]["Inse
 type MarketCommentLikeRow = Database["public"]["Tables"]["market_comment_likes"]["Row"];
 type MarketBookmarkRow = Database["public"]["Tables"]["market_bookmarks"]["Row"];
 type MarketCategoryRow = Database["public"]["Tables"]["market_categories"]["Row"];
+type MarketContextRow = Database["public"]["Tables"]["market_context"]["Row"];
 
 const deriveVolumeMajor = (amm: AmmStateRow | null, feeBps?: number | null) => {
   if (!amm) return 0;
@@ -222,6 +224,14 @@ const marketBookmarkOutput = z.object({
   createdAt: z.string(),
 });
 
+const marketContextOutput = z.object({
+  marketId: z.string(),
+  context: z.string(),
+  sources: z.array(z.string()),
+  updatedAt: z.string(),
+  generated: z.boolean(),
+});
+
 export const marketRouter = router({
   listCategories: publicProcedure
     .output(z.array(marketCategoryOutput))
@@ -376,6 +386,89 @@ export const marketRouter = router({
       }
 
       return mapMarketRow(row, labelsById, volumeMajor);
+    }),
+
+  generateMarketContext: publicProcedure
+    .input(z.object({ marketId: z.string().uuid() }))
+    .output(marketContextOutput)
+    .mutation(async ({ ctx, input }) => {
+      const { supabaseService } = ctx;
+      const normalizeSources = (value: MarketContextRow["sources"] | null | undefined) =>
+        Array.isArray(value)
+          ? value.map((item) => String(item)).filter((item) => item.length > 0)
+          : [];
+
+      const { data: existing, error: existingError } = await supabaseService
+        .from("market_context")
+        .select("market_id, context, sources, updated_at")
+        .eq("market_id", input.marketId)
+        .maybeSingle();
+
+      if (existingError) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: existingError.message,
+        });
+      }
+
+      if (existing?.context) {
+        return {
+          marketId: existing.market_id,
+          context: existing.context,
+          sources: normalizeSources(existing.sources),
+          updatedAt: existing.updated_at,
+          generated: false,
+        };
+      }
+
+      const { data: market, error: marketError } = await supabaseService
+        .from("markets")
+        .select("title_rus, title_eng, description, source")
+        .eq("id", input.marketId)
+        .maybeSingle();
+
+      if (marketError || !market) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Market not found",
+        });
+      }
+
+      const title = market.title_rus ?? market.title_eng ?? "";
+      const result = await generateMarketContext({
+        marketId: input.marketId,
+        title,
+        description: market.description,
+        source: market.source,
+      });
+
+      const updatedAt = new Date().toISOString();
+      const { error: upsertError } = await supabaseService
+        .from("market_context")
+        .upsert(
+          {
+            market_id: input.marketId,
+            context: result.context,
+            sources: result.sources,
+            updated_at: updatedAt,
+          },
+          { onConflict: "market_id" }
+        );
+
+      if (upsertError) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: upsertError.message,
+        });
+      }
+
+      return {
+        marketId: input.marketId,
+        context: result.context,
+        sources: result.sources,
+        updatedAt,
+        generated: true,
+      };
     }),
 
   /**
