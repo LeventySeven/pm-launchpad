@@ -1065,29 +1065,45 @@ export default function HomePage() {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [myTrades]);
 
-  // Calculate total PNL from all transactions
+  const marketPriceById = useMemo(() => {
+    const map = new Map<string, { priceYes: number; priceNo: number; state: Market["state"]; outcome: "YES" | "NO" | null }>();
+    markets.forEach((market) => {
+      map.set(market.id, {
+        priceYes: Number(market.yesPrice),
+        priceNo: Number(market.noPrice),
+        state: market.state,
+        outcome: market.outcome ?? null,
+      });
+    });
+    return map;
+  }, [markets]);
+
+  // Calculate total PNL from realized + mark-to-market positions
   const totalPnl = useMemo(() => {
     // Realized PNL from sold trades
     const realizedFromSells = soldTrades.reduce((acc, trade) => acc + Number(trade.realizedPnl ?? 0), 0);
-    
-    // Calculate cost basis from all buy trades
-    const totalSpent = myTrades
-      .filter(t => t.action === 'buy')
-      .reduce((acc, trade) => acc + Math.abs(trade.collateralGross) + trade.fee, 0);
-    
-    // Calculate proceeds from all sell trades
-    const totalReceived = myTrades
-      .filter(t => t.action === 'sell')
-      .reduce((acc, trade) => acc + Math.abs(trade.collateralNet), 0);
-    
-    // Calculate value of resolved positions (if won, shares * $1)
-    const resolvedPositionsValue = myPositions
-      .filter(p => p.marketState === 'resolved' && p.marketOutcome === p.outcome)
-      .reduce((acc, pos) => acc + pos.shares, 0);
-    
-    // Total PNL = (received + resolved value) - spent
-    return totalReceived + resolvedPositionsValue - totalSpent;
-  }, [soldTrades, myTrades, myPositions]);
+
+    const unrealized = myPositions.reduce((acc, pos) => {
+      const market = marketPriceById.get(pos.marketId);
+      if (!market) return acc;
+      const shares = Number(pos.shares ?? 0);
+      if (!Number.isFinite(shares) || shares <= 0) return acc;
+      const entry = Number(pos.avgEntryPrice ?? 0);
+      if (!Number.isFinite(entry)) return acc;
+      const resolved = market.state === "resolved" || Boolean(market.outcome);
+      const markPrice = resolved
+        ? market.outcome === pos.outcome
+          ? 1
+          : 0
+        : pos.outcome === "YES"
+        ? market.priceYes
+        : market.priceNo;
+      if (!Number.isFinite(markPrice)) return acc;
+      return acc + (markPrice - entry) * shares;
+    }, 0);
+
+    return realizedFromSells + unrealized;
+  }, [soldTrades, myPositions, marketPriceById]);
 
   const resolveMarketOutcome = useCallback(
     async ({ marketId, outcome }: { marketId: string; outcome: "YES" | "NO" }) => {

@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { publicProcedure, router } from "../trpc";
-import { toMajorUnits } from "../helpers/pricing";
+import { calculateLMSRPrices, toMajorUnits } from "../helpers/pricing";
 import type { Database } from "../../../types/database";
 import { randomBytes } from "node:crypto";
 import { leaderboardUsersSchema } from "../../../schemas/leaderboard";
@@ -30,6 +30,9 @@ type UserMarketVoteRow = Database["public"]["Views"]["user_market_votes_public"]
 type UserMarketBetRow = Database["public"]["Views"]["user_market_bets_public"]["Row"];
 type MarketCommentPublicRow = Database["public"]["Views"]["market_comments_public"]["Row"];
 type WalletTxPublicRow = Database["public"]["Views"]["wallet_transactions_public"]["Row"];
+type PositionRow = Database["public"]["Tables"]["positions"]["Row"];
+type MarketRow = Database["public"]["Tables"]["markets"]["Row"];
+type AmmStateRow = Database["public"]["Tables"]["market_amm_state"]["Row"];
 
 const userShape = {
   id: z.string(),
@@ -79,6 +82,47 @@ const formatUser = (row: UserRow, balanceMinor: number = 0) => ({
     ? new Date(row.solana_wallet_connected_at).toISOString()
     : null,
 });
+
+const buildMarkToMarketPnLByUser = (
+  positions: Array<Pick<PositionRow, "user_id" | "market_id" | "outcome" | "shares" | "avg_entry_price">>,
+  marketsById: Map<string, Pick<MarketRow, "state" | "resolve_outcome" | "settlement_asset_code">>,
+  ammByMarketId: Map<string, Pick<AmmStateRow, "q_yes" | "q_no" | "b">>
+) => {
+  const pnlByUser = new Map<string, number>();
+
+  positions.forEach((pos) => {
+    const marketId = String(pos.market_id);
+    const market = marketsById.get(marketId);
+    if (!market) return;
+    if (String(market.settlement_asset_code).toUpperCase() !== DEFAULT_ASSET) return;
+    const shares = Number(pos.shares ?? 0);
+    if (!Number.isFinite(shares) || shares <= 0) return;
+    const entry = Number(pos.avg_entry_price ?? 0);
+    if (!Number.isFinite(entry)) return;
+
+    const resolved = market.state === "resolved" || Boolean(market.resolve_outcome);
+    let markPrice = 0;
+    if (resolved) {
+      markPrice = market.resolve_outcome === pos.outcome ? 1 : 0;
+    } else {
+      const amm = ammByMarketId.get(marketId);
+      if (!amm) return;
+      const { priceYes, priceNo } = calculateLMSRPrices(
+        Number(amm.q_yes ?? 0),
+        Number(amm.q_no ?? 0),
+        Number(amm.b ?? 0)
+      );
+      markPrice = pos.outcome === "YES" ? priceYes : priceNo;
+    }
+
+    if (!Number.isFinite(markPrice)) return;
+    const pnl = (markPrice - entry) * shares;
+    const userId = String(pos.user_id);
+    pnlByUser.set(userId, (pnlByUser.get(userId) ?? 0) + pnl);
+  });
+
+  return pnlByUser;
+};
 
 const normalizeSolanaPubkey = (value: string): string => {
   try {
@@ -331,7 +375,7 @@ export const userRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const { supabase } = ctx;
+      const { supabase, supabaseService } = ctx;
       const { data, error } = await supabase
         .from("leaderboard_public")
         .select("pnl_minor, bet_count, rank")
@@ -346,8 +390,65 @@ export const userRouter = router({
       }
 
       const row = data as Pick<LeaderboardRow, "pnl_minor" | "bet_count" | "rank">;
+      let pnlMajor = toMajorUnits(Number(row.pnl_minor ?? 0), VCOIN_DECIMALS);
+
+      try {
+        const { data: positionsData, error: positionsError } = await supabaseService
+          .from("positions")
+          .select("user_id, market_id, outcome, shares, avg_entry_price")
+          .eq("user_id", input.userId);
+
+        if (positionsError) {
+          throw positionsError;
+        }
+
+        const positions = (positionsData ?? []) as Array<
+          Pick<PositionRow, "user_id" | "market_id" | "outcome" | "shares" | "avg_entry_price">
+        >;
+        const marketIds = Array.from(new Set(positions.map((p) => String(p.market_id))));
+
+        if (marketIds.length > 0) {
+          const [{ data: marketsData, error: marketsError }, { data: ammData, error: ammError }] =
+            await Promise.all([
+              supabaseService
+                .from("markets")
+                .select("id, state, resolve_outcome, settlement_asset_code")
+                .in("id", marketIds),
+              supabaseService
+                .from("market_amm_state")
+                .select("market_id, q_yes, q_no, b")
+                .in("market_id", marketIds),
+            ]);
+
+          if (marketsError) {
+            throw marketsError;
+          }
+          if (ammError) {
+            throw ammError;
+          }
+
+          const marketsById = new Map<string, Pick<MarketRow, "state" | "resolve_outcome" | "settlement_asset_code">>();
+          (marketsData ?? []).forEach((m) => {
+            marketsById.set(String(m.id), m as Pick<MarketRow, "state" | "resolve_outcome" | "settlement_asset_code">);
+          });
+
+          const ammByMarketId = new Map<string, Pick<AmmStateRow, "q_yes" | "q_no" | "b">>();
+          (ammData ?? []).forEach((a) => {
+            ammByMarketId.set(String(a.market_id), a as Pick<AmmStateRow, "q_yes" | "q_no" | "b">);
+          });
+
+          const pnlByUser = buildMarkToMarketPnLByUser(positions, marketsById, ammByMarketId);
+          const computed = pnlByUser.get(input.userId);
+          if (typeof computed === "number" && Number.isFinite(computed)) {
+            pnlMajor = computed;
+          }
+        }
+      } catch (err) {
+        console.warn("publicUserStats pnl calc failed; falling back to ledger pnl", err);
+      }
+
       return {
-        pnlMajor: toMajorUnits(Number(row.pnl_minor ?? 0), VCOIN_DECIMALS),
+        pnlMajor,
         betCount: Number(row.bet_count ?? 0),
         rank: Number(row.rank ?? 0),
       };
@@ -758,7 +859,7 @@ export const userRouter = router({
     )
     .output(leaderboardUsersSchema)
     .query(async ({ ctx, input }) => {
-      const { supabase } = ctx;
+      const { supabase, supabaseService } = ctx;
       const limit = input?.limit ?? 25;
       const sortBy = input?.sortBy ?? "PNL";
 
@@ -786,29 +887,97 @@ export const userRouter = router({
 
       const rows = (data ?? []) as LeaderboardRow[];
 
-      // Hide users with 0 pnl OR 0 bets (require both to be non-zero).
-      const filtered = rows.filter((r) => {
-        const pnlMinor = Number((r as { pnl_minor?: number | null }).pnl_minor ?? 0);
-        const betCount = Number((r as { bet_count?: number | null }).bet_count ?? 0);
-        return pnlMinor !== 0 && betCount !== 0;
-      });
+      let pnlByUser = new Map<string, number>();
+      try {
+        const userIds = Array.from(new Set(rows.map((r) => String(r.user_id))));
+        if (userIds.length > 0) {
+          const { data: positionsData, error: positionsError } = await supabaseService
+            .from("positions")
+            .select("user_id, market_id, outcome, shares, avg_entry_price")
+            .in("user_id", userIds);
 
-      return filtered.slice(0, limit).map((r, idx) => {
+          if (positionsError) {
+            throw positionsError;
+          }
+
+          const positions = (positionsData ?? []) as Array<
+            Pick<PositionRow, "user_id" | "market_id" | "outcome" | "shares" | "avg_entry_price">
+          >;
+          const marketIds = Array.from(new Set(positions.map((p) => String(p.market_id))));
+
+          if (marketIds.length > 0) {
+            const [{ data: marketsData, error: marketsError }, { data: ammData, error: ammError }] =
+              await Promise.all([
+                supabaseService
+                  .from("markets")
+                  .select("id, state, resolve_outcome, settlement_asset_code")
+                  .in("id", marketIds),
+                supabaseService
+                  .from("market_amm_state")
+                  .select("market_id, q_yes, q_no, b")
+                  .in("market_id", marketIds),
+              ]);
+
+            if (marketsError) {
+              throw marketsError;
+            }
+            if (ammError) {
+              throw ammError;
+            }
+
+            const marketsById = new Map<string, Pick<MarketRow, "state" | "resolve_outcome" | "settlement_asset_code">>();
+            (marketsData ?? []).forEach((m) => {
+              marketsById.set(String(m.id), m as Pick<MarketRow, "state" | "resolve_outcome" | "settlement_asset_code">);
+            });
+
+            const ammByMarketId = new Map<string, Pick<AmmStateRow, "q_yes" | "q_no" | "b">>();
+            (ammData ?? []).forEach((a) => {
+              ammByMarketId.set(String(a.market_id), a as Pick<AmmStateRow, "q_yes" | "q_no" | "b">);
+            });
+
+            pnlByUser = buildMarkToMarketPnLByUser(positions, marketsById, ammByMarketId);
+          }
+        }
+      } catch (err) {
+        console.warn("leaderboard pnl calc failed; falling back to ledger pnl", err);
+      }
+
+      const mapped = rows.map((r) => {
         const name = (r.name || r.username || "").trim() || "Trader";
         const avatar = r.avatar_url || buildInitialsAvatarDataUrl(name, { bg: "#111111", fg: "#ffffff" });
+        const userId = String(r.user_id);
+        const computedPnl = pnlByUser.get(userId);
+        const pnlMajor =
+          typeof computedPnl === "number" && Number.isFinite(computedPnl)
+            ? computedPnl
+            : toMajorUnits(Number(r.pnl_minor ?? 0), VCOIN_DECIMALS);
         return {
-          id: r.user_id,
-          // Rank is based on current sort + filtering.
-          rank: idx + 1,
+          id: userId,
+          rank: Number(r.rank ?? 0),
           name,
-          username: r.username,
+          username: r.username ?? undefined,
           avatar,
           balance: toMajorUnits(Number(r.balance_minor ?? 0), VCOIN_DECIMALS),
-          pnl: toMajorUnits(Number(r.pnl_minor ?? 0), VCOIN_DECIMALS),
+          pnl: pnlMajor,
           referrals: Number(r.referrals ?? 0),
           betCount: Number(r.bet_count ?? 0),
         };
       });
+
+      const filtered = mapped.filter((r) => r.pnl !== 0 && r.betCount !== 0);
+      const sorted = [...filtered].sort((a, b) => {
+        if (sortBy === "BETS") {
+          if (b.betCount !== a.betCount) return b.betCount - a.betCount;
+          if (b.pnl !== a.pnl) return b.pnl - a.pnl;
+        } else {
+          if (b.pnl !== a.pnl) return b.pnl - a.pnl;
+          if (b.betCount !== a.betCount) return b.betCount - a.betCount;
+        }
+        if (b.balance !== a.balance) return b.balance - a.balance;
+        return a.id.localeCompare(b.id);
+      });
+
+      return sorted.slice(0, limit).map((r, idx) => ({ ...r, rank: idx + 1 }));
     }),
 
   // ============================================================================
