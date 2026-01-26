@@ -55,6 +55,38 @@ type MarketBookmarkRow = Database["public"]["Tables"]["market_bookmarks"]["Row"]
 type MarketCategoryRow = Database["public"]["Tables"]["market_categories"]["Row"];
 type MarketContextRow = Database["public"]["Tables"]["market_context"]["Row"];
 
+const ensureCreatorAndNoBets = async (
+  supabaseService: SupabaseDbClient,
+  marketId: string,
+  authUserId: string
+) => {
+  const { data: marketRow, error: marketError } = await supabaseService
+    .from("markets")
+    .select("id, created_by, state")
+    .eq("id", marketId)
+    .maybeSingle();
+
+  if (marketError || !marketRow) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Market not found" });
+  }
+  if (!marketRow.created_by || marketRow.created_by !== authUserId) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Only the creator can manage this market" });
+  }
+
+  const { data: tradeCheck, error: tradeError } = await supabaseService
+    .from("trades")
+    .select("id")
+    .eq("market_id", marketId)
+    .limit(1);
+
+  if (tradeError) {
+    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: tradeError.message });
+  }
+
+  const hasBets = (tradeCheck ?? []).length > 0;
+  return { marketRow, hasBets };
+};
+
 const deriveVolumeMajor = (amm: AmmStateRow | null, feeBps?: number | null) => {
   if (!amm) return 0;
   const feeMinor = Number(amm.fee_accumulated_minor ?? 0);
@@ -469,6 +501,24 @@ export const marketRouter = router({
         updatedAt,
         generated: true,
       };
+    }),
+
+  creatorMarketMeta: publicProcedure
+    .input(z.object({ marketId: z.string().uuid() }))
+    .output(z.object({ hasBets: z.boolean() }))
+    .query(async ({ ctx, input }) => {
+      const { supabaseService, authUser } = ctx;
+      if (!authUser) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
+      }
+
+      const { hasBets } = await ensureCreatorAndNoBets(
+        supabaseService as SupabaseDbClient,
+        input.marketId,
+        authUser.id
+      );
+
+      return { hasBets };
     }),
 
   /**
@@ -904,6 +954,77 @@ export const marketRouter = router({
 
       const rows: TradeWithMarket[] = data ?? [];
       return rows.map((r) => mapTradeRow(r, VCOIN_DECIMALS));
+    }),
+
+  /**
+   * Get markets created by current user (with bet flag)
+   */
+  myMarkets: publicProcedure
+    .output(z.array(marketOutput.extend({ hasBets: z.boolean() })))
+    .query(async ({ ctx }) => {
+      const { supabaseService, authUser } = ctx;
+      if (!authUser) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
+      }
+
+      const { data, error } = await supabaseService
+        .from("markets")
+        .select(`
+          id, title_rus, title_eng, description, source, image_url, state, closes_at, expires_at, created_by,
+          resolve_outcome, settlement_asset_code, fee_bps, liquidity_b, amm_type, created_at,
+          category_id,
+          market_amm_state (market_id, b, q_yes, q_no, last_price_yes, fee_accumulated_minor, updated_at)
+        `)
+        .eq("created_by", authUser.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error.message,
+        });
+      }
+
+      const rows: MarketWithAmm[] = data ?? [];
+      const marketIds = rows.map((r) => r.id);
+
+      const labelsById = new Map<string, Pick<MarketCategoryRow, "label_ru" | "label_en">>();
+      const categoryIds = Array.from(
+        new Set(rows.map((r) => r.category_id).filter((v): v is string => typeof v === "string" && v.length > 0))
+      );
+      if (categoryIds.length > 0) {
+        const { data: cats, error: catsError } = await supabaseService
+          .from("market_categories")
+          .select("id, label_ru, label_en")
+          .in("id", categoryIds);
+        if (!catsError) {
+          const typed = (cats ?? []) as Array<Pick<MarketCategoryRow, "id" | "label_ru" | "label_en">>;
+          typed.forEach((c) => labelsById.set(c.id, { label_ru: c.label_ru, label_en: c.label_en }));
+        }
+      }
+
+      let betMarketIds = new Set<string>();
+      if (marketIds.length > 0) {
+        const { data: trades, error: tradesError } = await supabaseService
+          .from("trades")
+          .select("market_id")
+          .in("market_id", marketIds);
+        if (tradesError) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: tradesError.message,
+          });
+        }
+        betMarketIds = new Set((trades ?? []).map((t) => String((t as { market_id: string }).market_id)));
+      }
+
+      return rows.map((r) => {
+        const mapped = mapMarketRow(r, labelsById);
+        return {
+          ...mapped,
+          hasBets: betMarketIds.has(r.id),
+        };
+      });
     }),
 
   /**
@@ -1555,5 +1676,170 @@ export const marketRouter = router({
       }
 
       return { id: market.id, titleRu: market.title_rus ?? market.title_eng, titleEn: market.title_eng };
+    }),
+
+  updateMarket: publicProcedure
+    .input(
+      z.object({
+        marketId: z.string().uuid(),
+        titleEn: z.string().min(3),
+        description: z.string().optional().nullable(),
+        source: z.string().optional().nullable(),
+        closesAt: z.string().optional().nullable(),
+        expiresAt: z.string(),
+        categoryId: z.string().min(1),
+        imageUrl: z.string().optional().nullable(),
+      })
+    )
+    .output(z.object({ id: z.string(), titleRu: z.string().nullable(), titleEn: z.string().nullable() }))
+    .mutation(async ({ ctx, input }) => {
+      const { supabaseService, authUser } = ctx;
+      if (!authUser) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
+      }
+
+      const { marketRow, hasBets } = await ensureCreatorAndNoBets(
+        supabaseService as SupabaseDbClient,
+        input.marketId,
+        authUser.id
+      );
+
+      if (hasBets) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "MARKET_HAS_BETS" });
+      }
+
+      if (marketRow.state !== "open") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "MARKET_NOT_OPEN" });
+      }
+
+      const expiresAtMs = Date.parse(input.expiresAt);
+      const closesAtMs = input.closesAt ? Date.parse(input.closesAt) : expiresAtMs;
+      if (!Number.isFinite(closesAtMs) || !Number.isFinite(expiresAtMs)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid dates" });
+      }
+      if (closesAtMs > expiresAtMs) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Trading close must be <= end time" });
+      }
+      const now = Date.now();
+      if (expiresAtMs < now) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Event end time must be in the future" });
+      }
+      if (closesAtMs < now) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Trading close time must be in the future" });
+      }
+
+      const { data: category, error: categoryError } = await supabaseService
+        .from("market_categories")
+        .select("id, label_ru, label_en, is_enabled")
+        .eq("id", input.categoryId)
+        .maybeSingle();
+
+      const cat = category as Pick<MarketCategoryRow, "id" | "label_ru" | "label_en" | "is_enabled"> | null;
+      if (categoryError || !cat || !cat.is_enabled) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid category" });
+      }
+
+      const titleEnTrimmed = input.titleEn.trim();
+      const descriptionTrimmed = input.description?.trim() ?? "";
+      const sourceTrimmed = input.source?.trim() ?? "";
+      if (titleEnTrimmed.length < 3) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Title must be at least 3 characters" });
+      }
+      if (descriptionTrimmed.length > 0 && descriptionTrimmed.length < 3) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Description must be at least 3 characters" });
+      }
+      if (sourceTrimmed.length > 0 && sourceTrimmed.length < 3) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Source must be at least 3 characters" });
+      }
+
+      const { data: updated, error: updateError } = await (supabaseService as SupabaseDbClient)
+        .from("markets")
+        .update({
+          title_eng: titleEnTrimmed,
+          description: descriptionTrimmed || null,
+          source: sourceTrimmed || null,
+          image_url: input.imageUrl?.trim() || null,
+          closes_at: new Date(closesAtMs).toISOString(),
+          expires_at: new Date(expiresAtMs).toISOString(),
+          category_id: cat.id,
+        })
+        .eq("id", input.marketId)
+        .select("id, title_rus, title_eng")
+        .single();
+
+      if (updateError || !updated) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: updateError?.message ?? "Failed to update market",
+        });
+      }
+
+      return { id: updated.id, titleRu: updated.title_rus ?? updated.title_eng, titleEn: updated.title_eng };
+    }),
+
+  deleteMarket: publicProcedure
+    .input(z.object({ marketId: z.string().uuid() }))
+    .output(z.object({ ok: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const { supabaseService, authUser } = ctx;
+      if (!authUser) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
+      }
+
+      const { hasBets } = await ensureCreatorAndNoBets(
+        supabaseService as SupabaseDbClient,
+        input.marketId,
+        authUser.id
+      );
+
+      if (hasBets) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "MARKET_HAS_BETS" });
+      }
+
+      const { data: comments, error: commentsError } = await supabaseService
+        .from("market_comments")
+        .select("id")
+        .eq("market_id", input.marketId);
+      if (commentsError) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: commentsError.message });
+      }
+      const commentIds = (comments ?? []).map((c) => String((c as { id: string }).id));
+      if (commentIds.length > 0) {
+        const { error: likesError } = await supabaseService
+          .from("market_comment_likes")
+          .delete()
+          .in("comment_id", commentIds);
+        if (likesError) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: likesError.message });
+        }
+      }
+
+      const deletions = await Promise.all([
+        supabaseService.from("market_comments").delete().eq("market_id", input.marketId),
+        supabaseService.from("market_bookmarks").delete().eq("market_id", input.marketId),
+        supabaseService.from("market_context").delete().eq("market_id", input.marketId),
+        supabaseService.from("market_price_candles").delete().eq("market_id", input.marketId),
+        supabaseService.from("market_amm_state").delete().eq("market_id", input.marketId),
+        supabaseService.from("market_onchain_map").delete().eq("market_id", input.marketId),
+        supabaseService.from("positions").delete().eq("market_id", input.marketId),
+        supabaseService.from("trades").delete().eq("market_id", input.marketId),
+        supabaseService.from("on_chain_transactions").delete().eq("market_id", input.marketId),
+      ]);
+
+      const deletionError = deletions.find((res) => res.error)?.error;
+      if (deletionError) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: deletionError.message });
+      }
+
+      const { error: marketDeleteError } = await supabaseService
+        .from("markets")
+        .delete()
+        .eq("id", input.marketId);
+
+      if (marketDeleteError) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: marketDeleteError.message });
+      }
+
+      return { ok: true };
     }),
 });

@@ -51,6 +51,9 @@ interface MarketPageProps {
   marketContextLoading?: boolean;
   marketContextError?: string | null;
   onFetchMarketContext?: (marketId: string) => void;
+  creatorHasBets?: boolean;
+  onEditMarket?: () => void;
+  onDeleteMarket?: () => void;
 }
 
 const MarketPage: React.FC<MarketPageProps> = ({
@@ -83,6 +86,9 @@ const MarketPage: React.FC<MarketPageProps> = ({
   marketContextLoading = false,
   marketContextError = null,
   onFetchMarketContext,
+  creatorHasBets = false,
+  onEditMarket,
+  onDeleteMarket,
 }) => {
   const [activeTab, setActiveTab] = useState<'COMMENTS' | 'ACTIVITY'>('COMMENTS');
   const [commentText, setCommentText] = useState('');
@@ -1097,6 +1103,43 @@ const MarketPage: React.FC<MarketPageProps> = ({
             </div>
           )}
         </div>
+
+        {isCreator && (
+          <div className="lg:col-span-4 lg:col-start-9 lg:row-start-2">
+            <div className="rounded-2xl border border-zinc-900 bg-black p-6">
+              <div className="text-xs uppercase tracking-wider text-zinc-500 mb-3">
+                {lang === 'RU' ? 'Управление рынком' : 'Market management'}
+              </div>
+              <div className="space-y-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={onEditMarket}
+                  disabled={creatorHasBets}
+                >
+                  {lang === 'RU' ? 'Изменить параметры' : 'Edit parameters'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="w-full"
+                  onClick={onDeleteMarket}
+                  disabled={creatorHasBets}
+                >
+                  {lang === 'RU' ? 'Удалить рынок' : 'Delete market'}
+                </Button>
+              </div>
+              {creatorHasBets && (
+                <p className="mt-3 text-xs text-zinc-500">
+                  {lang === 'RU'
+                    ? 'На рынке есть ставки — параметры и удаление недоступны.'
+                    : 'This market already has bets — editing and deletion are disabled.'}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Comments / Activity (on mobile this comes AFTER bid; on desktop it stays under chart) */}
         <div id="comments-section" className="scroll-mt-24 lg:col-span-8 lg:col-start-1 lg:row-start-3">

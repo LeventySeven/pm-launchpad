@@ -24,6 +24,7 @@ type ProfilePageProps = {
   commentsLoading?: boolean;
   commentsError?: string | null;
   bookmarks: Market[];
+  myMarkets: Array<Market & { hasBets: boolean }>;
   onMarketClick: (marketId: string) => void;
   onSellPosition?: (params: { marketId: string; side: 'YES' | 'NO'; shares: number }) => Promise<void>;
   onLoadBets?: () => void;
@@ -223,6 +224,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   commentsLoading = false,
   commentsError = null,
   bookmarks,
+  myMarkets,
   onMarketClick,
   onSellPosition,
   onLoadBets,
@@ -238,7 +240,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   const noLabel = lang === 'RU' ? 'Нет' : 'No';
   const [isEditing, setIsEditing] = useState(false);
   // Tabs are "closed" by default: user chooses what to open.
-  const [activeTab, setActiveTab] = useState<'BETS' | 'COMMENTS' | 'BOOKMARKS' | null>(null);
+  const [activeTab, setActiveTab] = useState<'BETS' | 'COMMENTS' | 'BOOKMARKS' | 'MARKETS' | null>(null);
   const [nameDraft, setNameDraft] = useState(displayName);
   const [avatarMode, setAvatarMode] = useState<'unchanged' | 'upload' | 'import_telegram' | 'clear'>('unchanged');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -708,6 +710,21 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
         >
           {lang === 'RU' ? 'Закладки' : 'Bookmarks'}
         </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (!user) {
+              onLogin();
+              return;
+            }
+            setActiveTab('MARKETS');
+          }}
+          className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+            activeTab === 'MARKETS' ? 'border-white text-white' : 'border-transparent text-zinc-500 hover:text-white'
+          }`}
+        >
+          {lang === 'RU' ? 'Мои рынки' : 'My markets'}
+        </button>
       </div>
 
       {/* Transactions (bet history) */}
@@ -1089,6 +1106,56 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                           <div className="text-sm font-semibold text-zinc-100 truncate">{title}</div>
                           <div className="mt-1 text-xs text-zinc-500">
                             <span className="uppercase tracking-wider text-[10px]">{lang === 'RU' ? 'Событие' : 'Event'}</span>
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <div className="text-sm font-mono font-semibold text-zinc-100">{Math.round(m.chance)}%</div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'MARKETS' && (
+          <div>
+            <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3 px-1">
+              {lang === 'RU' ? 'Ваши рынки' : 'Your markets'}
+            </h2>
+            {myMarkets.length === 0 ? (
+              <div className="text-sm text-zinc-500 px-1">
+                {lang === 'RU' ? 'Пока нет созданных рынков' : 'No created markets yet'}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {myMarkets.map((m) => {
+                  const title = (lang === 'RU' ? m.titleRu : m.titleEn) || m.title;
+                  const statusLabel =
+                    m.state === 'resolved'
+                      ? (lang === 'RU' ? 'Завершён' : 'Resolved')
+                      : m.state === 'closed'
+                        ? (lang === 'RU' ? 'Закрыт' : 'Closed')
+                        : (lang === 'RU' ? 'Открыт' : 'Open');
+                  const betsBadge = m.hasBets
+                    ? (lang === 'RU' ? 'Есть ставки' : 'Has bets')
+                    : (lang === 'RU' ? 'Ставок нет' : 'No bets');
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className="w-full text-left border border-zinc-900 bg-black rounded-2xl p-4 hover:bg-zinc-950/40 transition-colors"
+                      onClick={() => onMarketClick(m.id)}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-zinc-100 truncate">{title}</div>
+                          <div className="mt-1 text-xs text-zinc-500 flex items-center gap-2">
+                            <span className="uppercase tracking-wider text-[10px]">{statusLabel}</span>
+                            <span className="text-zinc-600">•</span>
+                            <span className="text-[10px] uppercase tracking-wider text-zinc-400">{betsBadge}</span>
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0">

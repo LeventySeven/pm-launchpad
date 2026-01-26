@@ -11,7 +11,28 @@ type AdminMarketModalProps = {
   categories: MarketCategory[];
   categoriesLoading?: boolean;
   onReloadCategories?: () => void;
+  mode?: "create" | "edit";
+  marketId?: string;
+  initialValues?: {
+    titleEn: string;
+    description?: string | null;
+    source?: string | null;
+    closesAt?: string | null;
+    expiresAt: string;
+    categoryId: string;
+    imageUrl?: string | null;
+  };
   onCreate: (payload: {
+    titleEn: string;
+    description?: string | null;
+    source?: string | null;
+    closesAt?: string | null;
+    expiresAt: string;
+    categoryId: string;
+    imageUrl?: string | null;
+  }) => Promise<void>;
+  onUpdate?: (payload: {
+    marketId: string;
     titleEn: string;
     description?: string | null;
     source?: string | null;
@@ -29,7 +50,11 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
   categories,
   categoriesLoading = false,
   onReloadCategories,
+  mode = "create",
+  marketId,
+  initialValues,
   onCreate,
+  onUpdate,
 }) => {
   const [titleEn, setTitleEn] = useState("");
   const [description, setDescription] = useState("");
@@ -55,6 +80,27 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
     setImagePreviewUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [imageFile]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (mode === "edit" && initialValues) {
+      setTitleEn(initialValues.titleEn ?? "");
+      setDescription(initialValues.description ?? "");
+      setSource(initialValues.source ?? "");
+      setExpiresAt(initialValues.expiresAt ?? "");
+      setCategoryId(initialValues.categoryId ?? "");
+      setImageUrl(initialValues.imageUrl ?? null);
+      setImageFile(null);
+    } else if (mode === "create") {
+      setTitleEn("");
+      setDescription("");
+      setSource("");
+      setExpiresAt("");
+      setCategoryId("");
+      setImageFile(null);
+      setImageUrl(null);
+    }
+  }, [isOpen, mode, initialValues]);
 
   const t = (ru: string, en: string) => (lang === "RU" ? ru : en);
 
@@ -149,7 +195,9 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
         }
       }
     }
-    return t("Не удалось создать рынок", "Failed to create market");
+    return mode === "edit"
+      ? t("Не удалось обновить рынок", "Failed to update market")
+      : t("Не удалось создать рынок", "Failed to create market");
   };
 
   const handleSubmit = async () => {
@@ -177,24 +225,33 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
         finalImageUrl = uploadData.imageUrl;
       }
 
-      await onCreate({
+      const payload = {
         titleEn: titleEn.trim(),
         description: description.trim() || null,
         source: source.trim() || null,
         expiresAt,
         categoryId,
         imageUrl: finalImageUrl,
-      });
-      setTitleEn("");
-      setDescription("");
-      setSource("");
-      setExpiresAt("");
-      setCategoryId("");
-      setImageFile(null);
-      setImageUrl(null);
+      };
+
+      if (mode === "edit") {
+        if (!marketId || !onUpdate) {
+          throw new Error("EDIT_NOT_CONFIGURED");
+        }
+        await onUpdate({ ...payload, marketId });
+      } else {
+        await onCreate(payload);
+        setTitleEn("");
+        setDescription("");
+        setSource("");
+        setExpiresAt("");
+        setCategoryId("");
+        setImageFile(null);
+        setImageUrl(null);
+      }
       onClose();
     } catch (error) {
-      console.error('Market creation error:', error);
+      console.error('Market submit error:', error);
       setError(getErrorMessage(error));
     } finally {
       setLoading(false);
@@ -215,10 +272,12 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
         <div className="flex flex-col gap-2 mb-5">
           <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-zinc-300">
             <Sparkles size={14} />
-            {t("Новый рынок", "New market")}
+            {mode === "edit" ? t("Редактирование", "Editing") : t("Новый рынок", "New market")}
           </div>
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-2xl font-bold text-white">{t("Создать рынок", "Create market")}</h2>
+            <h2 className="text-2xl font-bold text-white">
+              {mode === "edit" ? t("Изменить рынок", "Edit market") : t("Создать рынок", "Create market")}
+            </h2>
             <button
               type="button"
               onClick={() => setHelpOpen(true)}
@@ -300,6 +359,16 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={imagePreviewUrl}
+                    alt={t("Превью изображения", "Image preview")}
+                    className="w-full h-auto max-h-48 object-cover"
+                  />
+                </div>
+              )}
+              {!imagePreviewUrl && imageUrl && (
+                <div className="mt-3 rounded-xl overflow-hidden border border-zinc-900 bg-zinc-950/40">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imageUrl}
                     alt={t("Превью изображения", "Image preview")}
                     className="w-full h-auto max-h-48 object-cover"
                   />
@@ -403,7 +472,13 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
             aria-disabled={!canSubmit}
             className={!canSubmit ? "opacity-60 hover:opacity-60" : ""}
           >
-            {loading ? t("Создание...", "Creating...") : t("Создать", "Create")}
+            {loading
+              ? mode === "edit"
+                ? t("Сохранение...", "Saving...")
+                : t("Создание...", "Creating...")
+              : mode === "edit"
+              ? t("Сохранить", "Save")
+              : t("Создать", "Create")}
           </Button>
         </div>
       </div>

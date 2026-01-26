@@ -10,6 +10,7 @@ import BetConfirmModal from "@/components/BetConfirmModal";
 import AdminMarketModal from "@/components/AdminMarketModal";
 import ProfilePage from "@/components/ProfilePage";
 import PublicUserProfileModal from "@/components/PublicUserProfileModal";
+import Button from "@/components/Button";
 import type { Market, User, Bet, Position, Trade, PriceCandle, PublicTrade, LeaderboardUser, Comment as MarketComment } from "@/types";
 import { trpcClient } from "@/src/utils/trpcClient";
 import { Search, X, AlertCircle, Filter } from "lucide-react";
@@ -46,6 +47,76 @@ const getErrorMessage = (error: ErrorLike): string => {
   } catch {
     return "Unknown error";
   }
+};
+
+type MarketApiRow = {
+  id: string;
+  titleRu: string;
+  titleEn: string;
+  description?: string | null;
+  source?: string | null;
+  imageUrl?: string;
+  state: string;
+  createdAt: string;
+  closesAt: string;
+  expiresAt: string;
+  outcome: "YES" | "NO" | null;
+  createdBy?: string | null;
+  categoryId?: string | null;
+  categoryLabelRu?: string | null;
+  categoryLabelEn?: string | null;
+  settlementAsset?: string | null;
+  feeBps?: number | null;
+  liquidityB?: number | null;
+  priceYes: number;
+  priceNo: number;
+  volume: number;
+};
+type MyMarketApiRow = MarketApiRow & { hasBets: boolean };
+
+const mapMarketApiToMarket = (m: MarketApiRow, lang: "RU" | "EN"): Market => {
+  const title = lang === "RU" ? m.titleRu : m.titleEn;
+  const chance = Math.round(m.priceYes * 100);
+  return {
+    id: String(m.id),
+    title,
+    titleRu: m.titleRu,
+    titleEn: m.titleEn,
+    state: m.state as Market["state"],
+    outcome: m.outcome,
+    createdBy: m.createdBy ?? null,
+    createdAt: m.createdAt,
+    categoryId: m.categoryId ?? null,
+    categoryLabelRu: m.categoryLabelRu ?? null,
+    categoryLabelEn: m.categoryLabelEn ?? null,
+    imageUrl: (m.imageUrl ?? "").trim() || buildInitialsAvatarDataUrl(title, { bg: "#111111", fg: "#ffffff" }),
+    volume: `$${Number(m.volume).toFixed(2)}`,
+    closesAt: m.closesAt,
+    expiresAt: m.expiresAt,
+    yesPrice: Number(m.priceYes),
+    noPrice: Number(m.priceNo),
+    chance,
+    description: m.description ?? (lang === "RU" ? "Описание будет добавлено." : "Description coming soon."),
+    source: m.source ?? null,
+    history: [],
+    comments: [],
+    liquidityB: m.liquidityB ?? undefined,
+    feeBps: m.feeBps ?? undefined,
+    settlementAsset: m.settlementAsset ?? undefined,
+  };
+};
+
+const toLocalDateTimeInput = (iso?: string | null) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
 export default function HomePage() {
@@ -304,6 +375,12 @@ export default function HomePage() {
   const [marketContextLoadingId, setMarketContextLoadingId] = useState<string | null>(null);
   const [marketContextErrorById, setMarketContextErrorById] = useState<Record<string, string | null>>({});
   const [walletBalanceMajor, setWalletBalanceMajor] = useState<number | null>(null);
+  const [editMarketOpen, setEditMarketOpen] = useState(false);
+  const [editMarketTarget, setEditMarketTarget] = useState<Market | null>(null);
+  const [deleteMarketOpen, setDeleteMarketOpen] = useState(false);
+  const [deleteMarketError, setDeleteMarketError] = useState<string | null>(null);
+  type MyMarket = Market & { hasBets: boolean };
+  const [myCreatedMarkets, setMyCreatedMarkets] = useState<MyMarket[]>([]);
   const [marketComments, setMarketComments] = useState<MarketComment[]>([]);
   const [marketInsightsLoading, setMarketInsightsLoading] = useState(false);
   const [marketInsightsError, setMarketInsightsError] = useState<string | null>(null);
@@ -768,11 +845,12 @@ export default function HomePage() {
     setMyBetsLoading(true);
     setMyBetsError(null);
     try {
-      const [positionsRaw, tradesRaw, bookmarksRaw, walletBalanceRaw] = await Promise.all([
+      const [positionsRaw, tradesRaw, bookmarksRaw, walletBalanceRaw, myMarketsRaw] = await Promise.all([
         trpcClient.market.myPositions.query(),
         trpcClient.market.myTrades.query(),
         trpcClient.market.myBookmarks.query(),
         trpcClient.market.myWalletBalance.query().catch(() => null),
+        trpcClient.market.myMarkets.query().catch(() => []),
       ]);
 
       const positionsParsed = positionsSchema.parse(positionsRaw);
@@ -816,6 +894,14 @@ export default function HomePage() {
       setMyPositions(positions);
       setMyTrades(trades);
       setMyBookmarks(bookmarksParsed.map((b) => ({ marketId: b.marketId, createdAt: b.createdAt })));
+      const myMarkets = (myMarketsRaw ?? []).map((m) => {
+        const row = m as MyMarketApiRow;
+        return {
+          ...mapMarketApiToMarket(row, lang),
+          hasBets: Boolean(row.hasBets),
+        };
+      });
+      setMyCreatedMarkets(myMarkets);
       if (walletBalanceRaw && typeof walletBalanceRaw.balanceMajor === "number") {
         setWalletBalanceMajor(walletBalanceRaw.balanceMajor);
       }
@@ -875,38 +961,9 @@ export default function HomePage() {
         onlyOpen: false,
       });
 
-      const mapped: Market[] = response?.map((m) => {
-        const title = lang === "RU" ? m.titleRu : m.titleEn;
-        const chance = Math.round(m.priceYes * 100);
-
-        return {
-          id: String(m.id),
-          title,
-          titleRu: m.titleRu,
-          titleEn: m.titleEn,
-          state: m.state as Market["state"],
-          outcome: m.outcome,
-          createdBy: m.createdBy ?? null,
-          createdAt: m.createdAt,
-          categoryId: m.categoryId ?? null,
-          categoryLabelRu: m.categoryLabelRu ?? null,
-          categoryLabelEn: m.categoryLabelEn ?? null,
-          imageUrl: (m as { imageUrl?: string }).imageUrl?.trim() || buildInitialsAvatarDataUrl(title, { bg: "#111111", fg: "#ffffff" }),
-          volume: `$${m.volume.toFixed(2)}`,
-          closesAt: m.closesAt,
-          expiresAt: m.expiresAt,
-          yesPrice: Number(m.priceYes),
-          noPrice: Number(m.priceNo),
-          chance,
-          description: m.description ?? (lang === "RU" ? "Описание будет добавлено." : "Description coming soon."),
-          source: (m as { source?: string | null }).source ?? null,
-          history: [],
-          comments: [],
-          liquidityB: m.liquidityB,
-          feeBps: m.feeBps,
-          settlementAsset: m.settlementAsset,
-        };
-      }) ?? [];
+      const mapped: Market[] = (response ?? []).map((m) =>
+        mapMarketApiToMarket(m as MarketApiRow, lang)
+      );
       setMarkets(mapped);
     } catch (err) {
       console.error("Failed to load markets", err);
@@ -979,6 +1036,7 @@ export default function HomePage() {
       setMyPositions([]);
       setMyTrades([]);
       setMyBookmarks([]);
+      setMyCreatedMarkets([]);
       setWalletBalanceMajor(null);
       return;
     }
@@ -1649,6 +1707,49 @@ export default function HomePage() {
     [user, reloginRequired, refreshUser, triggerRelogin]
   );
 
+  const creatorHasBets = useMemo(() => {
+    if (!selectedMarketId || !user) return false;
+    if (!selectedMarket?.createdBy || selectedMarket.createdBy !== user.id) return false;
+    const entry = myCreatedMarkets.find((m) => m.id === selectedMarketId);
+    return entry ? entry.hasBets : false;
+  }, [selectedMarketId, selectedMarket?.createdBy, user, myCreatedMarkets]);
+
+  const handleUpdateMarket = useCallback(async (payload: {
+    marketId: string;
+    titleEn: string;
+    description?: string | null;
+    source?: string | null;
+    closesAt?: string | null;
+    expiresAt: string;
+    categoryId: string;
+    imageUrl?: string | null;
+  }) => {
+    try {
+      await trpcClient.market.updateMarket.mutate(payload);
+      await loadMarkets();
+      setEditMarketOpen(false);
+      setEditMarketTarget(null);
+    } catch (err) {
+      console.error("updateMarket failed", err);
+      throw err;
+    }
+  }, [loadMarkets]);
+
+  const handleDeleteMarket = useCallback(async () => {
+    if (!editMarketTarget) return;
+    setDeleteMarketError(null);
+    try {
+      await trpcClient.market.deleteMarket.mutate({ marketId: editMarketTarget.id });
+      setDeleteMarketOpen(false);
+      setEditMarketTarget(null);
+      setSelectedMarketId(null);
+      await loadMarkets();
+    } catch (err) {
+      console.error("deleteMarket failed", err);
+      setDeleteMarketError(getErrorMessage(err));
+    }
+  }, [editMarketTarget, loadMarkets]);
+
   const handleOpenCreateMarket = useCallback(() => {
     if (!user) {
       setPostAuthAction({ type: "OPEN_CREATE_MARKET" });
@@ -2022,6 +2123,15 @@ export default function HomePage() {
               marketContextLoading={marketContextLoadingId === selectedMarket.id}
               marketContextError={marketContextErrorById[selectedMarket.id] ?? null}
               onFetchMarketContext={handleFetchMarketContext}
+              creatorHasBets={creatorHasBets}
+              onEditMarket={() => {
+                setEditMarketTarget(selectedMarket);
+                setEditMarketOpen(true);
+              }}
+              onDeleteMarket={() => {
+                setEditMarketTarget(selectedMarket);
+                setDeleteMarketOpen(true);
+              }}
             />
           </main>
           <BottomMenu
@@ -2292,6 +2402,7 @@ export default function HomePage() {
                     commentsLoading={myCommentsLoading}
                     commentsError={myCommentsError}
                     bookmarks={bookmarkedMarkets}
+                    myMarkets={myCreatedMarkets}
                     onSellPosition={handleSellPosition}
                     onLoadBets={() => void loadMyBets()}
                     onLoadComments={() => void loadMyComments()}
@@ -2566,6 +2677,70 @@ export default function HomePage() {
           }
         }}
       />
+      <AdminMarketModal
+        isOpen={editMarketOpen}
+        onClose={() => {
+          setEditMarketOpen(false);
+          setEditMarketTarget(null);
+        }}
+        lang={lang}
+        categories={marketCategories}
+        categoriesLoading={loadingMarketCategories}
+        onReloadCategories={loadMarketCategories}
+        mode="edit"
+        marketId={editMarketTarget?.id}
+        initialValues={
+          editMarketTarget
+            ? {
+                titleEn: editMarketTarget.titleEn ?? editMarketTarget.title,
+                description: editMarketTarget.description ?? null,
+                source: editMarketTarget.source ?? null,
+                closesAt: toLocalDateTimeInput(editMarketTarget.closesAt),
+                expiresAt: toLocalDateTimeInput(editMarketTarget.expiresAt),
+                categoryId: editMarketTarget.categoryId ?? "",
+                imageUrl: editMarketTarget.imageUrl ?? null,
+              }
+            : undefined
+        }
+        onCreate={async () => undefined}
+        onUpdate={handleUpdateMarket}
+      />
+      {deleteMarketOpen && editMarketTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setDeleteMarketOpen(false)} />
+          <div className="relative bg-black border border-zinc-900 w-full max-w-md rounded-2xl p-6 shadow-2xl animate-fade-in-up">
+            <button
+              onClick={() => setDeleteMarketOpen(false)}
+              className="absolute top-4 right-4 text-neutral-400 hover:text-white"
+              aria-label="Close"
+            >
+              <X size={22} />
+            </button>
+            <div className="flex items-center gap-3 mb-4">
+              <AlertCircle className="text-red-400" size={24} />
+              <h2 className="text-xl font-bold text-white">
+                {lang === "RU" ? "Удалить рынок?" : "Delete market?"}
+              </h2>
+            </div>
+            <p className="text-sm text-zinc-300 mb-6">
+              {lang === "RU"
+                ? "Рынок будет удален без возможности восстановления. Это возможно только если ставок еще нет."
+                : "This will permanently delete the market. This is only possible if there are no bets yet."}
+            </p>
+            {deleteMarketError && (
+              <div className="mb-4 text-xs text-red-400">{deleteMarketError}</div>
+            )}
+            <div className="flex items-center justify-between gap-3">
+              <Button variant="ghost" onClick={() => setDeleteMarketOpen(false)}>
+                {lang === "RU" ? "Отмена" : "Cancel"}
+              </Button>
+              <Button variant="destructive" onClick={handleDeleteMarket}>
+                {lang === "RU" ? "Удалить" : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Re-login warning modal */}
       {showReloginWarning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
