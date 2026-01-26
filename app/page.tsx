@@ -2516,9 +2516,9 @@ export default function HomePage() {
 
             <div role="radiogroup" className="space-y-2">
               {([
+                { id: "CREATED_DESC" as const, labelRu: "Дата создания ↓", labelEn: "Creation date ↓" },
+                { id: "CREATED_ASC" as const, labelRu: "Дата создания ↑", labelEn: "Creation date ↑" },
                 { id: "ENDING_SOON" as const, labelRu: "Скоро закончится", labelEn: "Ending soon" },
-                { id: "CREATED_DESC" as const, labelRu: "Сначала новые", labelEn: "Newest" },
-                { id: "CREATED_ASC" as const, labelRu: "Сначала старые", labelEn: "Oldest" },
                 { id: "VOLUME_DESC" as const, labelRu: "Объём ↓", labelEn: "Volume ↓" },
                 { id: "VOLUME_ASC" as const, labelRu: "Объём ↑", labelEn: "Volume ↑" },
               ]).map((opt) => {

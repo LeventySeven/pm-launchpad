@@ -172,10 +172,10 @@ const PublicUserProfileModal: React.FC<PublicUserProfileModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto"
       data-swipe-ignore="true"
     >
-      <div className="w-full max-w-2xl bg-black border border-zinc-900 rounded-2xl overflow-hidden max-h-[92vh] flex flex-col">
+      <div className="w-full max-w-2xl bg-black border border-zinc-900 rounded-2xl overflow-hidden max-h-[calc(100vh-2rem)] sm:max-h-[92vh] flex flex-col mt-6 sm:mt-0">
         <div
           className="relative overflow-hidden p-5 border-b border-zinc-900"
           style={{
