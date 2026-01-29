@@ -176,6 +176,7 @@ export default function HomePage() {
   // Keep DB wallet link in sync with actual connected wallet/chain.
   const walletSyncInFlight = useRef(false);
   const lastWalletSyncKey = useRef<string>("");
+  const hadWalletConnectionRef = useRef(false);
 
   useEffect(() => {
     if (!user) return;
@@ -189,9 +190,17 @@ export default function HomePage() {
     if (walletSyncInFlight.current) return;
     if (lastWalletSyncKey.current === syncKey) return;
 
-    // If wallet is disconnected, unlink (best effort).
+    if (isWalletConnected && walletPubkey) {
+      hadWalletConnectionRef.current = true;
+    }
+
+    // If wallet is disconnected, unlink only if it was connected in this session.
     if (!isWalletConnected || !walletPubkey) {
       if (!dbPubkey) {
+        lastWalletSyncKey.current = syncKey;
+        return;
+      }
+      if (!hadWalletConnectionRef.current) {
         lastWalletSyncKey.current = syncKey;
         return;
       }
