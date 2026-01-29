@@ -198,10 +198,16 @@ const MarketPage: React.FC<MarketPageProps> = ({
         );
       })();
 
+      const fallbackChance = Number.isFinite(market.chance)
+        ? market.chance
+        : Math.round(Number(market.yesPrice ?? 0.5) * 100);
+
       return priceCandles
-        .map((c) => {
+        .map((c, idx) => {
           const ts = Date.parse(String(c.bucket));
           if (!Number.isFinite(ts)) return null;
+          const isLast = idx === priceCandles.length - 1;
+          const value = isLast ? fallbackChance : Number((c.close * 100).toFixed(2));
           return {
             ts,
             label: spansMultipleDays
@@ -215,14 +221,14 @@ const MarketPage: React.FC<MarketPageProps> = ({
                   hour: '2-digit',
                   minute: '2-digit',
                 }),
-            value: Number((c.close * 100).toFixed(2)),
+            value,
             spansMultipleDays,
           };
         })
         .filter((v): v is { ts: number; label: string; value: number; spansMultipleDays: boolean } => Boolean(v));
     }
     return [];
-  }, [priceCandles, lang]);
+  }, [priceCandles, lang, market.chance, market.yesPrice]);
 
   const displayedChance = Number.isFinite(market.chance)
     ? market.chance

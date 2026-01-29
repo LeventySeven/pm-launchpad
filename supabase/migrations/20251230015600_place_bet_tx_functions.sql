@@ -1,11 +1,11 @@
 -- Source of truth: db/functions/place_bet_tx.sql
--- Purpose: deploy/update core transactional RPC functions + LMSR helpers in the remote DB.
+-- Purpose: deploy/update core transactional RPC functions + bounded cost helpers in the remote DB.
 --
 -- Note: trades_public view security is handled by supabase/migrations/20251230015348_fix_security_03.sql.
 -- Keep that view definition in the dedicated migration so future view/security changes don't get
 -- accidentally overwritten by a later "functions" migration.
 
--- Safe LMSR helpers --------------------------------------------------------
+-- Bounded cost helpers (keep function names for compatibility) -------------
 create or replace function lmsr_cost_safe(q_yes numeric, q_no numeric, b numeric)
 returns numeric
 language plpgsql
@@ -13,23 +13,31 @@ immutable
 set search_path = public, pg_temp
 as $$
 declare
-  v_max numeric;
-  v_min numeric;
-  v_diff numeric;
+  v_s numeric;
+  v_x numeric;
+  v_abs numeric;
+  v_softplus numeric;
+  v_a constant numeric := 0.01;
+  v_b constant numeric := 0.99;
+  v_k constant numeric := 0.85;
 begin
   if b is null or b <= 0 then
     return 0;
   end if;
 
-  v_max := greatest(coalesce(q_yes, 0), coalesce(q_no, 0));
-  v_min := least(coalesce(q_yes, 0), coalesce(q_no, 0));
-  v_diff := case when b = 0 then 0 else (v_max - v_min) / b end;
+  v_s := coalesce(q_yes, 0) - coalesce(q_no, 0);
+  v_x := (v_k * v_s) / b;
 
-  if v_diff >= 60 then
-    return v_max;
+  if v_x >= 60 then
+    v_softplus := v_x;
+  elsif v_x <= -60 then
+    v_softplus := exp(v_x);
+  else
+    v_abs := abs(v_x);
+    v_softplus := greatest(v_x, 0) + ln(1 + exp(-v_abs));
   end if;
 
-  return v_max + b * ln(1 + exp(-v_diff));
+  return v_a * v_s + (v_b - v_a) * (b / v_k) * v_softplus;
 end;
 $$;
 
@@ -40,21 +48,29 @@ immutable
 set search_path = public, pg_temp
 as $$
 declare
-  v_diff numeric;
+  v_s numeric;
+  v_x numeric;
+  v_sigmoid numeric;
+  v_a constant numeric := 0.01;
+  v_b constant numeric := 0.99;
+  v_k constant numeric := 0.85;
 begin
   if b is null or b <= 0 then
     return 0.5;
   end if;
 
-  v_diff := (coalesce(q_no, 0) - coalesce(q_yes, 0)) / b;
+  v_s := coalesce(q_yes, 0) - coalesce(q_no, 0);
+  v_x := (v_k * v_s) / b;
 
-  if v_diff >= 60 then
-    return 0;
-  elsif v_diff <= -60 then
-    return 1;
+  if v_x >= 60 then
+    v_sigmoid := 1;
+  elsif v_x <= -60 then
+    v_sigmoid := 0;
+  else
+    v_sigmoid := 1 / (1 + exp(-v_x));
   end if;
 
-  return 1 / (1 + exp(v_diff));
+  return v_a + (v_b - v_a) * v_sigmoid;
 end;
 $$;
 

@@ -30,6 +30,7 @@ isProject: false
 - [db/functions/place_bet_tx.sql](db/functions/place_bet_tx.sql): replace `lmsr_cost_safe`/`lmsr_price_yes_safe` logic with bounded sigmoid cost/price using stable softplus, and keep cost computed as `C(after)-C(before)`.
 - [src/server/trpc/helpers/pricing.ts](src/server/trpc/helpers/pricing.ts): mirror the same bounded price + cost math for display/estimates, with stable softplus/sigmoid.
 - [src/server/trpc/routers/market.ts](src/server/trpc/routers/market.ts): ensure market mapping uses new helper for prices and document bounds where used.
+- [supabase tables/views](supabase/): align any stored pricing snapshots (e.g., `market_price_candles` close/open values, `market_amm_state` usage, or price-related views) so chart/history and current price both reflect the bounded cost function outputs.
 - [supabase/DB_CONTEXT.md](supabase/DB_CONTEXT.md): if schema changes are required for migration (e.g., new market-level AMM params), update docs after migration is applied.
 
 ## Implementation details (math)
@@ -51,7 +52,8 @@ isProject: false
 - Keep safeguards (clamps, numeric stability) and fee calculations unchanged.
 
 3. Update any market price computations to use the new helper so UI and API stay consistent with settlement math.
-4. Add/adjust tests or seed examples if present (optional, quick sanity check only).
+4. Ensure any candle/history generation (if computed in SQL or triggers) uses bounded price outputs so chart tooltips and UI chance match.
+5. Add/adjust tests or seed examples if present (optional, quick sanity check only).
 
 ## Tests / Validation
 

@@ -1,4 +1,4 @@
--- Safe LMSR helpers --------------------------------------------------------
+-- Bounded cost helpers (keep function names for compatibility) -------------
 create or replace function lmsr_cost_safe(q_yes numeric, q_no numeric, b numeric)
 returns numeric
 language plpgsql

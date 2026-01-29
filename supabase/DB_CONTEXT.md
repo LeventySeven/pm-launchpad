@@ -1,6 +1,6 @@
 # Supabase DB Context (public)
 
-Generated at: `2026-01-26T10:43:49.046Z`
+Generated at: `2026-01-29T06:57:00.817Z`
 Supabase URL: `https://zebqsdwawldoehvupmtm.supabase.co`
 
 Refresh: `bun run supabase:schema`

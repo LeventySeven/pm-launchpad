@@ -28,6 +28,7 @@ type UsersPublicRow = Database["public"]["Views"]["users_public"]["Row"];
 type UserPnlDailyRow = Database["public"]["Views"]["user_pnl_daily_public"]["Row"];
 type UserMarketVoteRow = Database["public"]["Views"]["user_market_votes_public"]["Row"];
 type UserMarketBetRow = Database["public"]["Views"]["user_market_bets_public"]["Row"];
+type TradeRow = Database["public"]["Tables"]["trades"]["Row"];
 type MarketCommentPublicRow = Database["public"]["Views"]["market_comments_public"]["Row"];
 type WalletTxPublicRow = Database["public"]["Views"]["wallet_transactions_public"]["Row"];
 type PositionRow = Database["public"]["Tables"]["positions"]["Row"];
@@ -119,6 +120,68 @@ const buildMarkToMarketPnLByUser = (
     const pnl = (markPrice - entry) * shares;
     const userId = String(pos.user_id);
     pnlByUser.set(userId, (pnlByUser.get(userId) ?? 0) + pnl);
+  });
+
+  return pnlByUser;
+};
+
+const buildRealizedPnlByUser = (
+  trades: Array<
+    Pick<
+      TradeRow,
+      "user_id" | "market_id" | "outcome" | "action" | "shares_delta" | "collateral_gross_minor" | "created_at" | "asset_code"
+    >
+  >
+) => {
+  const pnlByUser = new Map<string, number>();
+  const lotsByKey = new Map<string, Array<{ shares: number; price: number }>>();
+  const PRICE_EPS = 1e-9;
+
+  const sorted = [...trades].sort((a, b) => {
+    const ta = Date.parse(String(a.created_at));
+    const tb = Date.parse(String(b.created_at));
+    return ta - tb;
+  });
+
+  sorted.forEach((trade) => {
+    const userId = String(trade.user_id);
+    const marketId = String(trade.market_id);
+    const outcome = trade.outcome as "YES" | "NO";
+    if (String(trade.asset_code ?? "").toUpperCase() !== DEFAULT_ASSET) return;
+    const shares = Math.abs(Number(trade.shares_delta ?? 0));
+    if (!Number.isFinite(shares) || shares <= PRICE_EPS) return;
+
+    const grossMajor = toMajorUnits(Number(trade.collateral_gross_minor ?? 0), VCOIN_DECIMALS);
+    const unitPrice = shares > 0 ? grossMajor / shares : null;
+    if (!unitPrice || !Number.isFinite(unitPrice)) return;
+
+    const key = `${userId}:${marketId}:${outcome}`;
+    if (!lotsByKey.has(key)) lotsByKey.set(key, []);
+    const lots = lotsByKey.get(key)!;
+
+    if (trade.action === "buy") {
+      lots.push({ shares, price: unitPrice });
+      return;
+    }
+
+    let remaining = shares;
+    let matchedShares = 0;
+    let matchedCost = 0;
+    while (remaining > PRICE_EPS && lots.length > 0) {
+      const lot = lots[0];
+      const take = Math.min(lot.shares, remaining);
+      matchedCost += take * lot.price;
+      matchedShares += take;
+      lot.shares -= take;
+      remaining -= take;
+      if (lot.shares <= PRICE_EPS) {
+        lots.shift();
+      }
+    }
+
+    if (matchedShares <= PRICE_EPS) return;
+    const realized = (unitPrice - matchedCost / matchedShares) * matchedShares;
+    pnlByUser.set(userId, (pnlByUser.get(userId) ?? 0) + realized);
   });
 
   return pnlByUser;
@@ -390,18 +453,36 @@ export const userRouter = router({
       }
 
       const row = data as Pick<LeaderboardRow, "pnl_minor" | "bet_count" | "rank">;
-      const ledgerPnlMajor = toMajorUnits(Number(row.pnl_minor ?? 0), VCOIN_DECIMALS);
-      let pnlMajor = ledgerPnlMajor;
+      let pnlMajor = 0;
 
       try {
-        const { data: positionsData, error: positionsError } = await supabaseService
-          .from("positions")
-          .select("user_id, market_id, outcome, shares, avg_entry_price")
-          .eq("user_id", input.userId);
+        const [{ data: tradesData, error: tradesError }, { data: positionsData, error: positionsError }] =
+          await Promise.all([
+            supabaseService
+              .from("trades")
+              .select("user_id, market_id, outcome, action, shares_delta, collateral_gross_minor, created_at, asset_code")
+              .eq("user_id", input.userId),
+            supabaseService
+              .from("positions")
+              .select("user_id, market_id, outcome, shares, avg_entry_price")
+              .eq("user_id", input.userId),
+          ]);
 
+        if (tradesError) {
+          throw tradesError;
+        }
         if (positionsError) {
           throw positionsError;
         }
+
+        const trades = (tradesData ?? []) as Array<
+          Pick<
+            TradeRow,
+            "user_id" | "market_id" | "outcome" | "action" | "shares_delta" | "collateral_gross_minor" | "created_at" | "asset_code"
+          >
+        >;
+        const realizedByUser = buildRealizedPnlByUser(trades);
+        const realized = realizedByUser.get(input.userId) ?? 0;
 
         const positions = (positionsData ?? []) as Array<
           Pick<PositionRow, "user_id" | "market_id" | "outcome" | "shares" | "avg_entry_price">
@@ -439,13 +520,13 @@ export const userRouter = router({
           });
 
           const pnlByUser = buildMarkToMarketPnLByUser(positions, marketsById, ammByMarketId);
-          const computed = pnlByUser.get(input.userId);
-          if (typeof computed === "number" && Number.isFinite(computed)) {
-            pnlMajor = ledgerPnlMajor + computed;
-          }
+          const unrealized = pnlByUser.get(input.userId) ?? 0;
+          pnlMajor = realized + unrealized;
+        } else {
+          pnlMajor = realized;
         }
       } catch (err) {
-        console.warn("publicUserStats pnl calc failed; falling back to ledger pnl", err);
+        console.warn("publicUserStats pnl calc failed; falling back to zero", err);
       }
 
       return {
@@ -888,22 +969,40 @@ export const userRouter = router({
 
       const rows = (data ?? []) as LeaderboardRow[];
 
-      let pnlByUser = new Map<string, number>();
+      let unrealizedByUser = new Map<string, number>();
+      let realizedByUser = new Map<string, number>();
       try {
         const userIds = Array.from(new Set(rows.map((r) => String(r.user_id))));
         if (userIds.length > 0) {
-          const { data: positionsData, error: positionsError } = await supabaseService
-            .from("positions")
-            .select("user_id, market_id, outcome, shares, avg_entry_price")
-            .in("user_id", userIds);
+          const [{ data: positionsData, error: positionsError }, { data: tradesData, error: tradesError }] =
+            await Promise.all([
+              supabaseService
+                .from("positions")
+                .select("user_id, market_id, outcome, shares, avg_entry_price")
+                .in("user_id", userIds),
+              supabaseService
+                .from("trades")
+                .select("user_id, market_id, outcome, action, shares_delta, collateral_gross_minor, created_at, asset_code")
+                .in("user_id", userIds),
+            ]);
 
           if (positionsError) {
             throw positionsError;
+          }
+          if (tradesError) {
+            throw tradesError;
           }
 
           const positions = (positionsData ?? []) as Array<
             Pick<PositionRow, "user_id" | "market_id" | "outcome" | "shares" | "avg_entry_price">
           >;
+          const trades = (tradesData ?? []) as Array<
+            Pick<
+              TradeRow,
+              "user_id" | "market_id" | "outcome" | "action" | "shares_delta" | "collateral_gross_minor" | "created_at" | "asset_code"
+            >
+          >;
+          realizedByUser = buildRealizedPnlByUser(trades);
           const marketIds = Array.from(new Set(positions.map((p) => String(p.market_id))));
 
           if (marketIds.length > 0) {
@@ -936,23 +1035,20 @@ export const userRouter = router({
               ammByMarketId.set(String(a.market_id), a as Pick<AmmStateRow, "q_yes" | "q_no" | "b">);
             });
 
-            pnlByUser = buildMarkToMarketPnLByUser(positions, marketsById, ammByMarketId);
+            unrealizedByUser = buildMarkToMarketPnLByUser(positions, marketsById, ammByMarketId);
           }
         }
       } catch (err) {
-        console.warn("leaderboard pnl calc failed; falling back to ledger pnl", err);
+        console.warn("leaderboard pnl calc failed; falling back to realized-only", err);
       }
 
       const mapped = rows.map((r) => {
         const name = (r.name || r.username || "").trim() || "Trader";
         const avatar = r.avatar_url || buildInitialsAvatarDataUrl(name, { bg: "#111111", fg: "#ffffff" });
         const userId = String(r.user_id);
-        const ledgerPnlMajor = toMajorUnits(Number(r.pnl_minor ?? 0), VCOIN_DECIMALS);
-        const computedPnl = pnlByUser.get(userId);
-        const pnlMajor =
-          typeof computedPnl === "number" && Number.isFinite(computedPnl)
-            ? ledgerPnlMajor + computedPnl
-            : ledgerPnlMajor;
+        const realized = realizedByUser.get(userId) ?? 0;
+        const unrealized = unrealizedByUser.get(userId) ?? 0;
+        const pnlMajor = realized + unrealized;
         return {
           id: userId,
           rank: Number(r.rank ?? 0),
