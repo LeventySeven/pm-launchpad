@@ -11,5 +11,8 @@ export type PublicUser = {
   balance: number;
   createdAt: string;
   isAdmin: boolean;
+  solanaWalletAddress: string | null;
+  solanaCluster: string | null;
+  solanaWalletConnectedAt: string | null;
 };
 

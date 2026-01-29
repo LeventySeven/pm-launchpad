@@ -41,6 +41,8 @@ export interface Market {
   state: MarketState;
   outcome: "YES" | "NO" | null;
   createdBy?: string | null;
+  creatorName?: string | null;
+  creatorAvatarUrl?: string | null;
   createdAt: string;
   categoryId: string | null;
   categoryLabelRu: string | null;

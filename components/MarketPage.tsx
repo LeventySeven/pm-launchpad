@@ -167,6 +167,8 @@ const MarketPage: React.FC<MarketPageProps> = ({
         ? (lang === 'RU' ? 'Вы' : 'You')
         : `${creatorId.slice(0, 6)}...${creatorId.slice(-4)}`)
     : null;
+  const creatorDisplayName = market.creatorName ?? creatorLabel;
+  const creatorAvatarUrl = market.creatorAvatarUrl ?? null;
   const eventEnded = (() => {
     const parsed = Date.parse(eventEnd);
     return Number.isFinite(parsed) && parsed <= Date.now();
@@ -222,7 +224,9 @@ const MarketPage: React.FC<MarketPageProps> = ({
     return [];
   }, [priceCandles, lang]);
 
-  const displayedChance = chartSeries.length > 0 ? chartSeries[chartSeries.length - 1].value : market.chance;
+  const displayedChance = Number.isFinite(market.chance)
+    ? market.chance
+    : Math.round(Number(market.yesPrice ?? 0.5) * 100);
 
   useEffect(() => {
     const update = () => {
@@ -950,7 +954,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
               </h3>
               <div className="text-xs text-zinc-500 leading-relaxed space-y-4 font-mono">
                 <p>{market.description}</p>
-                {creatorId && creatorLabel && (
+                {creatorId && creatorDisplayName && (
                   <p className="text-[11px] text-zinc-400">
                     <span className="uppercase tracking-wider text-zinc-500">
                       {lang === 'RU' ? 'Создатель' : 'Created by'}:
@@ -959,13 +963,30 @@ const MarketPage: React.FC<MarketPageProps> = ({
                       <button
                         type="button"
                         onClick={() => onOpenUserProfile(creatorId)}
-                        className="inline-flex items-center gap-1 text-zinc-200 underline underline-offset-4 hover:text-white"
+                        className="inline-flex items-center gap-2 text-zinc-200 underline underline-offset-4 hover:text-white"
                       >
-                        <UserIcon size={12} />
-                        {creatorLabel}
+                        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-zinc-900 bg-zinc-950/40 overflow-hidden">
+                          {creatorAvatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={creatorAvatarUrl} alt={creatorDisplayName} className="h-full w-full object-cover" />
+                          ) : (
+                            <UserIcon size={12} className="text-zinc-400" />
+                          )}
+                        </span>
+                        {creatorDisplayName}
                       </button>
                     ) : (
-                      <span className="text-zinc-200">{creatorLabel}</span>
+                      <span className="inline-flex items-center gap-2 text-zinc-200">
+                        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-zinc-900 bg-zinc-950/40 overflow-hidden">
+                          {creatorAvatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={creatorAvatarUrl} alt={creatorDisplayName} className="h-full w-full object-cover" />
+                          ) : (
+                            <UserIcon size={12} className="text-zinc-400" />
+                          )}
+                        </span>
+                        {creatorDisplayName}
+                      </span>
                     )}
                   </p>
                 )}
@@ -1450,7 +1471,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
             </h3>
             <div className="text-xs text-zinc-500 leading-relaxed space-y-4 font-mono">
               <p>{market.description}</p>
-              {creatorId && creatorLabel && (
+              {creatorId && creatorDisplayName && (
                 <p className="text-[11px] text-zinc-400">
                   <span className="uppercase tracking-wider text-zinc-500">
                     {lang === 'RU' ? 'Создатель' : 'Created by'}:
@@ -1459,13 +1480,30 @@ const MarketPage: React.FC<MarketPageProps> = ({
                     <button
                       type="button"
                       onClick={() => onOpenUserProfile(creatorId)}
-                      className="inline-flex items-center gap-1 text-zinc-200 underline underline-offset-4 hover:text-white"
+                      className="inline-flex items-center gap-2 text-zinc-200 underline underline-offset-4 hover:text-white"
                     >
-                      <UserIcon size={12} />
-                      {creatorLabel}
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-zinc-900 bg-zinc-950/40 overflow-hidden">
+                        {creatorAvatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={creatorAvatarUrl} alt={creatorDisplayName} className="h-full w-full object-cover" />
+                        ) : (
+                          <UserIcon size={12} className="text-zinc-400" />
+                        )}
+                      </span>
+                      {creatorDisplayName}
                     </button>
                   ) : (
-                    <span className="text-zinc-200">{creatorLabel}</span>
+                    <span className="inline-flex items-center gap-2 text-zinc-200">
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-zinc-900 bg-zinc-950/40 overflow-hidden">
+                        {creatorAvatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={creatorAvatarUrl} alt={creatorDisplayName} className="h-full w-full object-cover" />
+                        ) : (
+                          <UserIcon size={12} className="text-zinc-400" />
+                        )}
+                      </span>
+                      {creatorDisplayName}
+                    </span>
                   )}
                 </p>
               )}

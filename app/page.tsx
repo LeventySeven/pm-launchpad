@@ -73,12 +73,16 @@ type MarketApiRow = {
   priceYes: number;
   priceNo: number;
   volume: number;
+  chance?: number | null;
+  creatorName?: string | null;
+  creatorAvatarUrl?: string | null;
 };
 type MyMarketApiRow = MarketApiRow & { hasBets: boolean };
 
 const mapMarketApiToMarket = (m: MarketApiRow, lang: "RU" | "EN"): Market => {
   const title = lang === "RU" ? m.titleRu : m.titleEn;
-  const chance = Math.round(m.priceYes * 100);
+  const chanceSource = typeof m.chance === "number" ? m.chance : Math.round(m.priceYes * 100);
+  const chance = Number.isFinite(chanceSource) ? Math.round(chanceSource) : 50;
   return {
     id: String(m.id),
     title,
@@ -87,6 +91,8 @@ const mapMarketApiToMarket = (m: MarketApiRow, lang: "RU" | "EN"): Market => {
     state: m.state as Market["state"],
     outcome: m.outcome,
     createdBy: m.createdBy ?? null,
+    creatorName: m.creatorName ?? null,
+    creatorAvatarUrl: m.creatorAvatarUrl ?? null,
     createdAt: m.createdAt,
     categoryId: m.categoryId ?? null,
     categoryLabelRu: m.categoryLabelRu ?? null,
@@ -353,6 +359,7 @@ export default function HomePage() {
   const myBetsLoadingRef = useRef(false);
   const [myCommentsLoading, setMyCommentsLoading] = useState(false);
   const [myCommentsError, setMyCommentsError] = useState<string | null>(null);
+  const [profilePnlMajor, setProfilePnlMajor] = useState<number | null>(null);
   type MarketBookmark = { marketId: string; createdAt: string };
   const [myBookmarks, setMyBookmarks] = useState<MarketBookmark[]>([]);
   const [marketsLoadingMessage, setMarketsLoadingMessage] = useState<string | null>(null);
@@ -532,6 +539,9 @@ export default function HomePage() {
     referralCode?: string | null;
     referralCommissionRate?: number | null;
     referralEnabled?: boolean | null;
+    solanaWalletAddress?: string | null;
+    solanaCluster?: string | null;
+    solanaWalletConnectedAt?: string | null;
   }) => {
     setUser({
       id: String(me.id),
@@ -547,6 +557,9 @@ export default function HomePage() {
       referralCode: me.referralCode ?? null,
       referralCommissionRate: me.referralCommissionRate ?? null,
       referralEnabled: me.referralEnabled ?? null,
+      solanaWalletAddress: me.solanaWalletAddress ?? null,
+      solanaCluster: me.solanaCluster ?? null,
+      solanaWalletConnectedAt: me.solanaWalletConnectedAt ?? null,
     });
   }, []);
 
@@ -902,6 +915,14 @@ export default function HomePage() {
       if (walletBalanceRaw && typeof walletBalanceRaw.balanceMajor === "number") {
         setWalletBalanceMajor(walletBalanceRaw.balanceMajor);
       }
+      try {
+        const stats = await trpcClient.user.publicUserStats.query({ userId: user.id });
+        if (stats && typeof stats.pnlMajor === "number") {
+          setProfilePnlMajor(Number(stats.pnlMajor));
+        }
+      } catch (err) {
+        console.warn("Failed to refresh profile pnl", err);
+      }
     } catch (err) {
       const errorMsg = getErrorMessage(err);
       console.error("Failed to load positions/trades", { error: errorMsg, err, userId: user?.id });
@@ -1043,6 +1064,7 @@ export default function HomePage() {
       setMyBookmarks([]);
       setMyCreatedMarkets([]);
       setWalletBalanceMajor(null);
+      setProfilePnlMajor(null);
       return;
     }
     void loadMyBets();
@@ -1133,46 +1155,6 @@ export default function HomePage() {
       .filter((trade) => trade.action === "sell")
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [myTrades]);
-
-  const marketPriceById = useMemo(() => {
-    const map = new Map<string, { priceYes: number; priceNo: number; state: Market["state"]; outcome: "YES" | "NO" | null }>();
-    markets.forEach((market) => {
-      map.set(market.id, {
-        priceYes: Number(market.yesPrice),
-        priceNo: Number(market.noPrice),
-        state: market.state,
-        outcome: market.outcome ?? null,
-      });
-    });
-    return map;
-  }, [markets]);
-
-  // Calculate total PNL from realized + mark-to-market positions
-  const totalPnl = useMemo(() => {
-    // Realized PNL from sold trades
-    const realizedFromSells = soldTrades.reduce((acc, trade) => acc + Number(trade.realizedPnl ?? 0), 0);
-
-    const unrealized = myPositions.reduce((acc, pos) => {
-      const market = marketPriceById.get(pos.marketId);
-      if (!market) return acc;
-      const shares = Number(pos.shares ?? 0);
-      if (!Number.isFinite(shares) || shares <= 0) return acc;
-      const entry = Number(pos.avgEntryPrice ?? 0);
-      if (!Number.isFinite(entry)) return acc;
-      const resolved = market.state === "resolved" || Boolean(market.outcome);
-      const markPrice = resolved
-        ? market.outcome === pos.outcome
-          ? 1
-          : 0
-        : pos.outcome === "YES"
-        ? market.priceYes
-        : market.priceNo;
-      if (!Number.isFinite(markPrice)) return acc;
-      return acc + (markPrice - entry) * shares;
-    }, 0);
-
-    return realizedFromSells + unrealized;
-  }, [soldTrades, myPositions, marketPriceById]);
 
   const resolveMarketOutcome = useCallback(
     async ({ marketId, outcome }: { marketId: string; outcome: "YES" | "NO" }) => {
@@ -2453,7 +2435,7 @@ export default function HomePage() {
                     onUpdateDisplayName={handleUpdateDisplayName}
                     onUpdateAvatarUrl={handleUpdateAvatarUrl}
                     balanceMajor={walletBalanceMajor ?? user?.balance ?? 0}
-                    pnlMajor={totalPnl}
+                    pnlMajor={profilePnlMajor ?? 0}
                     bets={legacyBets}
                     betsLoading={myBetsLoading}
                     betsError={myBetsError}

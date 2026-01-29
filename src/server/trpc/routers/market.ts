@@ -23,6 +23,7 @@ const DEFAULT_ASSET = "VCOIN";
 const VCOIN_DECIMALS = 6;
 
 type MarketRow = Database["public"]["Tables"]["markets"]["Row"];
+type DbUserRow = Database["public"]["Tables"]["users"]["Row"];
 type AmmStateRow = Database["public"]["Tables"]["market_amm_state"]["Row"];
 type PositionRow = Database["public"]["Tables"]["positions"]["Row"];
 type TradeRow = Database["public"]["Tables"]["trades"]["Row"];
@@ -41,6 +42,7 @@ type MarketWithAmm = MarketRowForRead & {
 
 type WalletBalanceRowBase = Database["public"]["Tables"]["wallet_balances"]["Row"];
 type WalletBalanceRow = Pick<WalletBalanceRowBase, "balance_minor">;
+type CreatorMeta = { name: string | null; avatarUrl: string | null };
 
 type SolanaCluster = "devnet" | "testnet" | "mainnet-beta";
 
@@ -170,6 +172,7 @@ const deriveVolumeMajor = (amm: AmmStateRow | null, feeBps?: number | null) => {
 const mapMarketRow = (
   row: MarketWithAmm,
   categoryLabelsById?: Map<string, Pick<MarketCategoryRow, "label_ru" | "label_en">>,
+  creatorById?: Map<string, CreatorMeta>,
   volumeMajorOverride?: number
 ) => {
   const amm = row.market_amm_state;
@@ -179,6 +182,8 @@ const mapMarketRow = (
 
   const categoryId = row.category_id ?? null;
   const categoryLabels = categoryId ? categoryLabelsById?.get(categoryId) : undefined;
+  const creatorId = row.created_by ?? null;
+  const creatorMeta = creatorId ? creatorById?.get(creatorId) : undefined;
 
   return {
     id: row.id,
@@ -193,6 +198,8 @@ const mapMarketRow = (
     expiresAt: new Date(row.expires_at).toISOString(),
     outcome: row.resolve_outcome,
     createdBy: row.created_by ?? null,
+    creatorName: creatorMeta?.name ?? null,
+    creatorAvatarUrl: creatorMeta?.avatarUrl ?? null,
     categoryId,
     // Some DBs may not have category_label_* columns (they were referenced in code but not migrated).
     // Prefer current labels from market_categories; fall back to existing columns if present.
@@ -203,6 +210,7 @@ const mapMarketRow = (
     liquidityB: Number(row.liquidity_b),
     priceYes,
     priceNo,
+    chance: Math.round(priceYes * 100),
     volume: typeof volumeMajorOverride === "number" && Number.isFinite(volumeMajorOverride)
       ? volumeMajorOverride
       : deriveVolumeMajor(amm, row.fee_bps),
@@ -303,6 +311,8 @@ const marketOutput = z.object({
   expiresAt: z.string(),
   outcome: z.enum(["YES", "NO"]).nullable(),
   createdBy: z.string().nullable(),
+  creatorName: z.string().nullable(),
+  creatorAvatarUrl: z.string().nullable(),
   categoryId: z.string().nullable(),
   categoryLabelRu: z.string().nullable(),
   categoryLabelEn: z.string().nullable(),
@@ -311,6 +321,7 @@ const marketOutput = z.object({
   liquidityB: z.number(),
   priceYes: z.number(),
   priceNo: z.number(),
+  chance: z.number(),
   volume: z.number(),
 });
 
@@ -429,7 +440,27 @@ export const marketRouter = router({
         }
       }
 
-      return rows.map((r) => mapMarketRow(r, labelsById, volumeByMarketId.get(r.id)));
+      const creatorIds = Array.from(
+        new Set(rows.map((r) => r.created_by).filter((v): v is string => typeof v === "string" && v.length > 0))
+      );
+      const creatorsById = new Map<string, CreatorMeta>();
+      if (creatorIds.length > 0) {
+        const { data: creators, error: creatorsError } = await supabaseService
+          .from("users")
+          .select("id, display_name, username, avatar_url, telegram_photo_url")
+          .in("id", creatorIds);
+        if (!creatorsError && creators) {
+          (creators as Array<Pick<DbUserRow, "id" | "display_name" | "username" | "avatar_url" | "telegram_photo_url">>).forEach(
+            (u) => {
+              const name = u.display_name ?? u.username ?? null;
+              const avatarUrl = u.avatar_url ?? u.telegram_photo_url ?? null;
+              creatorsById.set(String(u.id), { name, avatarUrl });
+            }
+          );
+        }
+      }
+
+      return rows.map((r) => mapMarketRow(r, labelsById, creatorsById, volumeByMarketId.get(r.id)));
     }),
 
   getMarket: publicProcedure
@@ -486,7 +517,23 @@ export const marketRouter = router({
         }
       }
 
-      return mapMarketRow(row, labelsById, volumeMajor);
+      const creatorById = new Map<string, CreatorMeta>();
+      const creatorId = row.created_by;
+      if (creatorId) {
+        const { data: creator, error: creatorError } = await supabaseService
+          .from("users")
+          .select("id, display_name, username, avatar_url, telegram_photo_url")
+          .eq("id", creatorId)
+          .maybeSingle();
+        if (!creatorError && creator) {
+          const typed = creator as Pick<DbUserRow, "id" | "display_name" | "username" | "avatar_url" | "telegram_photo_url">;
+          const name = typed.display_name ?? typed.username ?? null;
+          const avatarUrl = typed.avatar_url ?? typed.telegram_photo_url ?? null;
+          creatorById.set(String(typed.id), { name, avatarUrl });
+        }
+      }
+
+      return mapMarketRow(row, labelsById, creatorById, volumeMajor);
     }),
 
   generateMarketContext: publicProcedure
@@ -1199,6 +1246,26 @@ export const marketRouter = router({
         }
       }
 
+      const creatorById = new Map<string, CreatorMeta>();
+      const creatorIds = Array.from(
+        new Set(rows.map((r) => r.created_by).filter((v): v is string => typeof v === "string" && v.length > 0))
+      );
+      if (creatorIds.length > 0) {
+        const { data: creators, error: creatorsError } = await supabaseService
+          .from("users")
+          .select("id, display_name, username, avatar_url, telegram_photo_url")
+          .in("id", creatorIds);
+        if (!creatorsError && creators) {
+          (creators as Array<Pick<DbUserRow, "id" | "display_name" | "username" | "avatar_url" | "telegram_photo_url">>).forEach(
+            (u) => {
+              const name = u.display_name ?? u.username ?? null;
+              const avatarUrl = u.avatar_url ?? u.telegram_photo_url ?? null;
+              creatorById.set(String(u.id), { name, avatarUrl });
+            }
+          );
+        }
+      }
+
       let betMarketIds = new Set<string>();
       if (marketIds.length > 0) {
         const { data: trades, error: tradesError } = await supabaseService
@@ -1215,7 +1282,7 @@ export const marketRouter = router({
       }
 
       return rows.map((r) => {
-        const mapped = mapMarketRow(r, labelsById);
+        const mapped = mapMarketRow(r, labelsById, creatorById);
         return {
           ...mapped,
           hasBets: betMarketIds.has(r.id),

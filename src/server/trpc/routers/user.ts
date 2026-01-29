@@ -390,7 +390,8 @@ export const userRouter = router({
       }
 
       const row = data as Pick<LeaderboardRow, "pnl_minor" | "bet_count" | "rank">;
-      let pnlMajor = toMajorUnits(Number(row.pnl_minor ?? 0), VCOIN_DECIMALS);
+      const ledgerPnlMajor = toMajorUnits(Number(row.pnl_minor ?? 0), VCOIN_DECIMALS);
+      let pnlMajor = ledgerPnlMajor;
 
       try {
         const { data: positionsData, error: positionsError } = await supabaseService
@@ -440,7 +441,7 @@ export const userRouter = router({
           const pnlByUser = buildMarkToMarketPnLByUser(positions, marketsById, ammByMarketId);
           const computed = pnlByUser.get(input.userId);
           if (typeof computed === "number" && Number.isFinite(computed)) {
-            pnlMajor = computed;
+            pnlMajor = ledgerPnlMajor + computed;
           }
         }
       } catch (err) {
@@ -946,11 +947,12 @@ export const userRouter = router({
         const name = (r.name || r.username || "").trim() || "Trader";
         const avatar = r.avatar_url || buildInitialsAvatarDataUrl(name, { bg: "#111111", fg: "#ffffff" });
         const userId = String(r.user_id);
+        const ledgerPnlMajor = toMajorUnits(Number(r.pnl_minor ?? 0), VCOIN_DECIMALS);
         const computedPnl = pnlByUser.get(userId);
         const pnlMajor =
           typeof computedPnl === "number" && Number.isFinite(computedPnl)
-            ? computedPnl
-            : toMajorUnits(Number(r.pnl_minor ?? 0), VCOIN_DECIMALS);
+            ? ledgerPnlMajor + computedPnl
+            : ledgerPnlMajor;
         return {
           id: userId,
           rank: Number(r.rank ?? 0),

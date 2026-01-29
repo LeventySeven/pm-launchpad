@@ -47,7 +47,7 @@ const usernameSchema = z
 const passwordSchema = z.string().min(8).max(128);
 
 const publicColumns =
-  "id, email, username, display_name, avatar_url, telegram_photo_url, referral_code, referral_commission_rate, referral_enabled, created_at, is_admin";
+  "id, email, username, display_name, avatar_url, telegram_photo_url, referral_code, referral_commission_rate, referral_enabled, created_at, is_admin, solana_wallet_address, solana_cluster, solana_wallet_connected_at";
 
 const USERS_TABLE = "users" as const;
 const WALLET_BALANCES_TABLE = "wallet_balances" as const;
@@ -154,6 +154,11 @@ const toPublicUser = (row: DbUserRow, balanceMinor: number = 0): PublicUser => (
   balance: toMajorUnits(balanceMinor, VCOIN_DECIMALS),
   createdAt: new Date(row.created_at).toISOString(),
   isAdmin: Boolean(row.is_admin),
+  solanaWalletAddress: row.solana_wallet_address ?? null,
+  solanaCluster: row.solana_cluster ?? null,
+  solanaWalletConnectedAt: row.solana_wallet_connected_at
+    ? new Date(row.solana_wallet_connected_at).toISOString()
+    : null,
 });
 
 export const authRouter = router({
