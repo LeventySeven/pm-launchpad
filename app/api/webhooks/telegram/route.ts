@@ -52,4 +52,4 @@ bot.callbackQuery("start", async (ctx) => {
   await replyWithStart(ctx);
 });
 
-export const POST = webhookCallback(bot, "std/http");
+export const POST = webhookCallback(bot, "http");
