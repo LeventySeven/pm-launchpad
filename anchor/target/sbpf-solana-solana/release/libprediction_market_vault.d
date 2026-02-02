@@ -1,0 +1,1 @@
+/Users/seventyleven/Projects/prediction-market-ru\ /prediction-market-ru/anchor/target/sbpf-solana-solana/release/libprediction_market_vault.rlib: /Users/seventyleven/Projects/prediction-market-ru\ /prediction-market-ru/anchor/programs/prediction_market_vault/src/lib.rs
