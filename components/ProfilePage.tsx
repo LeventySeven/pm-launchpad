@@ -138,7 +138,46 @@ const SolanaWalletSection: React.FC<{ lang: 'RU' | 'EN'; dbPubkey: string | null
   const displayPubkey = pubkey ?? dbPubkey;
   const isConnected = connected || Boolean(dbPubkey);
 
+  // Determine sync status
+  const isAdapterConnected = connected && pubkey;
+  const isDbLinked = Boolean(dbPubkey);
+  const isSynced = isAdapterConnected && isDbLinked && pubkey === dbPubkey;
+  const hasMismatch = isAdapterConnected && isDbLinked && pubkey !== dbPubkey;
+
   const truncate = (v: string) => `${v.slice(0, 6)}...${v.slice(-4)}`;
+
+  // Status badge
+  const getStatusBadge = () => {
+    if (isSynced) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 border border-green-500/30">
+          {lang === 'RU' ? 'Синхронизирован' : 'Synced'}
+        </span>
+      );
+    }
+    if (hasMismatch) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+          {lang === 'RU' ? 'Рассинхрон' : 'Mismatch'}
+        </span>
+      );
+    }
+    if (isAdapterConnected && !isDbLinked) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
+          {lang === 'RU' ? 'Сохранение...' : 'Linking...'}
+        </span>
+      );
+    }
+    if (!isAdapterConnected && isDbLinked) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-500/20 text-zinc-400 border border-zinc-500/30">
+          {lang === 'RU' ? 'В БД' : 'In DB'}
+        </span>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="mt-4 border border-zinc-900 bg-black rounded-2xl p-4">
@@ -148,8 +187,11 @@ const SolanaWalletSection: React.FC<{ lang: 'RU' | 'EN'; dbPubkey: string | null
             <Wallet size={18} className="text-zinc-400" />
           </div>
           <div className="min-w-0">
-            <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">
-              {lang === 'RU' ? 'Solana Wallet' : 'Solana Wallet'}
+            <div className="flex items-center gap-2 mb-1">
+              <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                {lang === 'RU' ? 'Solana Wallet' : 'Solana Wallet'}
+              </div>
+              {getStatusBadge()}
             </div>
             {isConnected && displayPubkey ? (
               <div className="space-y-1">
@@ -172,6 +214,14 @@ const SolanaWalletSection: React.FC<{ lang: 'RU' | 'EN'; dbPubkey: string | null
           />
         </div>
       </div>
+
+      {hasMismatch && (
+        <div className="mt-3 p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-xs text-yellow-400">
+          {lang === 'RU'
+            ? 'Подключенный кошелёк отличается от сохранённого. Переподключите кошелёк для синхронизации.'
+            : 'Connected wallet differs from saved. Reconnect wallet to sync.'}
+        </div>
+      )}
 
       <div className="mt-3 text-xs text-zinc-500">
         {lang === 'RU'
@@ -280,6 +330,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
     }
     if (msg.includes("UNAUTHORIZED") || msg.includes("NOT AUTHENTICATED")) {
       return lang === "RU" ? "Требуется повторная авторизация." : "Re-authentication required.";
+    }
+    if (msg.includes("ADMIN_ONLY_ONCHAIN") || msg.includes("ONCHAIN_UNAVAILABLE")) {
+      return lang === "RU" ? "Ончейн-операции временно недоступны." : "On-chain actions are temporarily unavailable.";
     }
     return lang === "RU" ? "Не удалось продать позицию" : "Failed to sell position";
   };

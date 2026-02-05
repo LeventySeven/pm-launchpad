@@ -27,6 +27,12 @@ import { buildInitialsAvatarDataUrl } from "@/lib/avatar";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
 import { Buffer } from "buffer";
+import { runDiagnostics } from "@/lib/debug/walletDiagnostics";
+
+// Expose diagnostics in development for easy console access
+if (typeof window !== "undefined") {
+  (window as unknown as { runWalletDiagnostics?: typeof runDiagnostics }).runWalletDiagnostics = runDiagnostics;
+}
 
 // VCOIN decimals for display
 const VCOIN_DECIMALS = 6;
@@ -242,10 +248,12 @@ export default function HomePage() {
       void (async () => {
         try {
           if (needsLink) {
+            console.log("[wallet-sync] Linking wallet:", walletPubkey, "cluster:", solanaCluster);
             const linked = await trpcClient.user.linkWallet.mutate({
               solanaWalletAddress: walletPubkey,
               solanaCluster,
             });
+            console.log("[wallet-sync] Wallet linked successfully:", linked);
             setUser((prev) =>
               prev
                 ? {
@@ -257,11 +265,22 @@ export default function HomePage() {
                 : prev
             );
           } else if (needsChainUpdate) {
+            console.log("[wallet-sync] Updating cluster to:", solanaCluster);
             await trpcClient.user.updateWalletChain.mutate({ solanaCluster });
             setUser((prev) => (prev ? { ...prev, solanaCluster } : prev));
+            console.log("[wallet-sync] Cluster updated successfully");
           }
         } catch (err) {
-          console.warn("wallet sync failed (ignored)", err);
+          const errMsg = getErrorMessage(err);
+          console.error("[wallet-sync] linkWallet failed:", errMsg, err);
+          // Surface specific errors to help debugging
+          if (errMsg.includes("WALLET_ALREADY_LINKED")) {
+            console.error("[wallet-sync] This wallet is already linked to a different user account. Clear it in DB or use a different wallet.");
+          } else if (errMsg.includes("UNAUTHORIZED")) {
+            console.error("[wallet-sync] User not authenticated - login required before linking wallet");
+          } else if (errMsg.includes("CONFLICT")) {
+            console.error("[wallet-sync] Conflict - wallet may be linked to another user");
+          }
         } finally {
           lastWalletSyncKey.current = syncKey;
           walletSyncInFlight.current = false;
@@ -610,6 +629,21 @@ export default function HomePage() {
     }
     if (upper.includes("INVALID_LIQUIDITY")) {
       return lang === "RU" ? "У рынка нет ликвидности для торговли." : "Market liquidity is invalid.";
+    }
+    if (upper.includes("SOLANA_WALLET_MISMATCH")) {
+      return lang === "RU"
+        ? "Кошелёк не привязан к аккаунту. Переподключите кошелёк."
+        : "Wallet not linked to your account. Please reconnect your wallet.";
+    }
+    if (upper.includes("ADMIN_ONLY_ONCHAIN") || upper.includes("ONCHAIN_UNAVAILABLE")) {
+      return lang === "RU"
+        ? "Ончейн-ставки временно недоступны."
+        : "On-chain bets are temporarily unavailable.";
+    }
+    if (upper.includes("WALLET_ALREADY_LINKED")) {
+      return lang === "RU"
+        ? "Этот кошелёк уже привязан к другому аккаунту."
+        : "This wallet is already linked to another account.";
     }
     if (upper.includes("ASSET_DISABLED")) {
       return lang === "RU" ? "Этот актив сейчас недоступен." : "Settlement asset is disabled.";
@@ -1611,8 +1645,8 @@ export default function HomePage() {
             newBalance: undefined,
             errorMessage:
               lang === "RU"
-                ? "Ончейн-ставки доступны только администраторам."
-                : "On-chain bets are currently enabled for admins only.",
+                ? "Ончейн-ставки временно недоступны."
+                : "On-chain bets are temporarily unavailable.",
             isLoading: false,
           });
           return;
@@ -1980,7 +2014,7 @@ export default function HomePage() {
 
       if (isOnChain) {
         if (!user.isAdmin) {
-          throw new Error("ADMIN_ONLY_ONCHAIN");
+          throw new Error("ONCHAIN_UNAVAILABLE");
         }
         if (!isWalletConnected || !publicKey) {
           throw new Error("WALLET_NOT_CONNECTED");
@@ -2041,7 +2075,7 @@ export default function HomePage() {
   }) => {
     if (!user) return;
     if (!user.isAdmin) {
-      throw new Error("ADMIN_ONLY_ONCHAIN");
+      throw new Error("ONCHAIN_UNAVAILABLE");
     }
     if (!isWalletConnected || !publicKey) {
       throw new Error("WALLET_NOT_CONNECTED");
