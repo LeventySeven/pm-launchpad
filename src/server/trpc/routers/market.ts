@@ -2478,6 +2478,7 @@ export const marketRouter = router({
         expiresAt: z.string(), // Accepts datetime-local format (YYYY-MM-DDTHH:MM)
         categoryId: z.string().min(1),
         imageUrl: z.string().optional().nullable(), // Optional image URL from Supabase storage
+        settlementAssetCode: z.enum(["VCOIN", "USDC"]).optional(),
       })
     )
     .output(
@@ -2535,6 +2536,25 @@ export const marketRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Source must be at least 3 characters" });
       }
 
+      const requestedAsset = (input.settlementAssetCode ?? DEFAULT_ASSET).toUpperCase();
+      if (!authUser.isAdmin && requestedAsset !== DEFAULT_ASSET) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only admins can create USDC markets",
+        });
+      }
+      const { data: assetRow, error: assetError } = await supabaseService
+        .from("assets")
+        .select("code, is_enabled")
+        .eq("code", requestedAsset)
+        .maybeSingle();
+      if (assetError) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: assetError.message });
+      }
+      if (!assetRow || assetRow.is_enabled !== true) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "ASSET_DISABLED" });
+      }
+
       // Insert market - title_rus is optional (nullable) for English-only markets
       const { data: market, error: marketError } = await (supabaseService as SupabaseDbClient)
         .from("markets")
@@ -2548,7 +2568,7 @@ export const marketRouter = router({
           closes_at: new Date(closesAtMs).toISOString(),
           expires_at: new Date(expiresAtMs).toISOString(),
           created_by: authUser.id,
-          settlement_asset_code: DEFAULT_ASSET,
+          settlement_asset_code: requestedAsset,
           fee_bps: 0,
           liquidity_b: 100,
           amm_type: "lmsr",

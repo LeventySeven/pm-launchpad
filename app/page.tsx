@@ -2826,6 +2826,7 @@ export default function HomePage() {
         categories={marketCategories}
         categoriesLoading={loadingMarketCategories}
         onReloadCategories={loadMarketCategories}
+        isAdmin={Boolean(user?.isAdmin)}
         onCreate={async (payload) => {
           try {
             await trpcClient.market.createMarket.mutate(payload);
@@ -2847,6 +2848,7 @@ export default function HomePage() {
         categories={marketCategories}
         categoriesLoading={loadingMarketCategories}
         onReloadCategories={loadMarketCategories}
+        isAdmin={Boolean(user?.isAdmin)}
         mode="edit"
         marketId={editMarketTarget?.id}
         initialValues={

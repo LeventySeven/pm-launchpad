@@ -11,6 +11,7 @@ type AdminMarketModalProps = {
   categories: MarketCategory[];
   categoriesLoading?: boolean;
   onReloadCategories?: () => void;
+  isAdmin?: boolean;
   mode?: "create" | "edit";
   marketId?: string;
   initialValues?: {
@@ -30,6 +31,7 @@ type AdminMarketModalProps = {
     expiresAt: string;
     categoryId: string;
     imageUrl?: string | null;
+    settlementAssetCode: "VCOIN" | "USDC";
   }) => Promise<void>;
   onUpdate?: (payload: {
     marketId: string;
@@ -50,6 +52,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
   categories,
   categoriesLoading = false,
   onReloadCategories,
+  isAdmin = false,
   mode = "create",
   marketId,
   initialValues,
@@ -64,6 +67,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [settlementAssetCode, setSettlementAssetCode] = useState<"VCOIN" | "USDC">("VCOIN");
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -91,6 +95,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
       setCategoryId(initialValues.categoryId ?? "");
       setImageUrl(initialValues.imageUrl ?? null);
       setImageFile(null);
+      setSettlementAssetCode("VCOIN");
     } else if (mode === "create") {
       setTitleEn("");
       setDescription("");
@@ -99,6 +104,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
       setCategoryId("");
       setImageFile(null);
       setImageUrl(null);
+      setSettlementAssetCode("VCOIN");
     }
   }, [isOpen, mode, initialValues]);
 
@@ -232,6 +238,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
         expiresAt,
         categoryId,
         imageUrl: finalImageUrl,
+        settlementAssetCode: isAdmin ? settlementAssetCode : "VCOIN",
       };
 
       if (mode === "edit") {
@@ -402,6 +409,38 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
                 </button>
               )}
             </div>
+
+            {mode === "create" && isAdmin && (
+              <div>
+                <label className="block text-xs font-bold text-white mb-2">
+                  {t("Актив расчёта", "Settlement asset")}
+                </label>
+                <div className="flex items-center gap-2">
+                  {(["VCOIN", "USDC"] as const).map((asset) => (
+                    <button
+                      key={asset}
+                      type="button"
+                      onClick={() => setSettlementAssetCode(asset)}
+                      className={`flex-1 h-10 rounded-xl border text-sm font-semibold transition ${
+                        settlementAssetCode === asset
+                          ? "border-[rgba(245,68,166,1)] text-white bg-[rgba(245,68,166,0.10)]"
+                          : "border-zinc-900 text-zinc-300 hover:text-white hover:border-zinc-700"
+                      }`}
+                    >
+                      {asset}
+                    </button>
+                  ))}
+                </div>
+                {settlementAssetCode === "USDC" && (
+                  <p className="mt-2 text-xs text-zinc-500">
+                    {t(
+                      "USDC сейчас в тестовом режиме — функция в разработке.",
+                      "USDC is in test mode — this feature is still in development."
+                    )}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-bold text-white mb-2">{t("Окончание события (UTC)", "Event end (UTC)")}</label>

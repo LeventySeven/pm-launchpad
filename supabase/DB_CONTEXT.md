@@ -1,6 +1,6 @@
 # Supabase DB Context (public)
 
-Generated at: `2026-01-29T06:57:00.817Z`
+Generated at: `2026-02-06T10:58:26.311Z`
 Supabase URL: `https://zebqsdwawldoehvupmtm.supabase.co`
 
 Refresh: `bun run supabase:schema`
@@ -285,7 +285,6 @@ Total: **29**
 - `asset_code`: `string(text)` — NOT NULL, PK, FK → assets.code
 - `balance_minor`: `integer(bigint)` — NOT NULL
 - `updated_at`: `string(timestamp with time zone)` — NOT NULL
-  - For admin-only Solana flows, balances are mirrored after confirmed on-chain transactions.
 
 ### `wallet_transactions`
 - `id`: `string(uuid)` — NOT NULL, PK
@@ -312,10 +311,10 @@ Total: **29**
 (These are the SQL files you deploy/apply in Supabase; names extracted from the repo, not from introspection.)
 
 - `db/functions/place_bet_tx.sql`
+  - `claim_winnings_onchain_tx`
   - `lmsr_cost_safe`
   - `lmsr_price_yes_safe`
-  - `place_bet_tx`
-  - `sell_position_tx`
   - `place_bet_onchain_tx`
+  - `place_bet_tx`
   - `sell_position_onchain_tx`
-  - `claim_winnings_onchain_tx`
+  - `sell_position_tx`
