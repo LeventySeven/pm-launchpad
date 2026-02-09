@@ -620,19 +620,12 @@ export default function HomePage() {
         .map((sig) => ({ publicKey: sig.publicKey, signature: sig.signature as Buffer }));
 
       if (typeof signTransaction === "function") {
-        const signed = await signTransaction(tx);
-        if (signed instanceof Transaction) {
-          for (const preserved of preservedSignatures) {
-            const existing = signed.signatures.find((sig) => sig.publicKey.equals(preserved.publicKey))?.signature;
-            if (!existing) {
-              signed.addSignature(preserved.publicKey, preserved.signature);
-            }
+        const signed: Transaction = await signTransaction(tx);
+        for (const preserved of preservedSignatures) {
+          const existing = signed.signatures.find((sig) => sig.publicKey.equals(preserved.publicKey))?.signature;
+          if (!existing) {
+            signed.addSignature(preserved.publicKey, preserved.signature);
           }
-          const signature = await connection.sendRawTransaction(signed.serialize());
-          if (!signature) {
-            throw new Error("SIGNATURE_EMPTY");
-          }
-          return signature;
         }
         const signature = await connection.sendRawTransaction(signed.serialize());
         if (!signature) {
