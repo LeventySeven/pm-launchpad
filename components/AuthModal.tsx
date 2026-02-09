@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { X, Mail, User, Lock, Send } from 'lucide-react';
 import Button from './Button';
 
@@ -252,23 +252,12 @@ const AuthModal: React.FC<AuthModalProps> = ({
     }
   }, [isOpen]);
 
-  const telegramBotLoginUrl = useMemo(() => {
+  const telegramBotUsername = useMemo(() => {
     const raw = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
     if (!raw) return null;
     const username = raw.trim().replace(/^@/, '');
-    if (!username) return null;
-    return `https://t.me/${username}?start=login`;
+    return username || null;
   }, []);
-
-  const handleTelegramBotLogin = () => {
-    if (!telegramBotLoginUrl) return;
-    try {
-      window.open(telegramBotLoginUrl, '_blank', 'noopener,noreferrer');
-    } catch {
-      window.location.href = telegramBotLoginUrl;
-    }
-    onClose();
-  };
 
   const handleTelegram = async () => {
     if (!telegramInitData || !onTelegramLogin) return;
@@ -332,7 +321,25 @@ const AuthModal: React.FC<AuthModalProps> = ({
   if (!isOpen) return null;
 
   const showTelegramInitButton = Boolean(telegramInitData && onTelegramLogin);
-  const showTelegramBotButton = Boolean(!showTelegramInitButton && telegramBotLoginUrl);
+  const showTelegramWidget = Boolean(!showTelegramInitButton && telegramBotUsername);
+
+  useEffect(() => {
+    if (!isOpen || !showTelegramWidget || !telegramBotUsername) return;
+    const root = document.getElementById('telegram-widget-root');
+    if (!root) return;
+    root.innerHTML = '';
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = 'https://telegram.org/js/telegram-widget.js?22';
+    script.setAttribute('data-telegram-login', telegramBotUsername);
+    script.setAttribute('data-size', 'large');
+    script.setAttribute('data-auth-url', `${window.location.origin}/api/auth/telegram-login`);
+    script.setAttribute('data-request-access', 'write');
+    root.appendChild(script);
+    return () => {
+      root.innerHTML = '';
+    };
+  }, [isOpen, showTelegramWidget, telegramBotUsername]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -362,17 +369,9 @@ const AuthModal: React.FC<AuthModalProps> = ({
             </button>
           </div>
         )}
-        {showTelegramBotButton && (
-          <div className="mb-5">
-            <button
-              type="button"
-              onClick={handleTelegramBotLogin}
-              disabled={loading}
-              className="w-full h-11 rounded-lg border border-zinc-800 bg-black text-white hover:bg-zinc-950 transition-colors inline-flex items-center justify-center gap-2 font-semibold"
-            >
-              <Send size={16} className="text-[rgba(245,68,166,1)] shrink-0" />
-              <span className="leading-none">{t.telegramButton}</span>
-            </button>
+        {showTelegramWidget && (
+          <div className="mb-5 flex justify-center">
+            <div id="telegram-widget-root" />
           </div>
         )}
 
