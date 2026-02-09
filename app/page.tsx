@@ -604,6 +604,9 @@ export default function HomePage() {
   const formatBetError = (msg?: string) => {
     if (!msg) return lang === "RU" ? "Не удалось поставить ставку" : "Failed to place bet";
     const upper = msg.toUpperCase();
+    const simPrefix = "SOLANA_SIMULATION_FAILED:";
+    const simIdx = upper.indexOf(simPrefix);
+    const simDetails = simIdx >= 0 ? msg.slice(simIdx + simPrefix.length).trim() : null;
     // Check for authentication errors first
     if (upper.includes("UNAUTHORIZED") || upper.includes("NOT AUTHENTICATED") || upper.includes("NOT_AUTHENTICATED")) {
       triggerRelogin();
@@ -629,6 +632,11 @@ export default function HomePage() {
     }
     if (upper.includes("INVALID_LIQUIDITY")) {
       return lang === "RU" ? "У рынка нет ликвидности для торговли." : "Market liquidity is invalid.";
+    }
+    if (simDetails) {
+      return lang === "RU"
+        ? `Ошибка симуляции транзакции: ${simDetails}`
+        : `Transaction simulation failed: ${simDetails}`;
     }
     if (upper.includes("SOLANA_WALLET_MISMATCH")) {
       return lang === "RU"

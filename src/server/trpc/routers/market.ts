@@ -1408,12 +1408,24 @@ export const marketRouter = router({
       }
 
       const connection = new Connection(getSolanaRpcUrl(), "confirmed");
+      if (shouldDebugSolanaTx()) {
+        console.log("[finalizeBet] signature", signature);
+        console.log("[finalizeBet] marketId", marketId);
+        console.log("[finalizeBet] user", storedPubkey);
+      }
       const tx = await connection.getTransaction(signature, {
         commitment: "confirmed",
         maxSupportedTransactionVersion: 0,
       });
       if (!tx) {
         throw new TRPCError({ code: "NOT_FOUND", message: "TX_NOT_FOUND" });
+      }
+      if (shouldDebugSolanaTx()) {
+        const meta = tx.meta as { err?: unknown; logMessages?: string[] } | null | undefined;
+        console.log("[finalizeBet] metaErr", meta?.err ?? null);
+        if (meta?.logMessages?.length) {
+          console.log("[finalizeBet] logs", meta.logMessages.join("\n"));
+        }
       }
 
       const programId = getPredictionMarketVaultProgramId();
@@ -1533,12 +1545,24 @@ export const marketRouter = router({
       }
 
       const connection = new Connection(getSolanaRpcUrl(), "confirmed");
+      if (shouldDebugSolanaTx()) {
+        console.log("[finalizeSell] signature", signature);
+        console.log("[finalizeSell] marketId", marketId);
+        console.log("[finalizeSell] user", storedPubkey);
+      }
       const tx = await connection.getTransaction(signature, {
         commitment: "confirmed",
         maxSupportedTransactionVersion: 0,
       });
       if (!tx) {
         throw new TRPCError({ code: "NOT_FOUND", message: "TX_NOT_FOUND" });
+      }
+      if (shouldDebugSolanaTx()) {
+        const meta = tx.meta as { err?: unknown; logMessages?: string[] } | null | undefined;
+        console.log("[finalizeSell] metaErr", meta?.err ?? null);
+        if (meta?.logMessages?.length) {
+          console.log("[finalizeSell] logs", meta.logMessages.join("\n"));
+        }
       }
 
       const programId = getPredictionMarketVaultProgramId();
@@ -1655,12 +1679,24 @@ export const marketRouter = router({
       }
 
       const connection = new Connection(getSolanaRpcUrl(), "confirmed");
+      if (shouldDebugSolanaTx()) {
+        console.log("[finalizeClaim] signature", signature);
+        console.log("[finalizeClaim] marketId", marketId);
+        console.log("[finalizeClaim] user", storedPubkey);
+      }
       const tx = await connection.getTransaction(signature, {
         commitment: "confirmed",
         maxSupportedTransactionVersion: 0,
       });
       if (!tx) {
         throw new TRPCError({ code: "NOT_FOUND", message: "TX_NOT_FOUND" });
+      }
+      if (shouldDebugSolanaTx()) {
+        const meta = tx.meta as { err?: unknown; logMessages?: string[] } | null | undefined;
+        console.log("[finalizeClaim] metaErr", meta?.err ?? null);
+        if (meta?.logMessages?.length) {
+          console.log("[finalizeClaim] logs", meta.logMessages.join("\n"));
+        }
       }
 
       const programId = getPredictionMarketVaultProgramId();
