@@ -471,6 +471,7 @@ export default function HomePage() {
   const [publicProfilePnl, setPublicProfilePnl] = useState(0);
   const [publicProfileComments, setPublicProfileComments] = useState<PublicProfileComment[]>([]);
   const [publicProfileBets, setPublicProfileBets] = useState<PublicProfileBet[]>([]);
+  const [lastOnchainTxBase64, setLastOnchainTxBase64] = useState<string | null>(null);
   type MarketCategoryStrict = { id: string; labelRu: string; labelEn: string };
   const [marketCategories, setMarketCategories] = useState<MarketCategoryStrict[]>([]);
   const [loadingMarketCategories, setLoadingMarketCategories] = useState(false);
@@ -613,6 +614,73 @@ export default function HomePage() {
     setReloginRequired(false);
   }, []);
 
+  const debugOnchainTx = useCallback(
+    async (txBase64?: string) => {
+      const base64 = (txBase64 || lastOnchainTxBase64 || "").trim();
+      if (!base64) {
+        console.warn("[debugOnchainTx] No transaction available. Place a USDC bet first.");
+        return null;
+      }
+      let tx: Transaction;
+      try {
+        tx = Transaction.from(Buffer.from(base64, "base64"));
+      } catch (err) {
+        console.error("[debugOnchainTx] Failed to parse txBase64", err);
+        return null;
+      }
+
+      console.log("\n========================================");
+      console.log("🔍 ONCHAIN TX DEBUG");
+      console.log("========================================\n");
+      console.log("Base64 length:", base64.length);
+      console.log("Fee payer:", tx.feePayer?.toBase58() || "N/A");
+      console.log("Recent blockhash:", tx.recentBlockhash || "N/A");
+      console.log("Instruction count:", tx.instructions.length);
+      console.log(
+        "Signatures:",
+        tx.signatures.map((s) => ({
+          pubkey: s.publicKey.toBase58(),
+          hasSignature: Boolean(s.signature),
+        }))
+      );
+
+      if (typeof signTransaction === "function") {
+        console.log("\nAttempting wallet signature (will prompt wallet)...");
+        try {
+          const preservedSignatures = tx.signatures
+            .filter((sig) => sig.signature)
+            .map((sig) => ({ publicKey: sig.publicKey, signature: sig.signature as Buffer }));
+          const signed: Transaction = await signTransaction(tx);
+          for (const preserved of preservedSignatures) {
+            const existing = signed.signatures.find((sig) => sig.publicKey.equals(preserved.publicKey))?.signature;
+            if (!existing) {
+              signed.addSignature(preserved.publicKey, preserved.signature);
+            }
+          }
+          const walletSigned = publicKey
+            ? Boolean(signed.signatures.find((sig) => sig.publicKey.equals(publicKey))?.signature)
+            : false;
+          console.log("Wallet signature present:", walletSigned);
+          console.log(
+            "Signed signatures:",
+            signed.signatures.map((s) => ({
+              pubkey: s.publicKey.toBase58(),
+              hasSignature: Boolean(s.signature),
+            }))
+          );
+        } catch (err) {
+          console.error("[debugOnchainTx] Wallet signing failed", err);
+        }
+      } else {
+        console.warn("[debugOnchainTx] signTransaction not available on this wallet adapter.");
+      }
+      console.log("\n========================================\n");
+
+      return tx;
+    },
+    [lastOnchainTxBase64, publicKey, signTransaction]
+  );
+
   const sendOnchainTransaction = useCallback(
     async (tx: Transaction) => {
       const preservedSignatures = tx.signatures
@@ -648,6 +716,11 @@ export default function HomePage() {
     },
     [connection, publicKey, sendTransaction, signTransaction]
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    (window as unknown as { debugOnchainTx?: typeof debugOnchainTx }).debugOnchainTx = debugOnchainTx;
+  }, [debugOnchainTx]);
 
   const handleTelegramLogin = useCallback(async (initData: string) => {
     const res = await trpcClient.auth.telegramLogin.mutate({ initData });
@@ -1767,13 +1840,14 @@ export default function HomePage() {
           return;
         }
 
-        const res = await trpcClient.market.prepareBet.mutate({
+      const res = await trpcClient.market.prepareBet.mutate({
           marketId,
           side,
           amount,
           assetCode: "USDC",
           userPubkey: publicKey.toBase58(),
         });
+      setLastOnchainTxBase64(res.txBase64);
 
         debugStage = "sendTransaction";
         const tx = Transaction.from(Buffer.from(res.txBase64, "base64"));
@@ -2123,6 +2197,7 @@ export default function HomePage() {
           assetCode: "USDC",
           userPubkey: publicKey.toBase58(),
         });
+        setLastOnchainTxBase64(res.txBase64);
         const tx = Transaction.from(Buffer.from(res.txBase64, "base64"));
         const signature = await sendOnchainTransaction(tx);
         await connection.confirmTransaction(signature, "confirmed");
@@ -2182,6 +2257,7 @@ export default function HomePage() {
       assetCode: "USDC",
       userPubkey: publicKey.toBase58(),
     });
+    setLastOnchainTxBase64(res.txBase64);
     const tx = Transaction.from(Buffer.from(res.txBase64, "base64"));
     const signature = await sendOnchainTransaction(tx);
     await connection.confirmTransaction(signature, "confirmed");

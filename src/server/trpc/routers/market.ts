@@ -1101,7 +1101,7 @@ export const marketRouter = router({
       }
 
       if (shouldSimulateSolanaTx()) {
-        const sim = await connection.simulateTransaction(tx, [quoteAuthority]);
+        const sim = await connection.simulateTransaction(tx, { commitment: "confirmed", sigVerify: false });
         if (sim.value.err) {
           const logs = sim.value.logs?.join("\n") || "no logs";
           throw new TRPCError({
@@ -1244,7 +1244,7 @@ export const marketRouter = router({
       }
 
       if (shouldSimulateSolanaTx()) {
-        const sim = await connection.simulateTransaction(tx, [quoteAuthority]);
+        const sim = await connection.simulateTransaction(tx, { commitment: "confirmed", sigVerify: false });
         if (sim.value.err) {
           const logs = sim.value.logs?.join("\n") || "no logs";
           throw new TRPCError({
