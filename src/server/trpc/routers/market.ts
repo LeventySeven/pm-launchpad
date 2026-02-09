@@ -204,11 +204,7 @@ const resolveAssetDecimals = async (supabase: SupabaseDbClient, assetCode: strin
 };
 
 const shouldSimulateSolanaTx = (): boolean => {
-  return String(process.env.SOLANA_SIMULATE_TX || "").toLowerCase() === "true";
-};
-
-const shouldDebugSolanaTx = (): boolean => {
-  return String(process.env.SOLANA_DEBUG_TX || "").toLowerCase() === "true";
+  return false;
 };
 
 type PositionWithMarket = PositionRow & {
@@ -999,16 +995,6 @@ export const marketRouter = router({
       const quoteAuthority = loadQuoteAuthorityKeypair();
 
       const connection = new Connection(getSolanaRpcUrl(), "confirmed");
-      if (shouldDebugSolanaTx()) {
-        console.log("[prepareBet] programId", programId.toBase58());
-        console.log("[prepareBet] marketId", marketId);
-        console.log("[prepareBet] user", userKey.toBase58());
-        console.log("[prepareBet] quoteAuthority", quoteAuthority.publicKey.toBase58());
-        console.log("[prepareBet] usdcMint", usdcMint.toBase58());
-        console.log("[prepareBet] userUsdcAta", userUsdcAta.toBase58());
-        console.log("[prepareBet] marketVaultAta", marketVaultAta.toBase58());
-        console.log("[prepareBet] feeRecipientAta", feeRecipientAta.toBase58());
-      }
       const ataInfos = await connection.getMultipleAccountsInfo([userUsdcAta, marketVaultAta, feeRecipientAta]);
       const ataInstructions: TransactionInstruction[] = [];
       if (!ataInfos[0]) {
@@ -1094,12 +1080,6 @@ export const marketRouter = router({
       const { blockhash } = await connection.getLatestBlockhash("confirmed");
       const tx = new Transaction({ feePayer: userKey, recentBlockhash: blockhash }).add(...instructions);
       tx.partialSign(quoteAuthority);
-      if (shouldDebugSolanaTx()) {
-        console.log("[prepareBet] instructionCount", instructions.length);
-        console.log("[prepareBet] signatures", tx.signatures.map((s) => s.publicKey.toBase58()));
-        console.log("[prepareBet] recentBlockhash", blockhash);
-      }
-
       if (shouldSimulateSolanaTx()) {
         try {
           const sim = await connection.simulateTransaction(tx, [quoteAuthority]);
@@ -1114,9 +1094,6 @@ export const marketRouter = router({
           const msg = err instanceof Error ? err.message : String(err);
           if (!msg.toLowerCase().includes("!signature")) {
             throw err;
-          }
-          if (shouldDebugSolanaTx()) {
-            console.log("[prepareBet] simulation skipped: missing user signature");
           }
         }
       }
@@ -1220,15 +1197,6 @@ export const marketRouter = router({
 
       const outcome = side === "YES" ? 1 : 2;
       const quoteAuthority = loadQuoteAuthorityKeypair();
-      if (shouldDebugSolanaTx()) {
-        console.log("[prepareSell] programId", programId.toBase58());
-        console.log("[prepareSell] marketId", marketId);
-        console.log("[prepareSell] user", userKey.toBase58());
-        console.log("[prepareSell] quoteAuthority", quoteAuthority.publicKey.toBase58());
-        console.log("[prepareSell] usdcMint", usdcMint.toBase58());
-        console.log("[prepareSell] userUsdcAta", userUsdcAta.toBase58());
-        console.log("[prepareSell] marketVaultAta", marketVaultAta.toBase58());
-      }
       const ix = new TransactionInstruction({
         programId,
         keys: [
@@ -1249,10 +1217,6 @@ export const marketRouter = router({
       const { blockhash } = await connection.getLatestBlockhash("confirmed");
       const tx = new Transaction({ feePayer: userKey, recentBlockhash: blockhash }).add(ix);
       tx.partialSign(quoteAuthority);
-      if (shouldDebugSolanaTx()) {
-        console.log("[prepareSell] recentBlockhash", blockhash);
-      }
-
       if (shouldSimulateSolanaTx()) {
         try {
           const sim = await connection.simulateTransaction(tx, [quoteAuthority]);
@@ -1267,9 +1231,6 @@ export const marketRouter = router({
           const msg = err instanceof Error ? err.message : String(err);
           if (!msg.toLowerCase().includes("!signature")) {
             throw err;
-          }
-          if (shouldDebugSolanaTx()) {
-            console.log("[prepareSell] simulation skipped: missing user signature");
           }
         }
       }
@@ -1428,24 +1389,12 @@ export const marketRouter = router({
       }
 
       const connection = new Connection(getSolanaRpcUrl(), "confirmed");
-      if (shouldDebugSolanaTx()) {
-        console.log("[finalizeBet] signature", signature);
-        console.log("[finalizeBet] marketId", marketId);
-        console.log("[finalizeBet] user", storedPubkey);
-      }
       const tx = await connection.getTransaction(signature, {
         commitment: "confirmed",
         maxSupportedTransactionVersion: 0,
       });
       if (!tx) {
         throw new TRPCError({ code: "NOT_FOUND", message: "TX_NOT_FOUND" });
-      }
-      if (shouldDebugSolanaTx()) {
-        const meta = tx.meta as { err?: unknown; logMessages?: string[] } | null | undefined;
-        console.log("[finalizeBet] metaErr", meta?.err ?? null);
-        if (meta?.logMessages?.length) {
-          console.log("[finalizeBet] logs", meta.logMessages.join("\n"));
-        }
       }
 
       const programId = getPredictionMarketVaultProgramId();
@@ -1565,24 +1514,12 @@ export const marketRouter = router({
       }
 
       const connection = new Connection(getSolanaRpcUrl(), "confirmed");
-      if (shouldDebugSolanaTx()) {
-        console.log("[finalizeSell] signature", signature);
-        console.log("[finalizeSell] marketId", marketId);
-        console.log("[finalizeSell] user", storedPubkey);
-      }
       const tx = await connection.getTransaction(signature, {
         commitment: "confirmed",
         maxSupportedTransactionVersion: 0,
       });
       if (!tx) {
         throw new TRPCError({ code: "NOT_FOUND", message: "TX_NOT_FOUND" });
-      }
-      if (shouldDebugSolanaTx()) {
-        const meta = tx.meta as { err?: unknown; logMessages?: string[] } | null | undefined;
-        console.log("[finalizeSell] metaErr", meta?.err ?? null);
-        if (meta?.logMessages?.length) {
-          console.log("[finalizeSell] logs", meta.logMessages.join("\n"));
-        }
       }
 
       const programId = getPredictionMarketVaultProgramId();
@@ -1699,24 +1636,12 @@ export const marketRouter = router({
       }
 
       const connection = new Connection(getSolanaRpcUrl(), "confirmed");
-      if (shouldDebugSolanaTx()) {
-        console.log("[finalizeClaim] signature", signature);
-        console.log("[finalizeClaim] marketId", marketId);
-        console.log("[finalizeClaim] user", storedPubkey);
-      }
       const tx = await connection.getTransaction(signature, {
         commitment: "confirmed",
         maxSupportedTransactionVersion: 0,
       });
       if (!tx) {
         throw new TRPCError({ code: "NOT_FOUND", message: "TX_NOT_FOUND" });
-      }
-      if (shouldDebugSolanaTx()) {
-        const meta = tx.meta as { err?: unknown; logMessages?: string[] } | null | undefined;
-        console.log("[finalizeClaim] metaErr", meta?.err ?? null);
-        if (meta?.logMessages?.length) {
-          console.log("[finalizeClaim] logs", meta.logMessages.join("\n"));
-        }
       }
 
       const programId = getPredictionMarketVaultProgramId();

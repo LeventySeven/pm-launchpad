@@ -37,7 +37,6 @@ if (typeof window !== "undefined") {
 // VCOIN decimals for display
 const VCOIN_DECIMALS = 6;
 const toMajorUnits = (minor: number) => minor / Math.pow(10, VCOIN_DECIMALS);
-const SHOW_SOLANA_DEBUG_UI = String(process.env.NEXT_PUBLIC_SOLANA_DEBUG_UI || "").toLowerCase() === "true";
 
 type ErrorLike = string | Error | { message?: string; data?: { message?: string } } | null | undefined;
 const getErrorMessage = (error: ErrorLike): string => {
@@ -58,22 +57,6 @@ const getErrorMessage = (error: ErrorLike): string => {
   }
 };
 
-const getErrorDebugDetails = (error: unknown): string | null => {
-  if (!SHOW_SOLANA_DEBUG_UI) return null;
-  if (!error || typeof error !== "object") return null;
-  const err = error as {
-    message?: unknown;
-    data?: { message?: unknown };
-    shape?: { message?: unknown };
-    cause?: { message?: unknown };
-  };
-  const parts: string[] = [];
-  if (typeof err.message === "string") parts.push(`message=${err.message}`);
-  if (typeof err.data?.message === "string") parts.push(`data.message=${err.data.message}`);
-  if (typeof err.shape?.message === "string") parts.push(`shape.message=${err.shape.message}`);
-  if (typeof err.cause?.message === "string") parts.push(`cause.message=${err.cause.message}`);
-  return parts.length ? parts.join(" | ") : null;
-};
 
 type MarketApiRow = {
   id: string;
@@ -1734,7 +1717,6 @@ export default function HomePage() {
     side: "YES" | "NO";
     marketTitle: string;
   }) => {
-    let debugStage: string | undefined;
     try {
       // Open the modal immediately so UX is snappy; we’ll flip it to success/error when done.
       setBetConfirm({
@@ -1787,7 +1769,6 @@ export default function HomePage() {
       }
 
       if (isOnChain) {
-        debugStage = "prepareBet";
         if (!user.isAdmin) {
           setBetConfirm({
             open: true,
@@ -1849,16 +1830,13 @@ export default function HomePage() {
         });
       setLastOnchainTxBase64(res.txBase64);
 
-        debugStage = "sendTransaction";
         const tx = Transaction.from(Buffer.from(res.txBase64, "base64"));
         const signature = await sendOnchainTransaction(tx);
         if (!signature) {
           throw new Error("SIGNATURE_EMPTY");
         }
-        debugStage = "confirmTransaction";
         await connection.confirmTransaction(signature, "confirmed");
 
-        debugStage = "finalizeBet";
         const finalized = await trpcClient.market.finalizeBet.mutate({
           marketId,
           signature,
@@ -1911,11 +1889,6 @@ export default function HomePage() {
     } catch (err) {
       console.error("placeBet failed", err);
       const friendly = formatBetError(getErrorMessage(err));
-      const debugDetails = getErrorDebugDetails(err);
-      const debugStageInfo =
-        SHOW_SOLANA_DEBUG_UI && typeof debugStage !== "undefined" ? `stage=${debugStage}` : null;
-      const debugSuffix = [debugStageInfo, debugDetails].filter(Boolean).join(" | ");
-      const messageWithDebug = debugSuffix ? `${friendly}\n[debug] ${debugSuffix}` : friendly;
       await loadMarkets();
       const refreshedUser = await refreshUser();
       await loadMyBets();
@@ -1925,7 +1898,7 @@ export default function HomePage() {
         side,
         amount,
         newBalance: refreshedUser?.balance ?? user?.balance,
-        errorMessage: messageWithDebug,
+        errorMessage: friendly,
         isLoading: false,
       });
     }
