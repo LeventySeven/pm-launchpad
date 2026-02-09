@@ -627,6 +627,12 @@ export default function HomePage() {
             signed.addSignature(preserved.publicKey, preserved.signature);
           }
         }
+        if (publicKey) {
+          const walletSignature = signed.signatures.find((sig) => sig.publicKey.equals(publicKey))?.signature;
+          if (!walletSignature) {
+            throw new Error("WALLET_SIGNATURE_MISSING");
+          }
+        }
         const signature = await connection.sendRawTransaction(signed.serialize());
         if (!signature) {
           throw new Error("SIGNATURE_EMPTY");
@@ -640,7 +646,7 @@ export default function HomePage() {
       }
       return signature;
     },
-    [connection, sendTransaction, signTransaction]
+    [connection, publicKey, sendTransaction, signTransaction]
   );
 
   const handleTelegramLogin = useCallback(async (initData: string) => {
@@ -695,6 +701,11 @@ export default function HomePage() {
       return lang === "RU"
         ? "Ончейн-ставки временно недоступны."
         : "On-chain bets are temporarily unavailable.";
+    }
+    if (upper.includes("WALLET_SIGNATURE_MISSING")) {
+      return lang === "RU"
+        ? "Кошелёк не подписал транзакцию. Подтвердите подпись в кошельке и попробуйте снова."
+        : "Wallet did not sign the transaction. Approve the signature in your wallet and try again.";
     }
     if (upper.includes("SIGNATURE_EMPTY") || upper.includes("!SIGNATURE")) {
       return lang === "RU"
