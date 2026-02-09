@@ -36,6 +36,16 @@ const getTelegramLoginUrl = () => {
   return url.toString();
 };
 
+const getBotUsername = () => {
+  const raw =
+    process.env.TELEGRAM_BOT_USERNAME ||
+    process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ||
+    process.env.NEXT_PUBLIC_TELEGRAM_MINIAPP_SHORTNAME;
+  if (!raw) return null;
+  const username = raw.trim().replace(/^@/, "");
+  return username || null;
+};
+
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
   throw new Error("TELEGRAM_BOT_TOKEN is not configured");
@@ -44,15 +54,20 @@ if (!token) {
 const bot = new Bot(token);
 
 const replyWithLogin = async (ctx: Context) => {
+  const botUsername = getBotUsername();
+  const loginUrl = {
+    url: getTelegramLoginUrl(),
+    ...(botUsername ? { bot_username: botUsername } : {}),
+    request_write_access: true,
+  } as const;
+
   await ctx.reply("Authorize to log in on the website:", {
     reply_markup: {
       inline_keyboard: [
         [
           {
             text: "Authorize",
-            login_url: {
-              url: getTelegramLoginUrl(),
-            },
+            login_url: loginUrl,
           },
         ],
       ],
