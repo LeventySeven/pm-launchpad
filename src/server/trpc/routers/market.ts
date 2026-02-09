@@ -1101,13 +1101,23 @@ export const marketRouter = router({
       }
 
       if (shouldSimulateSolanaTx()) {
-        const sim = await connection.simulateTransaction(tx, { commitment: "confirmed", sigVerify: false });
-        if (sim.value.err) {
-          const logs = sim.value.logs?.join("\n") || "no logs";
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: `SOLANA_SIMULATION_FAILED: ${JSON.stringify(sim.value.err)} | ${logs}`,
-          });
+        try {
+          const sim = await connection.simulateTransaction(tx, [quoteAuthority]);
+          if (sim.value.err) {
+            const logs = sim.value.logs?.join("\n") || "no logs";
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: `SOLANA_SIMULATION_FAILED: ${JSON.stringify(sim.value.err)} | ${logs}`,
+            });
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (!msg.toLowerCase().includes("!signature")) {
+            throw err;
+          }
+          if (shouldDebugSolanaTx()) {
+            console.log("[prepareBet] simulation skipped: missing user signature");
+          }
         }
       }
 
@@ -1244,13 +1254,23 @@ export const marketRouter = router({
       }
 
       if (shouldSimulateSolanaTx()) {
-        const sim = await connection.simulateTransaction(tx, { commitment: "confirmed", sigVerify: false });
-        if (sim.value.err) {
-          const logs = sim.value.logs?.join("\n") || "no logs";
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: `SOLANA_SIMULATION_FAILED: ${JSON.stringify(sim.value.err)} | ${logs}`,
-          });
+        try {
+          const sim = await connection.simulateTransaction(tx, [quoteAuthority]);
+          if (sim.value.err) {
+            const logs = sim.value.logs?.join("\n") || "no logs";
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: `SOLANA_SIMULATION_FAILED: ${JSON.stringify(sim.value.err)} | ${logs}`,
+            });
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (!msg.toLowerCase().includes("!signature")) {
+            throw err;
+          }
+          if (shouldDebugSolanaTx()) {
+            console.log("[prepareSell] simulation skipped: missing user signature");
+          }
         }
       }
 
