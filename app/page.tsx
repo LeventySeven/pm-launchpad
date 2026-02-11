@@ -743,6 +743,16 @@ export default function HomePage() {
     if (upper.includes("INVALID_LIQUIDITY")) {
       return lang === "RU" ? "У рынка нет ликвидности для торговли." : "Market liquidity is invalid.";
     }
+    if (upper.includes("RATE_LIMIT_EXCEEDED")) {
+      return lang === "RU"
+        ? "Лимит создания рынков: до 3 новых рынков за 30 минут."
+        : "Market creation limit reached: up to 3 new markets per 30 minutes.";
+    }
+    if (upper.includes("TX_FAILED_ONCHAIN")) {
+      return lang === "RU"
+        ? "Транзакция в сети Solana не прошла. Проверьте баланс USDC и попробуйте снова."
+        : "On-chain Solana transaction failed. Check your USDC balance and try again.";
+    }
     if (simDetails) {
       return lang === "RU"
         ? `Ошибка симуляции транзакции: ${simDetails}`

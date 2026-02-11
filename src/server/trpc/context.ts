@@ -7,6 +7,17 @@ import type { Database } from "../../types/database";
 
 export const createContext = async (opts: { req: Request }) => {
   const responseHeaders: Record<string, string | string[]> = {};
+  const appendHeader = (key: string, value: string) => {
+    const existing = responseHeaders[key];
+    if (!existing) {
+      responseHeaders[key] = value;
+    } else if (Array.isArray(existing)) {
+      responseHeaders[key] = [...existing, value];
+    } else {
+      responseHeaders[key] = [existing, value];
+    }
+  };
+
   const cookies = parseCookies(opts.req);
   const supabaseAccessToken = cookies["sb_access_token"];
   const supabase: SupabaseClient<Database, "public"> = createSupabaseUserClient(supabaseAccessToken);
@@ -63,17 +74,6 @@ export const createContext = async (opts: { req: Request }) => {
       });
     }
   }
-
-  const appendHeader = (key: string, value: string) => {
-    const existing = responseHeaders[key];
-    if (!existing) {
-      responseHeaders[key] = value;
-    } else if (Array.isArray(existing)) {
-      responseHeaders[key] = [...existing, value];
-    } else {
-      responseHeaders[key] = [existing, value];
-    }
-  };
 
   return {
     supabase,

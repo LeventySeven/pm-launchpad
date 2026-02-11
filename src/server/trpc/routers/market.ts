@@ -983,19 +983,12 @@ export const marketRouter = router({
         TOKEN_PROGRAM_ID,
         ASSOCIATED_TOKEN_PROGRAM_ID
       );
-      const feeRecipientAta = getAssociatedTokenAddressSync(
-        usdcMint,
-        configPda,
-        true,
-        TOKEN_PROGRAM_ID,
-        ASSOCIATED_TOKEN_PROGRAM_ID
-      );
 
       const outcome = side === "YES" ? 1 : 2;
       const quoteAuthority = loadQuoteAuthorityKeypair();
 
       const connection = new Connection(getSolanaRpcUrl(), "confirmed");
-      const ataInfos = await connection.getMultipleAccountsInfo([userUsdcAta, marketVaultAta, feeRecipientAta]);
+      const ataInfos = await connection.getMultipleAccountsInfo([userUsdcAta, marketVaultAta]);
       const ataInstructions: TransactionInstruction[] = [];
       if (!ataInfos[0]) {
         ataInstructions.push(
@@ -1021,18 +1014,6 @@ export const marketRouter = router({
           )
         );
       }
-      if (!ataInfos[2]) {
-        ataInstructions.push(
-          createAssociatedTokenAccountInstruction(
-            userKey,
-            feeRecipientAta,
-            configPda,
-            usdcMint,
-            TOKEN_PROGRAM_ID,
-            ASSOCIATED_TOKEN_PROGRAM_ID
-          )
-        );
-      }
       const marketAccount = await connection.getAccountInfo(marketPda);
       const instructions: TransactionInstruction[] = [];
       if (!marketAccount) {
@@ -1044,11 +1025,6 @@ export const marketRouter = router({
               { pubkey: marketPda, isSigner: false, isWritable: true },
               { pubkey: userMarketCreationPda, isSigner: false, isWritable: true },
               { pubkey: configPda, isSigner: false, isWritable: false },
-              { pubkey: userUsdcAta, isSigner: false, isWritable: true },
-              { pubkey: feeRecipientAta, isSigner: false, isWritable: true },
-              { pubkey: usdcMint, isSigner: false, isWritable: false },
-              { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-              { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
               { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
             ],
             data: encodeCreateMarketIxData(marketUuidBytes),
@@ -1396,6 +1372,12 @@ export const marketRouter = router({
       if (!tx) {
         throw new TRPCError({ code: "NOT_FOUND", message: "TX_NOT_FOUND" });
       }
+      if (tx.meta?.err) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `TX_FAILED_ONCHAIN: ${JSON.stringify(tx.meta.err)}`,
+        });
+      }
 
       const programId = getPredictionMarketVaultProgramId();
       const decoded = findProgramInstruction(tx, programId, PLACE_BET_DISCRIMINATOR);
@@ -1453,6 +1435,7 @@ export const marketRouter = router({
         p_shares: sharesMajor,
         p_price_before: priceBeforeYes,
         p_price_after: priceAfterYes,
+        p_user_id: authUser.id,
       });
       if (error) {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
@@ -1521,6 +1504,12 @@ export const marketRouter = router({
       if (!tx) {
         throw new TRPCError({ code: "NOT_FOUND", message: "TX_NOT_FOUND" });
       }
+      if (tx.meta?.err) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `TX_FAILED_ONCHAIN: ${JSON.stringify(tx.meta.err)}`,
+        });
+      }
 
       const programId = getPredictionMarketVaultProgramId();
       const decoded = findProgramInstruction(tx, programId, SELL_POSITION_DISCRIMINATOR);
@@ -1578,6 +1567,7 @@ export const marketRouter = router({
         p_payout_minor: Number(payoutMinor),
         p_price_before: priceBeforeYes,
         p_price_after: priceAfterYes,
+        p_user_id: authUser.id,
       });
       if (error) {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
@@ -1642,6 +1632,12 @@ export const marketRouter = router({
       });
       if (!tx) {
         throw new TRPCError({ code: "NOT_FOUND", message: "TX_NOT_FOUND" });
+      }
+      if (tx.meta?.err) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `TX_FAILED_ONCHAIN: ${JSON.stringify(tx.meta.err)}`,
+        });
       }
 
       const programId = getPredictionMarketVaultProgramId();

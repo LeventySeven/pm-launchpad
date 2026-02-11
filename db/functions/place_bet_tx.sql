@@ -41,7 +41,8 @@ create or replace function place_bet_onchain_tx(
   p_collateral_minor bigint,
   p_shares numeric,
   p_price_before numeric,
-  p_price_after numeric
+  p_price_after numeric,
+  p_user_id uuid DEFAULT NULL
 ) returns table (
   trade_id uuid,
   new_balance_minor bigint,
@@ -54,7 +55,7 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
-  v_user_id uuid := auth.uid();
+  v_user_id uuid := coalesce(auth.uid(), p_user_id);
   v_market markets%rowtype;
   v_asset assets%rowtype;
   v_side_text text := upper(coalesce(p_side, ''));
@@ -212,7 +213,8 @@ create or replace function sell_position_onchain_tx(
   p_shares numeric,
   p_payout_minor bigint,
   p_price_before numeric,
-  p_price_after numeric
+  p_price_after numeric,
+  p_user_id uuid DEFAULT NULL
 ) returns table (
   trade_id uuid,
   payout_net_minor bigint,
@@ -226,7 +228,7 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
-  v_user_id uuid := auth.uid();
+  v_user_id uuid := coalesce(auth.uid(), p_user_id);
   v_market markets%rowtype;
   v_asset assets%rowtype;
   v_state market_amm_state%rowtype;

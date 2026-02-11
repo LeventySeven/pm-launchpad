@@ -914,6 +914,7 @@ export interface Database {
           p_shares: number;
           p_price_before: number;
           p_price_after: number;
+          p_user_id?: string | null;
         };
         Returns: {
           trade_id: string;
@@ -931,6 +932,7 @@ export interface Database {
           p_payout_minor: number;
           p_price_before: number;
           p_price_after: number;
+          p_user_id?: string | null;
         };
         Returns: {
           trade_id: string;
