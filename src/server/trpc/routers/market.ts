@@ -195,6 +195,11 @@ const findProgramInstruction = (
 };
 
 const resolveAssetDecimals = async (supabase: SupabaseDbClient, assetCode: string): Promise<number> => {
+  const normalized = assetCode.toUpperCase();
+  // On-chain stablecoins in this app are fixed to 6 decimals by contract design.
+  if (normalized === "USDC" || normalized === "USDT") {
+    return SOLANA_DECIMALS;
+  }
   const { data, error } = await supabase.from("assets").select("decimals").eq("code", assetCode).maybeSingle();
   if (error) {
     throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
@@ -960,6 +965,9 @@ export const marketRouter = router({
       const collateralMinor = BigInt(netMinor);
       const maxCostMinor = BigInt(netMinor);
       const deadlineTs = BigInt(Math.floor(Date.now() / 1000) + 120);
+      if (sharesMinor <= 0n) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "AMOUNT_TOO_SMALL" });
+      }
 
       const programId = getPredictionMarketVaultProgramId();
       const userKey = new PublicKey(userPubkey);
@@ -989,6 +997,32 @@ export const marketRouter = router({
 
       const connection = new Connection(getSolanaRpcUrl(), "confirmed");
       const ataInfos = await connection.getMultipleAccountsInfo([userUsdcAta, marketVaultAta]);
+      const missingAtaCount = ataInfos.filter((info) => !info).length;
+      const rentExemptTokenAccountLamports = await connection.getMinimumBalanceForRentExemption(165);
+      const estimatedTxFeeLamports = 10_000;
+      const estimatedRequiredLamports = estimatedTxFeeLamports + rentExemptTokenAccountLamports * missingAtaCount;
+      const userLamports = await connection.getBalance(userKey, "confirmed");
+      if (userLamports < estimatedRequiredLamports) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "INSUFFICIENT_SOL_FOR_FEES",
+        });
+      }
+
+      let userUsdcBalanceMinor = 0n;
+      try {
+        const tokenBal = await connection.getTokenAccountBalance(userUsdcAta, "confirmed");
+        userUsdcBalanceMinor = BigInt(tokenBal.value.amount);
+      } catch {
+        userUsdcBalanceMinor = 0n;
+      }
+      if (userUsdcBalanceMinor < collateralMinor) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "INSUFFICIENT_USDC_ONCHAIN",
+        });
+      }
+
       const ataInstructions: TransactionInstruction[] = [];
       if (!ataInfos[0]) {
         ataInstructions.push(

@@ -36,6 +36,21 @@ const getErrorMessage = (error: ErrorLike, fallbackRu: string, fallbackEn: strin
       ? 'Транзакция в сети Solana не прошла. Проверьте баланс USDC и попробуйте снова.'
       : 'On-chain Solana transaction failed. Check your USDC balance and try again.';
   }
+  if (upper.includes('INSUFFICIENT_SOL_FOR_FEES') || upper.includes('NOT ENOUGH SOL')) {
+    return lang === 'RU'
+      ? 'Недостаточно SOL для комиссии сети и создания нужных аккаунтов.'
+      : 'Not enough SOL for network fees and required account creation.';
+  }
+  if (upper.includes('INSUFFICIENT_USDC_ONCHAIN')) {
+    return lang === 'RU'
+      ? 'Недостаточно USDC в подключенном кошельке.'
+      : 'Insufficient USDC in the connected wallet.';
+  }
+  if (upper.includes('CUSTOM":1')) {
+    return lang === 'RU'
+      ? 'Транзакция отклонена: недостаточно токенов или слишком маленькая сумма.'
+      : 'Transaction rejected: insufficient tokens or amount too small.';
+  }
   if (upper.includes('RATE_LIMIT_EXCEEDED')) {
     return lang === 'RU'
       ? 'Лимит создания рынков: до 3 новых рынков за 30 минут.'
