@@ -214,7 +214,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, lang
           </div>
           <div className="grid grid-cols-2 gap-2">
             <a
-              href="https://x.com/yallayallaio"
+              href="https://x.com/YallaPredict"
               target="_blank"
               rel="noreferrer noopener"
               className="h-10 rounded-full border border-neutral-800 bg-zinc-950/40 hover:bg-zinc-950/70 hover:border-neutral-600 text-xs font-semibold text-white inline-flex items-center justify-center transition-colors transition-transform active:scale-[0.98]"
