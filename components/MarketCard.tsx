@@ -121,7 +121,7 @@ const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, onQuickBet, bo
                 e.stopPropagation();
                 onQuickBet?.("YES");
               }}
-              className="h-10 rounded-xl border border-zinc-900 bg-zinc-950/40 px-3 text-sm font-semibold text-zinc-200 hover:border-[rgba(190,255,29,1)] hover:text-[rgba(190,255,29,1)] active:border-[rgba(190,255,29,1)] active:text-[rgba(190,255,29,1)] active:bg-[rgba(190,255,29,0.08)] transition-colors flex items-center justify-between tabular-nums"
+              className="h-10 rounded-xl border border-zinc-900 bg-zinc-950/40 px-3 text-sm font-semibold text-zinc-200 hover:border-[rgba(190,255,29,1)] hover:text-white active:border-[rgba(190,255,29,1)] active:text-white transition-colors flex items-center justify-between tabular-nums"
               aria-label={`${yesLabel} ${market.chance}%`}
             >
               <span>{yesLabel}</span>
