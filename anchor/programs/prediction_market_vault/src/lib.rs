@@ -7,7 +7,7 @@ use anchor_spl::{
     token::{self, Mint, Token, TokenAccount, TransferChecked},
 };
 
-declare_id!("Bbtri5Z5YZt7Cekq8Zb12UaTf8Tbj2c2yZfPPSGDUtop");
+declare_id!("5NhVm566owfbBC38poCjtpyXSr7iYwMxUb6fJd4BagbR");
 
 // ============================================================================
 // Constants
@@ -31,7 +31,7 @@ pub struct Config {
     pub authority: Pubkey,
     /// Off-chain quote/bet authority (backend) that co-signs bet/sell txs.
     pub quote_authority: Pubkey,
-    /// Configured USDC mint (devnet: custom mint, mainnet: official).
+    /// Configured USDC mint (devnet/mainnet).
     pub usdc_mint: Pubkey,
     pub bump: u8,
 }

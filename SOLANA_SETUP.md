@@ -21,10 +21,10 @@ NEXT_PUBLIC_SOLANA_RPC_URL=
 # This will be generated when you deploy the Anchor program
 NEXT_PUBLIC_SOLANA_PROGRAM_ID=
 
-# USDC mint address (required once USDC mint is created/deployed)
-# For devnet, you'll create a test USDC mint
+# USDC mint address (required)
+# For devnet, use official devnet USDC: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
 # For mainnet-beta, use official USDC: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
-NEXT_PUBLIC_SOLANA_USDC_MINT=
+NEXT_PUBLIC_SOLANA_USDC_MINT=4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
 ```
 
 ### Optional (Backend/Webhooks)
@@ -260,22 +260,21 @@ solana airdrop 2 $(solana address) --url devnet
 # Update your .env with: NEXT_PUBLIC_SOLANA_PROGRAM_ID=<program-id-from-output>
 ```
 
-### 4. Create USDC Mint (Devnet)
+### 4. Set USDC Mint (Devnet)
 
-For devnet testing, create a test USDC mint:
+Use the canonical devnet USDC mint:
 
 ```bash
-# Use the provided script (when implemented)
-bun run solana:mint:devnet
-
-# Or manually via Solana CLI:
-# solana-test-validator (in one terminal)
-# spl-token create-token --decimals 6
-# spl-token create-account <token-address>
-# spl-token mint <token-address> <amount> <account-address>
+NEXT_PUBLIC_SOLANA_USDC_MINT=4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+SOLANA_USDC_MINT=4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
 ```
 
-Then set `NEXT_PUBLIC_SOLANA_USDC_MINT` to the mint address.
+If on-chain config was initialized with another mint, redeploy with a new program ID and run `solana:init:config` using this mint:
+
+```bash
+cd anchor && anchor build && anchor deploy
+cd .. && bun run solana:init:config
+```
 
 ### 5. Configure Helius Webhook (Optional, for Production)
 
@@ -308,7 +307,7 @@ bun run dev
 
 ⏳ **Pending:**
 - Anchor program deployment (has placeholder program ID)
-- USDC mint creation (devnet)
+- USDC mint alignment (devnet)
 - Helius webhook configuration
 - Production-grade indexing (Helius or dedicated RPC with signature polling)
 
@@ -329,7 +328,7 @@ Once the app is running:
 
 ### "SOLANA_PROGRAM_NOT_DEPLOYED" Error
 
-This indicates the Anchor program ID or deployment is missing. The admin-only on-chain endpoints require a deployed program and a devnet USDC mint.
+This indicates the Anchor program ID or deployment is missing. The admin-only on-chain endpoints require a deployed program and a configured devnet USDC mint.
 
 ### Wallet Not Syncing
 
@@ -350,5 +349,5 @@ If you're hitting rate limits on public RPC:
 2. **Set basic env vars** (`NEXT_PUBLIC_SOLANA_CLUSTER=devnet`)
 3. **Test wallet connection** (should work immediately)
 4. **Deploy Anchor program** (required for admin on-chain flow)
-5. **Create devnet USDC mint** (for testing admin buy/sell/claim)
+5. **Set canonical devnet USDC mint** (for testing admin buy/sell/claim)
 6. **Configure Helius webhook** (for production-grade indexing)

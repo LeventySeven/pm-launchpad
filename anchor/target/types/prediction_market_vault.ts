@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/prediction_market_vault.json`.
  */
 export type PredictionMarketVault = {
-  "address": "Bbtri5Z5YZt7Cekq8Zb12UaTf8Tbj2c2yZfPPSGDUtop",
+  "address": "5NhVm566owfbBC38poCjtpyXSr7iYwMxUb6fJd4BagbR",
   "metadata": {
     "name": "predictionMarketVault",
     "version": "0.1.0",
@@ -1214,7 +1214,7 @@ export type PredictionMarketVault = {
         },
         {
           "name": "program",
-          "address": "Bbtri5Z5YZt7Cekq8Zb12UaTf8Tbj2c2yZfPPSGDUtop"
+          "address": "5NhVm566owfbBC38poCjtpyXSr7iYwMxUb6fJd4BagbR"
         },
         {
           "name": "programData"
@@ -2966,7 +2966,7 @@ export type PredictionMarketVault = {
           {
             "name": "usdcMint",
             "docs": [
-              "Configured USDC mint (devnet: custom mint, mainnet: official)."
+              "Configured USDC mint (devnet/mainnet)."
             ],
             "type": "pubkey"
           },
