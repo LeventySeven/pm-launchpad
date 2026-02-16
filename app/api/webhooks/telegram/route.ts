@@ -1,6 +1,7 @@
 import { Bot, type Context, webhookCallback } from "grammy";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const START_TEXT = `Welcome to YALLA!
 Here's what you can do:
@@ -11,13 +12,7 @@ Here's what you can do:
 No initial liquidity needed. No permissions required.
 Tap the button below to start predicting ⬇️`;
 
-const getMiniAppUrl = () => {
-  const url = process.env.TELEGRAM_MINIAPP_URL;
-  if (!url) {
-    throw new Error("TELEGRAM_MINIAPP_URL is not configured");
-  }
-  return url;
-};
+const getMiniAppUrl = () => process.env.TELEGRAM_MINIAPP_URL?.trim() || null;
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -25,6 +20,9 @@ if (!token) {
 }
 
 const bot = new Bot(token);
+bot.catch((err) => {
+  console.error("[telegram webhook] unhandled bot error", err.error);
+});
 
 const isStartCommandText = (text: string | undefined) => {
   if (!text) return false;
@@ -39,13 +37,21 @@ const isStartCommandText = (text: string | undefined) => {
 };
 
 const replyWithStart = async (ctx: Context) => {
+  const miniAppUrl = getMiniAppUrl();
+  if (!miniAppUrl) {
+    // Keep /start responsive even if env is temporarily missing/misconfigured.
+    console.warn("[telegram webhook] TELEGRAM_MINIAPP_URL is not configured");
+    await ctx.reply(START_TEXT);
+    return;
+  }
+
   await ctx.reply(START_TEXT, {
     reply_markup: {
       inline_keyboard: [
         [
           {
             text: "Open Yalla Market",
-            web_app: { url: getMiniAppUrl() },
+            web_app: { url: miniAppUrl },
           },
         ],
       ],
@@ -55,6 +61,11 @@ const replyWithStart = async (ctx: Context) => {
 
 bot.on("message:text", async (ctx) => {
   if (!isStartCommandText(ctx.message.text)) return;
+  console.info("[telegram webhook] start command received", {
+    text: ctx.message.text,
+    chatId: ctx.chat?.id,
+    fromId: ctx.from?.id,
+  });
   await replyWithStart(ctx);
 });
 bot.callbackQuery("start", async (ctx) => {
@@ -62,4 +73,13 @@ bot.callbackQuery("start", async (ctx) => {
   await replyWithStart(ctx);
 });
 
-export const POST = webhookCallback(bot, "std/http");
+const webhook = webhookCallback(bot, "std/http");
+
+export const POST = async (req: Request) => {
+  try {
+    return await webhook(req);
+  } catch (err) {
+    console.error("[telegram webhook] POST handler failed", err);
+    return new Response("ok");
+  }
+};
