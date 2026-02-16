@@ -1255,7 +1255,16 @@ export default function HomePage() {
   useEffect(() => {
     const loadUser = async () => {
       setLoadingUser(true);
-      const me = await refreshUser();
+      let me = await refreshUser();
+
+      // If auth_token is missing/expired but refresh cookie is still valid,
+      // silently restore the session before asking user to re-authenticate.
+      if (!me) {
+        const refreshed = await attemptSilentRefresh();
+        if (refreshed) {
+          me = await refreshUser();
+        }
+      }
 
       // Telegram Mini App: one-click login if no session exists.
       if (!me && !telegramAutoLoginAttemptedRef.current) {
@@ -1276,7 +1285,7 @@ export default function HomePage() {
     };
 
     void loadUser();
-  }, [refreshUser, handleTelegramLogin]);
+  }, [refreshUser, handleTelegramLogin, attemptSilentRefresh]);
 
   const loadMarkets = useCallback(async () => {
     setLoadingMarkets(true);

@@ -26,6 +26,18 @@ if (!token) {
 
 const bot = new Bot(token);
 
+const isStartCommandText = (text: string | undefined) => {
+  if (!text) return false;
+  const trimmed = text.trim();
+  // Supports:
+  // - /start
+  // - /start@BotUsername
+  // - /start payload
+  // - /start@BotUsername payload
+  // - start
+  return /^\/?start(?:@[a-zA-Z0-9_]{3,})?(?:\s+.+)?$/i.test(trimmed);
+};
+
 const replyWithStart = async (ctx: Context) => {
   await ctx.reply(START_TEXT, {
     reply_markup: {
@@ -41,8 +53,10 @@ const replyWithStart = async (ctx: Context) => {
   });
 };
 
-bot.command("start", replyWithStart);
-bot.hears(/^start$/i, replyWithStart);
+bot.on("message:text", async (ctx) => {
+  if (!isStartCommandText(ctx.message.text)) return;
+  await replyWithStart(ctx);
+});
 bot.callbackQuery("start", async (ctx) => {
   await ctx.answerCallbackQuery();
   await replyWithStart(ctx);

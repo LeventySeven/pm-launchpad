@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { publicProcedure, router } from "../trpc";
 import type { Session } from "@supabase/supabase-js";
-import { authCookie, signAuthToken, verifyAuthToken } from "../../auth/jwt";
+import { authCookie, clearAuthCookie, signAuthToken, verifyAuthToken } from "../../auth/jwt";
 import type { PublicUser } from "../../auth/types";
 import type { Database } from "../../../types/database";
 import { toMajorUnits } from "../helpers/pricing";
@@ -10,11 +10,12 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 const SUPABASE_ACCESS_COOKIE = "sb_access_token";
 const SUPABASE_REFRESH_COOKIE = "sb_refresh_token";
-const SUPABASE_REFRESH_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
+const SUPABASE_REFRESH_MAX_AGE = 60 * 60 * 24 * 180; // 180 days
+const sameSiteCookie = process.env.NODE_ENV === "production" ? "None" : "Lax";
 const secureCookie = process.env.NODE_ENV === "production" ? " Secure;" : "";
 
 const buildCookie = (name: string, value: string, maxAgeSeconds: number) =>
-  `${name}=${value}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAgeSeconds};${secureCookie}`;
+  `${name}=${value}; HttpOnly; Path=/; SameSite=${sameSiteCookie}; Max-Age=${maxAgeSeconds};${secureCookie}`;
 
 const clearCookie = (name: string) => buildCookie(name, "", 0);
 
@@ -668,7 +669,7 @@ export const authRouter = router({
   }),
 
   logout: publicProcedure.mutation(async ({ ctx }) => {
-    ctx.setCookie("auth_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax");
+    ctx.setCookie(clearAuthCookie());
     ctx.setCookie(clearCookie(SUPABASE_ACCESS_COOKIE));
     ctx.setCookie(clearCookie(SUPABASE_REFRESH_COOKIE));
     return { success: true };

@@ -52,6 +52,10 @@ const contentByLang = {
 const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, lang, onToggleLang }) => {
   const [step, setStep] = useState(1);
   const [demoPick, setDemoPick] = useState<'YES' | 'NO' | null>(null);
+  const telegramBotUsername = (process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'yalla_predict')
+    .trim()
+    .replace(/^@/, '');
+  const telegramBotLink = `https://t.me/${telegramBotUsername}`;
 
   if (!isOpen) return null;
 
@@ -222,7 +226,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, lang
               Twitter (X)
             </a>
             <a
-              href="https://t.me/yalla_predict"
+              href={telegramBotLink}
               target="_blank"
               rel="noreferrer noopener"
               className="h-10 rounded-full border border-neutral-800 bg-zinc-950/40 hover:bg-zinc-950/70 hover:border-neutral-600 text-xs font-semibold text-white inline-flex items-center justify-center transition-colors transition-transform active:scale-[0.98]"

@@ -64,7 +64,11 @@ export const createContext = async (opts: { req: Request }) => {
     const method = opts.req.method;
     const url = new URL(opts.req.url);
     const isMutation = method === "POST" && url.pathname.includes("/api/trpc");
-    if (isMutation) {
+    const isExpectedAuthMutation =
+      url.pathname.includes("/api/trpc/auth.login") ||
+      url.pathname.includes("/api/trpc/auth.signUp") ||
+      url.pathname.includes("/api/trpc/auth.telegramLogin");
+    if (isMutation && !isExpectedAuthMutation) {
       const cookieHeader = opts.req.headers.get("cookie") || "";
       console.warn("[createContext] auth_token cookie missing for mutation", {
         method,
