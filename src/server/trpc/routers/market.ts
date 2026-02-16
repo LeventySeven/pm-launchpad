@@ -231,6 +231,18 @@ type MarketBookmarkRow = Database["public"]["Tables"]["market_bookmarks"]["Row"]
 type MarketCategoryRow = Database["public"]["Tables"]["market_categories"]["Row"];
 type MarketContextRow = Database["public"]["Tables"]["market_context"]["Row"];
 
+const isTransientDbTimeout = (message: string) => {
+  const upper = message.toUpperCase();
+  return (
+    upper.includes("CANCELING STATEMENT DUE TO STATEMENT TIMEOUT") ||
+    upper.includes("STATEMENT TIMEOUT") ||
+    upper.includes("LOCK TIMEOUT") ||
+    upper.includes("DEADLOCK DETECTED")
+  );
+};
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 const ensureCreatorAndNoBets = async (
   supabaseService: SupabaseDbClient,
   marketId: string,
@@ -786,12 +798,30 @@ export const marketRouter = router({
         console.warn("[placeBet] No Supabase session cookie found", { userId: authUser.id });
       }
 
-      // Call the RPC - it uses auth.uid() internally, no user_id passed
-      const { data, error } = await client.rpc("place_bet_tx", {
-        p_market_id: marketId,
-        p_side: side,
-        p_amount: amount,
-      });
+      // Call the RPC - it uses auth.uid() internally, no user_id passed.
+      // Retry once on transient DB timeout/lock issues to reduce user-facing failures.
+      let data: unknown = null;
+      let error: { message?: string } | null = null;
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        const rpcResult = await client.rpc("place_bet_tx", {
+          p_market_id: marketId,
+          p_side: side,
+          p_amount: amount,
+        });
+        data = rpcResult.data;
+        error = rpcResult.error;
+        if (!error) break;
+
+        const message = String(error.message || "");
+        if (!isTransientDbTimeout(message) || attempt === 2) break;
+        console.warn("[placeBet] transient DB timeout, retrying", {
+          attempt,
+          userId: authUser.id,
+          marketId,
+          error: message,
+        });
+        await wait(150 * attempt);
+      }
 
       if (error) {
         // Map common DB errors to user-friendly messages
@@ -829,6 +859,9 @@ export const marketRouter = router({
         }
         if (msg.includes("AMM_STATE_MISSING")) {
           throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "AMM_STATE_MISSING" });
+        }
+        if (isTransientDbTimeout(msg)) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "TEMPORARY_DB_TIMEOUT" });
         }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",

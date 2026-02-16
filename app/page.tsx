@@ -843,6 +843,11 @@ export default function HomePage() {
         ? "Лимит создания рынков: до 3 новых рынков за 30 минут."
         : "Market creation limit reached: up to 3 new markets per 30 minutes.";
     }
+    if (upper.includes("TEMPORARY_DB_TIMEOUT") || upper.includes("STATEMENT TIMEOUT")) {
+      return lang === "RU"
+        ? "Сервер временно перегружен. Попробуйте поставить ставку еще раз через несколько секунд."
+        : "Server is temporarily busy. Please try placing the bet again in a few seconds.";
+    }
     if (upper.includes("TX_FAILED_ONCHAIN")) {
       return lang === "RU"
         ? "Транзакция в сети Solana не прошла. Проверьте баланс USDC и попробуйте снова."
