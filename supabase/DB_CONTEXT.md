@@ -1,12 +1,12 @@
 # Supabase DB Context (public)
 
-Generated at: `2026-02-06T10:58:26.311Z`
+Generated at: `2026-02-23T21:30:13.825Z`
 Supabase URL: `https://zebqsdwawldoehvupmtm.supabase.co`
 
 Refresh: `bun run supabase:schema`
 
 ## Resources
-Total: **29**
+Total: **32**
 
 ### `assets`
 - `code`: `string(text)` — NOT NULL, PK
@@ -104,6 +104,36 @@ Total: **29**
 - `program_id`: `string(text)` — NOT NULL
 - `market_pda`: `string(text)` — NOT NULL
 
+### `market_outcome_amm_state`
+- `market_id`: `string(uuid)` — NOT NULL, PK, FK → markets.id
+- `outcome_id`: `string(uuid)` — NOT NULL, PK, FK → market_outcomes.id
+- `q`: `number(numeric)` — NOT NULL
+- `last_price`: `number(numeric)` — NOT NULL
+- `updated_at`: `string(timestamp with time zone)` — NOT NULL
+
+### `market_outcome_price_candles`
+- `market_id`: `string(uuid)` — NOT NULL, PK, FK → markets.id
+- `outcome_id`: `string(uuid)` — NOT NULL, PK, FK → market_outcomes.id
+- `bucket`: `string(timestamp with time zone)` — NOT NULL, PK
+- `open`: `number(numeric)` — NOT NULL
+- `high`: `number(numeric)` — NOT NULL
+- `low`: `number(numeric)` — NOT NULL
+- `close`: `number(numeric)` — NOT NULL
+- `volume_minor`: `integer(bigint)` — NOT NULL
+- `trades_count`: `integer(integer)` — NOT NULL
+
+### `market_outcomes`
+- `id`: `string(uuid)` — NOT NULL, PK
+- `market_id`: `string(uuid)` — NOT NULL, FK → markets.id
+- `slug`: `string(text)` — NOT NULL
+- `title`: `string(text)` — NOT NULL
+- `icon_url`: `string(text)`
+- `sort_order`: `integer(integer)` — NOT NULL
+- `is_active`: `boolean(boolean)` — NOT NULL
+- `created_at`: `string(timestamp with time zone)` — NOT NULL
+- `updated_at`: `string(timestamp with time zone)` — NOT NULL
+- `chart_color`: `string(text)`
+
 ### `market_price_candles`
 - `market_id`: `string(uuid)` — NOT NULL, PK, FK → markets.id
 - `bucket`: `string(timestamp with time zone)` — NOT NULL, PK
@@ -135,6 +165,8 @@ Total: **29**
 - `image_url`: `string(text)`
 - `onchain_market_id`: `string(text)`
 - `source`: `string(text)`
+- `market_type`: `string(text)` — NOT NULL
+- `resolved_outcome_id`: `string(uuid)` — FK → market_outcomes.id
 
 ### `on_chain_transactions`
 - `id`: `string(uuid)` — NOT NULL, PK
@@ -159,12 +191,14 @@ Total: **29**
 - `solana_cluster`: `string(text)` — NOT NULL
 
 ### `positions`
-- `user_id`: `string(uuid)` — NOT NULL, PK, FK → users.id
-- `market_id`: `string(uuid)` — NOT NULL, PK, FK → markets.id
-- `outcome`: `string(public.outcome_side)` — NOT NULL, PK
+- `user_id`: `string(uuid)` — NOT NULL, FK → users.id
+- `market_id`: `string(uuid)` — NOT NULL, FK → markets.id
+- `outcome`: `string(public.outcome_side)`
 - `shares`: `number(numeric)` — NOT NULL
 - `avg_entry_price`: `number(numeric)`
 - `updated_at`: `string(timestamp with time zone)` — NOT NULL
+- `id`: `string(uuid)` — NOT NULL, PK
+- `outcome_id`: `string(uuid)` — FK → market_outcomes.id
 
 ### `referral_rewards`
 - `id`: `string(uuid)` — NOT NULL, PK
@@ -184,7 +218,7 @@ Total: **29**
 - `market_id`: `string(uuid)` — NOT NULL, FK → markets.id
 - `user_id`: `string(uuid)` — NOT NULL, FK → users.id
 - `action`: `string(public.trade_action)` — NOT NULL
-- `outcome`: `string(public.outcome_side)` — NOT NULL
+- `outcome`: `string(public.outcome_side)`
 - `asset_code`: `string(text)` — NOT NULL, FK → assets.code
 - `collateral_gross_minor`: `integer(bigint)` — NOT NULL
 - `fee_minor`: `integer(bigint)` — NOT NULL
@@ -193,6 +227,7 @@ Total: **29**
 - `price_before`: `number(numeric)`
 - `price_after`: `number(numeric)`
 - `created_at`: `string(timestamp with time zone)` — NOT NULL
+- `outcome_id`: `string(uuid)` — FK → market_outcomes.id
 
 ### `trades_public`
 - `id`: `string(uuid)` — PK
@@ -314,7 +349,9 @@ Total: **29**
   - `claim_winnings_onchain_tx`
   - `lmsr_cost_safe`
   - `lmsr_price_yes_safe`
+  - `place_bet_onchain_service_tx`
   - `place_bet_onchain_tx`
   - `place_bet_tx`
+  - `sell_position_onchain_service_tx`
   - `sell_position_onchain_tx`
   - `sell_position_tx`

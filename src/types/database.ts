@@ -444,6 +444,7 @@ export interface Database {
           slug: string;
           title: string;
           icon_url: string | null;
+          chart_color: string | null;
           sort_order: number;
           is_active: boolean;
           created_at: string;
@@ -455,6 +456,7 @@ export interface Database {
           slug: string;
           title: string;
           icon_url?: string | null;
+          chart_color?: string | null;
           sort_order?: number;
           is_active?: boolean;
           created_at?: string;
@@ -466,6 +468,7 @@ export interface Database {
           slug?: string;
           title?: string;
           icon_url?: string | null;
+          chart_color?: string | null;
           sort_order?: number;
           is_active?: boolean;
           created_at?: string;
@@ -627,6 +630,45 @@ export interface Database {
           trades_count?: number;
         };
         Relationships: [];
+      };
+      market_outcome_price_candles: {
+        Row: {
+          market_id: string;
+          outcome_id: string;
+          bucket: string;
+          open: number;
+          high: number;
+          low: number;
+          close: number;
+          volume_minor: number;
+          trades_count: number;
+        };
+        Insert: {
+          market_id: string;
+          outcome_id: string;
+          bucket: string;
+          open: number;
+          high: number;
+          low: number;
+          close: number;
+          volume_minor?: number;
+          trades_count?: number;
+        };
+        Update: {
+          market_id?: string;
+          outcome_id?: string;
+          bucket?: string;
+          open?: number;
+          high?: number;
+          low?: number;
+          close?: number;
+          volume_minor?: number;
+          trades_count?: number;
+        };
+        Relationships: [
+          { foreignKeyName: "market_outcome_price_candles_market_id_fkey"; columns: ["market_id"]; referencedRelation: "markets"; referencedColumns: ["id"] },
+          { foreignKeyName: "market_outcome_price_candles_outcome_id_fkey"; columns: ["outcome_id"]; referencedRelation: "market_outcomes"; referencedColumns: ["id"] }
+        ];
       };
       user_referrals: {
         Row: {

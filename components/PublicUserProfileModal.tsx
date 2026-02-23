@@ -21,7 +21,7 @@ type PublicComment = {
 
 type PublicBet = {
   marketId: string;
-  outcome: "YES" | "NO";
+  outcome: "YES" | "NO" | null;
   lastBetAt: string;
   isActive: boolean;
 };
@@ -268,7 +268,7 @@ const PublicUserProfileModal: React.FC<PublicUserProfileModalProps> = ({
                         hour: "2-digit",
                         minute: "2-digit",
                       });
-                      const sideLabel = b.outcome === "YES" ? yesLabel : noLabel;
+                      const sideLabel = b.outcome === "YES" ? yesLabel : b.outcome === "NO" ? noLabel : (lang === "RU" ? "Выбор" : "Selection");
                       const sideColor = b.outcome === "YES" ? "text-[rgba(190,255,29,1)]" : "text-[rgba(245,68,166,1)]";
                       return (
                         <button

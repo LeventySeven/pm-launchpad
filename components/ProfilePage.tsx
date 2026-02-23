@@ -26,7 +26,7 @@ type ProfilePageProps = {
   bookmarks: Market[];
   myMarkets: Array<Market & { hasBets: boolean }>;
   onMarketClick: (marketId: string) => void;
-  onSellPosition?: (params: { marketId: string; side: 'YES' | 'NO'; shares: number }) => Promise<void>;
+  onSellPosition?: (params: { marketId: string; side: 'YES' | 'NO'; outcomeId?: string; shares: number }) => Promise<void>;
   onLoadBets?: () => void;
   onLoadComments?: () => void;
 };
@@ -818,18 +818,20 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                 <div className="space-y-3">
                   {activeBets.map((b) => {
                     const title = (lang === 'RU' ? b.marketTitleRu : b.marketTitleEn) || b.marketTitle;
-                    const sideLabel = b.side === 'YES' ? yesLabel : noLabel;
+                    const sideLabel = b.outcomeTitle ?? (b.side === 'YES' ? yesLabel : noLabel);
                     const sideColor = b.side === 'YES' ? 'text-[rgba(245,68,166,1)]' : 'text-[rgba(245,68,166,1)]';
                     const shares = Number(b.shares ?? 0);
                     const entry = Number(b.priceAtBet ?? 0);
-                    const currentPrice = b.side === 'YES' ? Number(b.priceYes ?? 0) : Number(b.priceNo ?? 0);
+                    const currentPrice = Number(
+                      b.currentPrice ?? (b.side === 'YES' ? b.priceYes ?? 0 : b.priceNo ?? 0)
+                    );
                     const cost = Number(b.amount ?? 0);
                     const currentValue = shares * currentPrice;
                     const pnl = currentValue - cost;
                     const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0;
                     const pnlPositive = pnl >= 0;
                     const canSell = Boolean(onSellPosition && shares > 0);
-                    const rowKey = `${b.marketId}:${b.side}`;
+                    const rowKey = `${b.marketId}:${b.outcomeId ?? b.side}`;
                     return (
                       <div
                         key={b.id}
@@ -855,7 +857,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                               </span>
                             </div>
                             <div className="mt-1 text-[11px] text-zinc-500 font-mono">
-                              {shares.toFixed(1)} {lang === 'RU' ? 'акций' : 'shares'} @ {(entry * 100).toFixed(0)}¢
+                              {shares.toFixed(1)} {lang === 'RU' ? 'акций' : 'shares'} @ {(entry * 100).toFixed(0)}%
                             </div>
                             {canSell && (
                               <div className="mt-3">
@@ -884,6 +886,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                                       await onSellPosition({
                                         marketId: b.marketId,
                                         side: b.side,
+                                        outcomeId: b.outcomeId ?? undefined,
                                         shares: sharesToSell,
                                       });
                                       // Force-refresh bets in case a concurrent load skipped an update.
@@ -903,8 +906,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                                   {sellingKey === rowKey
                                     ? (lang === 'RU' ? 'Продажа…' : 'Selling…')
                                     : lang === 'RU'
-                                    ? `Продать ${b.side === 'YES' ? 'ДА' : 'НЕТ'}`
-                                    : `Sell ${b.side}`}
+                                    ? `Продать ${sideLabel}`
+                                    : `Sell ${sideLabel}`}
                                 </Button>
                                 {sellSuccessKey === rowKey && (
                                   <div className="mt-2 text-[11px] text-[rgba(190,255,29,1)]">
@@ -1010,7 +1013,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                 const soldFor = Math.abs(t.collateralNet);
                 const pnl = boughtFor !== null ? soldFor - boughtFor : null;
                 const pnlPct = boughtFor && boughtFor > 0 && pnl !== null ? (pnl / boughtFor) * 100 : null;
-                const sideLabel = t.outcome === 'YES' ? yesLabel : noLabel;
+                const sideLabel = t.outcomeTitle ?? (t.outcome === 'YES' ? yesLabel : noLabel);
                 const sideColor = t.outcome === 'YES' ? 'text-[rgba(245,68,166,1)]' : 'text-[rgba(245,68,166,1)]';
                 const resolvedOutcome = t.marketOutcome ? String(t.marketOutcome) : null;
                 const outcomeText =

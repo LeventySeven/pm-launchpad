@@ -40,6 +40,7 @@ export interface MarketOutcome {
   slug: string;
   title: string;
   iconUrl: string | null;
+  chartColor?: string | null;
   sortOrder: number;
   probability: number;
   price: number;
@@ -137,6 +138,8 @@ export interface Bet {
   marketTitleRu: string;
   marketTitleEn: string;
   side: "YES" | "NO";
+  outcomeId?: string | null;
+  outcomeTitle?: string | null;
   amount: number;
   status: "open" | "won" | "lost";
   payout: number | null;
@@ -145,6 +148,7 @@ export interface Bet {
   expiresAt: string | null;
   priceYes: number | null;
   priceNo: number | null;
+  currentPrice?: number | null;
   priceAtBet: number | null;
   shares: number | null;
 }
@@ -212,6 +216,9 @@ export interface WalletBalance {
  */
 export interface PriceCandle {
   bucket: string;
+  outcomeId?: string | null;
+  outcomeTitle?: string | null;
+  outcomeColor?: string | null;
   open: number;
   high: number;
   low: number;

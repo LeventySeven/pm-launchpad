@@ -77,6 +77,7 @@ type MarketApiRow = {
     slug: string;
     title: string;
     iconUrl: string | null;
+    chartColor?: string | null;
     sortOrder: number;
     isActive: boolean;
     probability: number;
@@ -526,7 +527,7 @@ export default function HomePage() {
   };
   type PublicProfileBet = {
     marketId: string;
-    outcome: "YES" | "NO";
+    outcome: "YES" | "NO" | null;
     lastBetAt: string;
     isActive: boolean;
   };
@@ -545,6 +546,7 @@ export default function HomePage() {
   const [publicProfilePnl, setPublicProfilePnl] = useState(0);
   const [publicProfileComments, setPublicProfileComments] = useState<PublicProfileComment[]>([]);
   const [publicProfileBets, setPublicProfileBets] = useState<PublicProfileBet[]>([]);
+  const publicProfileRequestIdRef = useRef(0);
   const [lastOnchainTxBase64, setLastOnchainTxBase64] = useState<string | null>(null);
   type MarketCategoryStrict = { id: string; labelRu: string; labelEn: string };
   const [marketCategories, setMarketCategories] = useState<MarketCategoryStrict[]>([]);
@@ -1135,11 +1137,22 @@ export default function HomePage() {
         const market = markets.find((m) => m.id === p.marketId);
         const priceYes = market?.yesPrice ?? 0.5;
         const priceNo = market?.noPrice ?? 0.5;
-        const currentPrice = p.outcome === "YES" ? priceYes : priceNo;
+        const selectedOutcomePrice = p.outcomeId
+          ? Number(market?.outcomes?.find((o) => o.id === p.outcomeId)?.price ?? Number.NaN)
+          : Number.NaN;
+        const currentPrice = p.outcome === "YES"
+          ? priceYes
+          : p.outcome === "NO"
+            ? priceNo
+            : (Number.isFinite(selectedOutcomePrice) ? selectedOutcomePrice : (p.avgEntryPrice ?? 0));
 
         let status: Bet["status"] = "open";
         if (p.marketState === "resolved") {
-          status = p.marketOutcome === p.outcome ? "won" : "lost";
+          if (p.outcomeId && p.marketResolvedOutcomeId) {
+            status = p.marketResolvedOutcomeId === p.outcomeId ? "won" : "lost";
+          } else if (p.outcome && p.marketOutcome) {
+            status = p.marketOutcome === p.outcome ? "won" : "lost";
+          }
         }
 
         const avgPrice = p.avgEntryPrice ?? currentPrice;
@@ -1152,7 +1165,10 @@ export default function HomePage() {
           marketTitle: lang === "RU" ? p.marketTitleRu : p.marketTitleEn,
           marketTitleRu: p.marketTitleRu,
           marketTitleEn: p.marketTitleEn,
-          side: p.outcome,
+          side: p.outcome ?? "YES",
+          outcomeId: p.outcomeId ?? null,
+          outcomeTitle: p.outcomeTitle ?? null,
+          currentPrice,
           amount,
           status,
           payout,
@@ -1435,7 +1451,7 @@ export default function HomePage() {
     const PRICE_EPS = 1e-9;
 
     sorted.forEach((trade) => {
-      const key = `${trade.marketId}:${trade.outcome}`;
+      const key = `${trade.marketId}:${trade.outcomeId ?? trade.outcome ?? "UNKNOWN"}`;
       if (!lotsByKey.has(key)) {
         lotsByKey.set(key, []);
       }
@@ -1763,6 +1779,9 @@ export default function HomePage() {
           const candlesParsed = priceCandlesSchema.parse(candlesRes.value);
           const candles: PriceCandle[] = candlesParsed.map((c) => ({
             bucket: requireValue(c.bucket, "CANDLE_BUCKET_MISSING"),
+            outcomeId: c.outcomeId ?? null,
+            outcomeTitle: c.outcomeTitle ?? null,
+            outcomeColor: c.outcomeColor ?? null,
             open: requireValue(c.open, "CANDLE_OPEN_MISSING"),
             high: requireValue(c.high, "CANDLE_HIGH_MISSING"),
             low: requireValue(c.low, "CANDLE_LOW_MISSING"),
@@ -2218,6 +2237,8 @@ export default function HomePage() {
       setPublicProfilePnl(0);
       setPublicProfileComments([]);
       setPublicProfileBets([]);
+      publicProfileRequestIdRef.current += 1;
+      const requestId = publicProfileRequestIdRef.current;
 
       try {
         const [u, stats, comments, bets] = await Promise.all([
@@ -2226,6 +2247,7 @@ export default function HomePage() {
           trpcClient.user.publicUserComments.query({ userId, limit: 50 }),
           trpcClient.user.publicUserVotes.query({ userId, limit: 200 }),
         ]);
+        if (requestId !== publicProfileRequestIdRef.current) return;
 
         setPublicProfileUser({
           id: requireValue(u.id, "PUBLIC_USER_ID_MISSING"),
@@ -2248,15 +2270,17 @@ export default function HomePage() {
         setPublicProfileBets(
           (bets ?? []).map((b) => ({
             marketId: requireValue(b.marketId, "PUBLIC_BET_MARKET_ID_MISSING"),
-            outcome: requireValue(b.outcome, "PUBLIC_BET_OUTCOME_MISSING"),
+            outcome: b.outcome ?? null,
             lastBetAt: requireValue(b.lastBetAt, "PUBLIC_BET_LAST_BET_AT_MISSING"),
             isActive: Boolean(b.isActive),
           }))
         );
       } catch (err) {
+        if (requestId !== publicProfileRequestIdRef.current) return;
         console.error("openPublicProfile failed", err);
         setPublicProfileError(lang === "RU" ? "Не удалось загрузить профиль" : "Failed to load profile");
       } finally {
+        if (requestId !== publicProfileRequestIdRef.current) return;
         setPublicProfileLoading(false);
       }
     },

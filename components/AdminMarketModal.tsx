@@ -36,6 +36,7 @@ type AdminMarketModalProps = {
     options?: Array<{
       title: string;
       iconUrl?: string | null;
+      chartColor?: string | null;
       sortOrder?: number;
     }>;
   }) => Promise<void>;
@@ -75,9 +76,9 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [settlementAssetCode, setSettlementAssetCode] = useState<"VCOIN" | "USDC">("VCOIN");
   const [marketType, setMarketType] = useState<"binary" | "multi_choice">("binary");
-  const [options, setOptions] = useState<Array<{ title: string; iconFile: File | null; iconUrl: string | null }>>([
-    { title: "", iconFile: null, iconUrl: null },
-    { title: "", iconFile: null, iconUrl: null },
+  const [options, setOptions] = useState<Array<{ title: string; iconFile: File | null; iconUrl: string | null; chartColor: string | null }>>([
+    { title: "", iconFile: null, iconUrl: null, chartColor: null },
+    { title: "", iconFile: null, iconUrl: null, chartColor: null },
   ]);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
@@ -119,11 +120,75 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
       setSettlementAssetCode("VCOIN");
       setMarketType("binary");
       setOptions([
-        { title: "", iconFile: null, iconUrl: null },
-        { title: "", iconFile: null, iconUrl: null },
+        { title: "", iconFile: null, iconUrl: null, chartColor: null },
+        { title: "", iconFile: null, iconUrl: null, chartColor: null },
       ]);
     }
   }, [isOpen, mode, initialValues]);
+
+  const randomChartColor = () => {
+    const rand = () => Math.floor(Math.random() * 200) + 30;
+    const toHex = (v: number) => v.toString(16).padStart(2, "0");
+    return `#${toHex(rand())}${toHex(rand())}${toHex(rand())}`.toUpperCase();
+  };
+
+  const extractColorFromFile = async (file: File): Promise<string | null> => {
+    try {
+      const imageUrl = URL.createObjectURL(file);
+      const color = await new Promise<string | null>((resolve) => {
+        const img = new window.Image();
+        img.decoding = "async";
+        img.onload = () => {
+          try {
+            const canvas = document.createElement("canvas");
+            const size = 24;
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext("2d", { willReadFrequently: true });
+            if (!ctx) {
+              resolve(null);
+              return;
+            }
+            ctx.drawImage(img, 0, 0, size, size);
+            const data = ctx.getImageData(0, 0, size, size).data;
+            let r = 0;
+            let g = 0;
+            let b = 0;
+            let count = 0;
+            for (let i = 0; i < data.length; i += 4) {
+              const alpha = data[i + 3] ?? 0;
+              if (alpha < 24) continue;
+              r += data[i] ?? 0;
+              g += data[i + 1] ?? 0;
+              b += data[i + 2] ?? 0;
+              count += 1;
+            }
+            if (count === 0) {
+              resolve(null);
+              return;
+            }
+            r = Math.round(r / count);
+            g = Math.round(g / count);
+            b = Math.round(b / count);
+            const toHex = (v: number) => v.toString(16).padStart(2, "0");
+            resolve(`#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase());
+          } catch {
+            resolve(null);
+          } finally {
+            URL.revokeObjectURL(imageUrl);
+          }
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(imageUrl);
+          resolve(null);
+        };
+        img.src = imageUrl;
+      });
+      return color;
+    } catch {
+      return null;
+    }
+  };
 
   const t = (ru: string, en: string) => (lang === "RU" ? ru : en);
 
@@ -259,7 +324,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
         finalImageUrl = uploadData.imageUrl;
       }
 
-      let preparedOptions: Array<{ title: string; iconUrl?: string | null; sortOrder?: number }> = [];
+      let preparedOptions: Array<{ title: string; iconUrl?: string | null; chartColor?: string | null; sortOrder?: number }> = [];
       if (marketType === "multi_choice") {
         preparedOptions = [];
         for (let idx = 0; idx < options.length; idx += 1) {
@@ -267,7 +332,9 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
           const title = o.title.trim();
           if (!title) continue;
           let finalOptionIcon = o.iconUrl;
+          let finalChartColor = o.chartColor;
           if (o.iconFile) {
+            finalChartColor = (await extractColorFromFile(o.iconFile)) ?? finalChartColor;
             const fd = new FormData();
             fd.append("file", o.iconFile);
             const resp = await fetch("/api/market-image/upload", { method: "POST", body: fd });
@@ -277,9 +344,13 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
             }
             finalOptionIcon = body.imageUrl;
           }
+          if (!finalChartColor) {
+            finalChartColor = randomChartColor();
+          }
           preparedOptions.push({
             title,
             iconUrl: finalOptionIcon,
+            chartColor: finalChartColor,
             sortOrder: idx,
           });
         }
@@ -313,8 +384,8 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
         setImageUrl(null);
         setMarketType("binary");
         setOptions([
-          { title: "", iconFile: null, iconUrl: null },
-          { title: "", iconFile: null, iconUrl: null },
+          { title: "", iconFile: null, iconUrl: null, chartColor: null },
+          { title: "", iconFile: null, iconUrl: null, chartColor: null },
         ]);
       }
       onClose();
@@ -538,7 +609,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
                   <label className="block text-xs font-bold text-white">{t("Варианты ответа", "Answer options")}</label>
                   <button
                     type="button"
-                    onClick={() => setOptions((curr) => [...curr, { title: "", iconFile: null, iconUrl: null }])}
+                    onClick={() => setOptions((curr) => [...curr, { title: "", iconFile: null, iconUrl: null, chartColor: null }])}
                     className="text-xs text-zinc-300 hover:text-white"
                   >
                     {t("+ Добавить", "+ Add")}
@@ -559,7 +630,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
                       accept="image/*"
                       onChange={(e) => {
                         const file = e.target.files?.[0] ?? null;
-                        setOptions((curr) => curr.map((it, i) => (i === idx ? { ...it, iconFile: file } : it)));
+                        setOptions((curr) => curr.map((it, i) => (i === idx ? { ...it, iconFile: file, chartColor: null } : it)));
                       }}
                       className="w-full text-xs text-zinc-400"
                     />

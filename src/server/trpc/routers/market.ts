@@ -41,6 +41,7 @@ type MarketOutcomeReadRow = {
   slug: string;
   title: string;
   icon_url: string | null;
+  chart_color: string | null;
   sort_order: number;
   is_active: boolean;
 };
@@ -313,6 +314,77 @@ const deriveVolumeMajor = (amm: AmmStateRow | null, feeBps?: number | null) => {
   return toMajorUnits(volumeMinor, VCOIN_DECIMALS);
 };
 
+const normalizeHexColor = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) return trimmed.toUpperCase();
+  return null;
+};
+
+const colorFromSeed = (seed: string): string => {
+  let hash = 2166136261;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash ^= seed.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const r = 40 + (Math.abs(hash) % 180);
+  const g = 40 + (Math.abs(hash >> 8) % 180);
+  const b = 40 + (Math.abs(hash >> 16) % 180);
+  const toHex = (v: number) => v.toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+};
+
+const recordOutcomeCandle = async (params: {
+  supabaseService: SupabaseDbClient;
+  marketId: string;
+  outcomeId: string;
+  price: number;
+  volumeMinor: number;
+}) => {
+  const { supabaseService, marketId, outcomeId, price, volumeMinor } = params;
+  if (!Number.isFinite(price) || price <= 0) return;
+  const bucket = new Date(Math.floor(Date.now() / 60000) * 60000).toISOString();
+  const safeVolume = Number.isFinite(volumeMinor) && volumeMinor > 0 ? Math.floor(volumeMinor) : 0;
+
+  const { data: existing } = await supabaseService
+    .from("market_outcome_price_candles")
+    .select("market_id, outcome_id, bucket, open, high, low, close, volume_minor, trades_count")
+    .eq("market_id", marketId)
+    .eq("outcome_id", outcomeId)
+    .eq("bucket", bucket)
+    .maybeSingle();
+
+  if (existing) {
+    await supabaseService
+      .from("market_outcome_price_candles")
+      .update({
+        high: Math.max(Number(existing.high ?? price), price),
+        low: Math.min(Number(existing.low ?? price), price),
+        close: price,
+        volume_minor: Number(existing.volume_minor ?? 0) + safeVolume,
+        trades_count: Number(existing.trades_count ?? 0) + 1,
+      })
+      .eq("market_id", marketId)
+      .eq("outcome_id", outcomeId)
+      .eq("bucket", bucket);
+    return;
+  }
+
+  await supabaseService
+    .from("market_outcome_price_candles")
+    .insert({
+      market_id: marketId,
+      outcome_id: outcomeId,
+      bucket,
+      open: price,
+      high: price,
+      low: price,
+      close: price,
+      volume_minor: safeVolume,
+      trades_count: 1,
+    });
+};
+
 const fetchOutcomesByMarketIds = async (
   supabaseService: SupabaseDbClient,
   marketIds: string[],
@@ -326,6 +398,7 @@ const fetchOutcomesByMarketIds = async (
       slug: string;
       title: string;
       iconUrl: string | null;
+      chartColor: string | null;
       sortOrder: number;
       isActive: boolean;
       probability: number;
@@ -338,7 +411,7 @@ const fetchOutcomesByMarketIds = async (
   const [{ data: outcomeRows }, { data: ammRows }] = await Promise.all([
     supabaseService
       .from("market_outcomes")
-      .select("id, market_id, slug, title, icon_url, sort_order, is_active")
+      .select("id, market_id, slug, title, icon_url, chart_color, sort_order, is_active")
       .in("market_id", marketIds),
     supabaseService
       .from("market_outcome_amm_state")
@@ -380,6 +453,7 @@ const fetchOutcomesByMarketIds = async (
         slug: o.slug,
         title: o.title,
         iconUrl: o.icon_url ?? null,
+        chartColor: normalizeHexColor(o.chart_color) ?? colorFromSeed(`${o.market_id}:${o.id}`),
         sortOrder: Number(o.sort_order ?? 0),
         isActive: Boolean(o.is_active),
         probability: Number.isFinite(prob) ? prob : 0,
@@ -405,6 +479,7 @@ const mapMarketRow = (
       slug: string;
       title: string;
       iconUrl: string | null;
+      chartColor: string | null;
       sortOrder: number;
       isActive: boolean;
       probability: number;
@@ -580,6 +655,7 @@ const marketOutput = z.object({
       slug: z.string(),
       title: z.string(),
       iconUrl: z.string().nullable(),
+      chartColor: z.string().nullable().optional(),
       sortOrder: z.number(),
       isActive: z.boolean(),
       probability: z.number(),
@@ -1080,6 +1156,16 @@ export const marketRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to place bet",
+        });
+      }
+
+      if (marketType === "multi_choice" && outcomeId) {
+        await recordOutcomeCandle({
+          supabaseService: supabaseService as SupabaseDbClient,
+          marketId,
+          outcomeId,
+          price: Number(result.price_after),
+          volumeMinor: toMinorUnits(amount, VCOIN_DECIMALS),
         });
       }
 
@@ -2078,6 +2164,16 @@ export const marketRouter = router({
         });
       }
 
+      if (marketType === "multi_choice" && outcomeId) {
+        await recordOutcomeCandle({
+          supabaseService: supabaseService as SupabaseDbClient,
+          marketId,
+          outcomeId,
+          price: priceAfterRaw,
+          volumeMinor: payoutRaw,
+        });
+      }
+
       return {
         tradeId: String(result.trade_id),
         payoutMinor: payoutRaw,
@@ -2502,6 +2598,9 @@ export const marketRouter = router({
       z.array(
         z.object({
           bucket: z.string(),
+          outcomeId: z.string().nullable().optional(),
+          outcomeTitle: z.string().nullable().optional(),
+          outcomeColor: z.string().nullable().optional(),
           open: z.number(),
           high: z.number(),
           low: z.number(),
@@ -2513,6 +2612,56 @@ export const marketRouter = router({
     )
     .query(async ({ ctx, input }) => {
       const { supabase } = ctx;
+      const { data: marketRow, error: marketError } = await supabase
+        .from("markets")
+        .select("id, market_type")
+        .eq("id", input.marketId)
+        .maybeSingle();
+      if (marketError) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: marketError.message });
+      }
+      const marketType = (marketRow as { market_type?: string | null } | null)?.market_type ?? "binary";
+
+      if (marketType === "multi_choice") {
+        const { data, error } = await supabase
+          .from("market_outcome_price_candles")
+          .select("market_id, outcome_id, bucket, open, high, low, close, volume_minor, trades_count, market_outcomes:outcome_id (title, chart_color)")
+          .eq("market_id", input.marketId)
+          .order("bucket", { ascending: true })
+          .limit(input.limit * 12);
+
+        if (error) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+        }
+
+        type MultiCandleRow = {
+          bucket: string;
+          outcome_id: string;
+          open: number;
+          high: number;
+          low: number;
+          close: number;
+          volume_minor: number;
+          trades_count: number;
+          market_outcomes?: { title?: string | null; chart_color?: string | null } | null;
+        };
+
+        return (data ?? []).map((c) => {
+          const candle = c as MultiCandleRow;
+          return {
+            bucket: candle.bucket,
+            outcomeId: candle.outcome_id,
+            outcomeTitle: candle.market_outcomes?.title ?? null,
+            outcomeColor: normalizeHexColor(candle.market_outcomes?.chart_color ?? null),
+            open: Number(candle.open),
+            high: Number(candle.high),
+            low: Number(candle.low),
+            close: Number(candle.close),
+            volume: toMajorUnits(Number(candle.volume_minor), VCOIN_DECIMALS),
+            tradesCount: Number(candle.trades_count ?? 0),
+          };
+        });
+      }
 
       const { data, error } = await supabase
         .from("market_price_candles")
@@ -2522,10 +2671,7 @@ export const marketRouter = router({
         .limit(input.limit);
 
       if (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: error.message,
-        });
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
       }
 
       type CandleRow = Database["public"]["Tables"]["market_price_candles"]["Row"];
@@ -2533,6 +2679,9 @@ export const marketRouter = router({
         const candle = c as CandleRow;
         return {
           bucket: candle.bucket,
+          outcomeId: null,
+          outcomeTitle: null,
+          outcomeColor: null,
           open: Number(candle.open),
           high: Number(candle.high),
           low: Number(candle.low),
@@ -2541,6 +2690,33 @@ export const marketRouter = router({
           tradesCount: candle.trades_count,
         };
       });
+    }),
+
+  setOutcomeChartColor: publicProcedure
+    .input(
+      z.object({
+        outcomeId: z.string().uuid(),
+        color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+      })
+    )
+    .output(z.object({ outcomeId: z.string(), color: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const { supabaseService } = ctx;
+      const normalized = normalizeHexColor(input.color);
+      if (!normalized) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "INVALID_COLOR" });
+      }
+
+      const { error } = await supabaseService
+        .from("market_outcomes")
+        .update({ chart_color: normalized })
+        .eq("id", input.outcomeId);
+
+      if (error) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      }
+
+      return { outcomeId: input.outcomeId, color: normalized };
     }),
 
   /**
@@ -2916,6 +3092,7 @@ export const marketRouter = router({
           z.object({
             title: z.string().min(1),
             iconUrl: z.string().optional().nullable(),
+            chartColor: z.string().optional().nullable(),
             sortOrder: z.number().int().optional(),
           })
         ).optional(),
@@ -3010,6 +3187,7 @@ export const marketRouter = router({
         .map((o, idx) => ({
           title: o.title.trim(),
           iconUrl: o.iconUrl?.trim() || null,
+          chartColor: normalizeHexColor(o.chartColor),
           sortOrder: Number.isFinite(o.sortOrder ?? NaN) ? Number(o.sortOrder) : idx,
         }))
         .filter((o) => o.title.length > 0);
@@ -3056,6 +3234,7 @@ export const marketRouter = router({
           slug: `${o.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || `option-${idx + 1}`}-${idx + 1}`,
           title: o.title,
           icon_url: o.iconUrl,
+          chart_color: o.chartColor ?? colorFromSeed(`${market.id}:${o.title}:${idx}`),
           sort_order: o.sortOrder,
           is_active: true,
         }));

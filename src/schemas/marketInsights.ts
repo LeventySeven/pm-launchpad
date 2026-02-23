@@ -2,6 +2,9 @@ import { z } from "zod";
 
 const priceCandleBase = z.object({
   bucket: z.string(),
+  outcomeId: z.string().nullable().optional(),
+  outcomeTitle: z.string().nullable().optional(),
+  outcomeColor: z.string().nullable().optional(),
   open: z.number(),
   high: z.number(),
   low: z.number(),

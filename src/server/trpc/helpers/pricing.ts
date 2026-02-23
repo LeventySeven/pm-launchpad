@@ -8,6 +8,7 @@
 const PRICE_MIN = 0.01;
 const PRICE_MAX = 0.99;
 const PRICE_K = 0.85;
+const MULTI_OUTCOME_MIN_PROB = 0.01;
 
 const clampExpInput = (value: number) => {
   if (value > 60) return 60;
@@ -140,7 +141,69 @@ export function calculateSoftmaxProbabilities(q: number[], b: number): number[] 
     const fallback = 1 / q.length;
     return q.map(() => fallback);
   }
-  return exps.map((v) => v / denom);
+  const base = exps.map((v) => v / denom);
+  return applyProbabilityFloor(base, MULTI_OUTCOME_MIN_PROB);
+}
+
+function applyProbabilityFloor(probabilities: number[], floor: number): number[] {
+  const n = probabilities.length;
+  if (n === 0) return [];
+  if (!Number.isFinite(floor) || floor <= 0) {
+    return probabilities;
+  }
+
+  // If there are too many outcomes to guarantee a 1% floor, keep a safe uniform distribution.
+  if (n * floor >= 1) {
+    const uniform = 1 / n;
+    return probabilities.map(() => uniform);
+  }
+
+  const result = new Array<number>(n).fill(0);
+  const remaining = new Set<number>(Array.from({ length: n }, (_, i) => i));
+  let remainingMass = 1;
+
+  for (let guard = 0; guard < n; guard += 1) {
+    const remainingIndices = Array.from(remaining);
+    if (remainingIndices.length === 0) break;
+
+    const remainingBase = remainingIndices.reduce((sum, idx) => {
+      const p = probabilities[idx] ?? 0;
+      return sum + (Number.isFinite(p) ? p : 0);
+    }, 0);
+
+    let changed = false;
+    for (const idx of remainingIndices) {
+      const raw = Number.isFinite(probabilities[idx]) ? (probabilities[idx] as number) : 0;
+      const scaled = remainingBase > 0 ? (raw / remainingBase) * remainingMass : remainingMass / remainingIndices.length;
+      if (scaled < floor) {
+        result[idx] = floor;
+        remaining.delete(idx);
+        remainingMass -= floor;
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+
+  const finalIndices = Array.from(remaining);
+  if (finalIndices.length > 0) {
+    const finalBase = finalIndices.reduce((sum, idx) => {
+      const p = probabilities[idx] ?? 0;
+      return sum + (Number.isFinite(p) ? p : 0);
+    }, 0);
+    for (const idx of finalIndices) {
+      const raw = Number.isFinite(probabilities[idx]) ? (probabilities[idx] as number) : 0;
+      result[idx] = finalBase > 0 ? (raw / finalBase) * remainingMass : remainingMass / finalIndices.length;
+    }
+  }
+
+  // Keep total exactly at 1 despite floating point drift.
+  const total = result.reduce((sum, v) => sum + v, 0);
+  if (Number.isFinite(total) && total > 0) {
+    return result.map((v) => v / total);
+  }
+  const uniform = 1 / n;
+  return probabilities.map(() => uniform);
 }
 
 /**

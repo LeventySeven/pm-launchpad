@@ -38,10 +38,11 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, onUserClick, lang, sor
 
       <div className="space-y-3 pb-4">
         {users.map((user) => (
-            <div 
+            <button
                 key={user.id}
+                type="button"
                 onClick={() => onUserClick(user)}
-                className="bg-neutral-900/40 rounded-xl p-4 flex items-center gap-4 cursor-pointer hover:bg-neutral-800/60 transition-colors group"
+                className="w-full bg-neutral-900/40 rounded-xl p-4 flex items-center gap-4 cursor-pointer hover:bg-neutral-800/60 transition-colors group text-left"
             >
                 {/* Rank (no outline / no badge) */}
                 <div
@@ -79,7 +80,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, onUserClick, lang, sor
                     {formatPnl(user.pnl || 0)}
                   </div>
                 )}
-            </div>
+            </button>
         ))}
       </div>
     </div>

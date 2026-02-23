@@ -22,8 +22,6 @@ const Referrals: React.FC<ReferralsProps> = ({ user, onLogin, lang, onCreateRefe
   const [error, setError] = useState<string | null>(null);
 
   const referralCode = user?.referralCode ?? null;
-  const commissionRate = user?.referralCommissionRate ?? 0.5;
-  const commissionPct = Math.round(commissionRate * 100);
 
   const inviteLink = useMemo(() => {
     if (!referralCode) return null;
@@ -39,8 +37,8 @@ const Referrals: React.FC<ReferralsProps> = ({ user, onLogin, lang, onCreateRefe
       title: lang === 'RU' ? 'Рефералы' : 'Referrals',
       subtitle:
         lang === 'RU'
-          ? `Создайте ссылку и получайте ${commissionPct}% от комиссий друзей.`
-          : `Create a link and earn ${commissionPct}% of your friends’ fees.`,
+          ? 'Создайте ссылку и получайте часть комиссий друзей.'
+          : 'Create a link and earn from your friends’ fees.',
       create: lang === 'RU' ? 'Создать ссылку' : 'Create link',
       creating: lang === 'RU' ? 'Создание…' : 'Creating…',
       login: lang === 'RU' ? 'Войти' : 'Log in',
@@ -49,9 +47,8 @@ const Referrals: React.FC<ReferralsProps> = ({ user, onLogin, lang, onCreateRefe
       copyError: lang === 'RU' ? 'Не удалось скопировать' : 'Failed to copy',
       createError: lang === 'RU' ? 'Не удалось создать ссылку' : 'Failed to create link',
       loginToCreate: lang === 'RU' ? 'Войдите, чтобы создать ссылку' : 'Log in to create a link',
-      yourRate: lang === 'RU' ? 'Ваша ставка' : 'Your rate',
     }),
-    [lang, commissionPct]
+    [lang]
   );
 
   const handleCopy = async () => {
@@ -132,12 +129,6 @@ const Referrals: React.FC<ReferralsProps> = ({ user, onLogin, lang, onCreateRefe
 
           {error && <div className="mt-2 text-xs text-[rgba(245,68,166,1)]">{error}</div>}
 
-          {user && (
-            <div className="mt-3 text-[11px] text-zinc-500">
-              {t.yourRate}:{' '}
-              <span className="text-zinc-200 font-semibold">{commissionPct}%</span>
-                            </div>
-                        )}
                     </div>
                 </div>
     </div>

@@ -2,10 +2,11 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Market, User, Position, PriceCandle, PublicTrade, Comment } from '../types';
 import Button from './Button';
 import { Bookmark, ChevronLeft, Clock, ShieldCheck, User as UserIcon, Send, ThumbsUp, CalendarDays, Coins, MessageCircle, X, Info, LineChart, Link as LinkIcon, Check, Loader2, BookOpen } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart as RechartsLineChart, Line } from 'recharts';
 import { formatTimeRemaining } from '../lib/time';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useOnChainMarketData } from '../lib/solana/hooks';
+import { trpcClient } from '../src/utils/trpcClient';
 
 type ErrorLike = string | Error | { message?: string } | null | undefined;
 
@@ -247,58 +248,152 @@ const MarketPage: React.FC<MarketPageProps> = ({
     ? (userPositions.find((p) => p.outcomeId === selectedOutcomeId)?.shares ?? 0)
     : (tradeType === 'YES' ? (userYesPosition?.shares ?? 0) : (userNoPosition?.shares ?? 0));
   const sellablePositions = userPositions.filter((p) => (p.shares ?? 0) > 0);
+  const [outcomeColorOverrides, setOutcomeColorOverrides] = useState<Record<string, string>>({});
+
+  const fallbackOutcomeColor = (seed: string) => {
+    let hash = 2166136261;
+    for (let i = 0; i < seed.length; i += 1) {
+      hash ^= seed.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    const r = 40 + (Math.abs(hash) % 180);
+    const g = 40 + (Math.abs(hash >> 8) % 180);
+    const b = 40 + (Math.abs(hash >> 16) % 180);
+    const toHex = (v: number) => v.toString(16).padStart(2, "0");
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+  };
+
+  const extractColorFromImageUrl = async (src: string): Promise<string | null> => {
+    try {
+      const img = new window.Image();
+      img.crossOrigin = "anonymous";
+      img.decoding = "async";
+      img.referrerPolicy = "no-referrer";
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("IMG_LOAD_ERROR"));
+        img.src = src;
+      });
+      const canvas = document.createElement("canvas");
+      const size = 24;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return null;
+      ctx.drawImage(img, 0, 0, size, size);
+      const data = ctx.getImageData(0, 0, size, size).data;
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let count = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const alpha = data[i + 3] ?? 0;
+        if (alpha < 24) continue;
+        r += data[i] ?? 0;
+        g += data[i + 1] ?? 0;
+        b += data[i + 2] ?? 0;
+        count += 1;
+      }
+      if (count === 0) return null;
+      r = Math.round(r / count);
+      g = Math.round(g / count);
+      b = Math.round(b / count);
+      const toHex = (v: number) => v.toString(16).padStart(2, "0");
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+    } catch {
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    if (!isMulti || !Array.isArray(market.outcomes) || market.outcomes.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      for (const outcome of market.outcomes ?? []) {
+        if (!outcome.id || outcome.chartColor) continue;
+        if (outcomeColorOverrides[outcome.id]) continue;
+        const sampled = outcome.iconUrl ? await extractColorFromImageUrl(outcome.iconUrl) : null;
+        const color = sampled ?? fallbackOutcomeColor(`${market.id}:${outcome.id}`);
+        if (cancelled) return;
+        setOutcomeColorOverrides((prev) => ({ ...prev, [outcome.id]: color }));
+        try {
+          await trpcClient.market.setOutcomeChartColor.mutate({ outcomeId: outcome.id, color });
+        } catch {
+          // Best-effort persistence; UI still uses local color.
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isMulti, market.id, market.outcomes, outcomeColorOverrides]);
 
   const chartSeries = useMemo(() => {
-    if (priceCandles.length > 0) {
-      const times = priceCandles
-        .map((c) => Date.parse(String(c.bucket)))
-        .filter((t) => Number.isFinite(t));
-      const spansMultipleDays = (() => {
-        if (times.length === 0) return false;
-        const first = new Date(times[0]);
-        const last = new Date(times[times.length - 1]);
-        return (
-          first.getFullYear() !== last.getFullYear() ||
-          first.getMonth() !== last.getMonth() ||
-          first.getDate() !== last.getDate()
-        );
-      })();
+    const times = priceCandles
+      .map((c) => Date.parse(String(c.bucket)))
+      .filter((t) => Number.isFinite(t));
+    const spansMultipleDays = (() => {
+      if (times.length === 0) return false;
+      const first = new Date(times[0]);
+      const last = new Date(times[times.length - 1]);
+      return (
+        first.getFullYear() !== last.getFullYear() ||
+        first.getMonth() !== last.getMonth() ||
+        first.getDate() !== last.getDate()
+      );
+    })();
+    const labelFor = (ts: number) =>
+      spansMultipleDays
+        ? new Date(ts).toLocaleString(lang === 'RU' ? 'ru-RU' : 'en-US', {
+            month: 'short',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : new Date(ts).toLocaleTimeString(lang === 'RU' ? 'ru-RU' : 'en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+          });
 
-      const fallbackChance = Number.isFinite(market.chance)
-        ? market.chance
-        : Math.round(Number(market.yesPrice ?? 0.5) * 100);
-
-      return priceCandles
-        .map((c, idx) => {
-          const ts = Date.parse(String(c.bucket));
-          if (!Number.isFinite(ts)) return null;
-          const isLast = idx === priceCandles.length - 1;
-          const value = isLast ? fallbackChance : Number((c.close * 100).toFixed(2));
-          return {
-            ts,
-            label: spansMultipleDays
-              ? new Date(ts).toLocaleString(lang === 'RU' ? 'ru-RU' : 'en-US', {
-                  month: 'short',
-                  day: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
-              : new Date(ts).toLocaleTimeString(lang === 'RU' ? 'ru-RU' : 'en-US', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }),
-            value,
-            spansMultipleDays,
-          };
-        })
-        .filter((v): v is { ts: number; label: string; value: number; spansMultipleDays: boolean } => Boolean(v));
+    if (isMulti) {
+      const outcomeLines = (market.outcomes ?? []).map((o) => ({
+        id: o.id,
+        title: o.title,
+        color: outcomeColorOverrides[o.id] ?? o.chartColor ?? fallbackOutcomeColor(`${market.id}:${o.id}`),
+      }));
+      const byTs = new Map<number, { ts: number; label: string; spansMultipleDays: boolean; values: Record<string, number> }>();
+      priceCandles.forEach((c) => {
+        const ts = Date.parse(String(c.bucket));
+        if (!Number.isFinite(ts) || !c.outcomeId) return;
+        const row = byTs.get(ts) ?? { ts, label: labelFor(ts), spansMultipleDays, values: {} };
+        row.values[c.outcomeId] = Number((c.close * 100).toFixed(2));
+        byTs.set(ts, row);
+      });
+      const data = Array.from(byTs.values())
+        .sort((a, b) => a.ts - b.ts)
+        .map((row) => ({ ...row, ...row.values }));
+      return { mode: 'multi' as const, data, lines: outcomeLines };
     }
-    return [];
-  }, [priceCandles, lang, market.chance, market.yesPrice]);
 
-  const displayedChance = Number.isFinite(market.chance)
-    ? market.chance
-    : Math.round(Number(market.yesPrice ?? 0.5) * 100);
+    const fallbackChance = Number.isFinite(market.chance)
+      ? market.chance
+      : Math.round(Number(market.yesPrice ?? 0.5) * 100);
+
+    const data = priceCandles
+      .map((c, idx) => {
+        const ts = Date.parse(String(c.bucket));
+        if (!Number.isFinite(ts)) return null;
+        const isLast = idx === priceCandles.length - 1;
+        const value = isLast ? fallbackChance : Number((c.close * 100).toFixed(2));
+        return { ts, label: labelFor(ts), value, spansMultipleDays };
+      })
+      .filter((v): v is { ts: number; label: string; value: number; spansMultipleDays: boolean } => Boolean(v));
+    return { mode: 'binary' as const, data, lines: [] };
+  }, [priceCandles, lang, market.chance, market.yesPrice, isMulti, market.outcomes, market.id, fallbackOutcomeColor, outcomeColorOverrides]);
+
+  const displayedChance = isMulti
+    ? Math.round(Number((selectedOutcome?.price ?? 0) * 100))
+    : (Number.isFinite(market.chance) ? market.chance : Math.round(Number(market.yesPrice ?? 0.5) * 100));
 
   useEffect(() => {
     const update = () => {
@@ -1151,7 +1246,9 @@ const MarketPage: React.FC<MarketPageProps> = ({
             <div className="flex items-baseline gap-4 mb-8">
               <span className="text-4xl font-bold tracking-tight text-zinc-100">{displayedChance}%</span>
               <span className="text-zinc-500 text-sm font-medium uppercase tracking-wide">
-                {lang === 'RU' ? 'Вероятность (Да)' : 'Yes Probability'}
+                {isMulti
+                  ? (lang === 'RU' ? 'Вероятность выбранного исхода' : 'Selected outcome probability')
+                  : (lang === 'RU' ? 'Вероятность (Да)' : 'Yes Probability')}
               </span>
             </div>
             {insightsLoading && (
@@ -1159,54 +1256,98 @@ const MarketPage: React.FC<MarketPageProps> = ({
                 {lang === 'RU' ? 'Обновление...' : 'Updating...'}
               </span>
             )}
-            {chartSeries.length > 0 ? (
+            {chartSeries.data.length > 0 ? (
               <ResponsiveContainer width="100%" height="80%">
-                <AreaChart data={chartSeries}>
-                  <defs>
-                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ffffff" stopOpacity={0.14}/>
-                      <stop offset="95%" stopColor="#ffffff" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <XAxis 
-                    dataKey="label" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{fill: '#52525b', fontSize: 10}} 
-                    tickFormatter={(value) => String(value)}
-                    minTickGap={40}
-                    dy={10}
-                  />
-                  <YAxis 
-                    hide domain={[0, 100]} 
-                  />
-                  <CartesianGrid vertical={false} stroke="#18181b" strokeDasharray="3 3" />
-                  <Tooltip 
-                    contentStyle={{backgroundColor: '#000000', borderColor: '#27272a', borderRadius: '10px'}}
-                    itemStyle={{color: '#ffffff', fontSize: '12px'}}
-                    labelStyle={{color: '#71717a', fontSize: '10px', textTransform: 'uppercase'}}
-                    labelFormatter={(_, payload) => {
-                      const p = Array.isArray(payload) ? payload[0]?.payload : null;
-                      const ts = p && typeof p.ts === "number" ? p.ts : null;
-                      if (!ts) return "";
-                      return new Date(ts).toLocaleString(lang === 'RU' ? 'ru-RU' : 'en-US', {
-                        month: 'short',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      });
-                    }}
-                    formatter={(value: number) => [`${value}%`, lang === 'RU' ? 'Вероятность' : 'Chance']}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="value" 
-                    stroke="#ffffff" 
-                    strokeWidth={2}
-                    fillOpacity={1} 
-                    fill="url(#colorValue)" 
-                  />
-                </AreaChart>
+                {chartSeries.mode === 'multi' ? (
+                  <RechartsLineChart data={chartSeries.data}>
+                    <XAxis
+                      dataKey="label"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#52525b', fontSize: 10 }}
+                      tickFormatter={(value) => String(value)}
+                      minTickGap={40}
+                      dy={10}
+                    />
+                    <YAxis hide domain={[0, 100]} />
+                    <CartesianGrid vertical={false} stroke="#18181b" strokeDasharray="3 3" />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#000000', borderColor: '#27272a', borderRadius: '10px' }}
+                      itemStyle={{ color: '#ffffff', fontSize: '12px' }}
+                      labelStyle={{ color: '#71717a', fontSize: '10px', textTransform: 'uppercase' }}
+                      labelFormatter={(_, payload) => {
+                        const p = Array.isArray(payload) ? payload[0]?.payload : null;
+                        const ts = p && typeof p.ts === "number" ? p.ts : null;
+                        if (!ts) return "";
+                        return new Date(ts).toLocaleString(lang === 'RU' ? 'ru-RU' : 'en-US', {
+                          month: 'short',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        });
+                      }}
+                      formatter={(value: number, name: string) => [`${Number(value).toFixed(2)}%`, name]}
+                    />
+                    {chartSeries.lines.map((line) => (
+                      <Line
+                        key={line.id}
+                        type="monotone"
+                        dataKey={line.id}
+                        name={line.title}
+                        stroke={line.color}
+                        strokeWidth={2}
+                        dot={false}
+                        isAnimationActive={false}
+                        connectNulls
+                      />
+                    ))}
+                  </RechartsLineChart>
+                ) : (
+                  <AreaChart data={chartSeries.data}>
+                    <defs>
+                      <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ffffff" stopOpacity={0.14} />
+                        <stop offset="95%" stopColor="#ffffff" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis
+                      dataKey="label"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#52525b', fontSize: 10 }}
+                      tickFormatter={(value) => String(value)}
+                      minTickGap={40}
+                      dy={10}
+                    />
+                    <YAxis hide domain={[0, 100]} />
+                    <CartesianGrid vertical={false} stroke="#18181b" strokeDasharray="3 3" />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#000000', borderColor: '#27272a', borderRadius: '10px' }}
+                      itemStyle={{ color: '#ffffff', fontSize: '12px' }}
+                      labelStyle={{ color: '#71717a', fontSize: '10px', textTransform: 'uppercase' }}
+                      labelFormatter={(_, payload) => {
+                        const p = Array.isArray(payload) ? payload[0]?.payload : null;
+                        const ts = p && typeof p.ts === "number" ? p.ts : null;
+                        if (!ts) return "";
+                        return new Date(ts).toLocaleString(lang === 'RU' ? 'ru-RU' : 'en-US', {
+                          month: 'short',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        });
+                      }}
+                      formatter={(value: number) => [`${value}%`, lang === 'RU' ? 'Вероятность' : 'Chance']}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#ffffff"
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill="url(#colorValue)"
+                    />
+                  </AreaChart>
+                )}
               </ResponsiveContainer>
             ) : (
               <div className="flex h-[80%] items-center justify-center text-sm text-neutral-500">
