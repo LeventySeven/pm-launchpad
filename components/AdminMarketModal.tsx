@@ -141,7 +141,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
         img.onload = () => {
           try {
             const canvas = document.createElement("canvas");
-            const size = 24;
+            const size = 48;
             canvas.width = size;
             canvas.height = size;
             const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -151,25 +151,56 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
             }
             ctx.drawImage(img, 0, 0, size, size);
             const data = ctx.getImageData(0, 0, size, size).data;
-            let r = 0;
-            let g = 0;
-            let b = 0;
-            let count = 0;
+            type Bucket = { score: number; r: number; g: number; b: number; w: number };
+            const buckets = new Map<number, Bucket>();
+            const toHsv = (r: number, g: number, b: number) => {
+              const rn = r / 255;
+              const gn = g / 255;
+              const bn = b / 255;
+              const max = Math.max(rn, gn, bn);
+              const min = Math.min(rn, gn, bn);
+              const d = max - min;
+              let h = 0;
+              if (d > 1e-9) {
+                if (max === rn) h = ((gn - bn) / d) % 6;
+                else if (max === gn) h = (bn - rn) / d + 2;
+                else h = (rn - gn) / d + 4;
+                h *= 60;
+                if (h < 0) h += 360;
+              }
+              const s = max === 0 ? 0 : d / max;
+              const v = max;
+              return { h, s, v };
+            };
             for (let i = 0; i < data.length; i += 4) {
               const alpha = data[i + 3] ?? 0;
-              if (alpha < 24) continue;
-              r += data[i] ?? 0;
-              g += data[i + 1] ?? 0;
-              b += data[i + 2] ?? 0;
-              count += 1;
+              if (alpha < 32) continue;
+              const r = data[i] ?? 0;
+              const g = data[i + 1] ?? 0;
+              const b = data[i + 2] ?? 0;
+              const { h, s, v } = toHsv(r, g, b);
+              // Ignore near-gray and very dark pixels (background/black regions).
+              if (s < 0.22 || v < 0.16) continue;
+              const bucketId = Math.floor(h / 15); // 24 hue buckets
+              const pixelWeight = (alpha / 255) * (0.35 + s * 0.65) * (0.45 + v * 0.55);
+              const existing = buckets.get(bucketId) ?? { score: 0, r: 0, g: 0, b: 0, w: 0 };
+              existing.score += pixelWeight;
+              existing.r += r * pixelWeight;
+              existing.g += g * pixelWeight;
+              existing.b += b * pixelWeight;
+              existing.w += pixelWeight;
+              buckets.set(bucketId, existing);
             }
-            if (count === 0) {
+
+            const winner = Array.from(buckets.values()).sort((a, b) => b.score - a.score)[0] ?? null;
+            if (!winner || winner.w <= 1e-9) {
               resolve(null);
               return;
             }
-            r = Math.round(r / count);
-            g = Math.round(g / count);
-            b = Math.round(b / count);
+
+            const r = Math.round(winner.r / winner.w);
+            const g = Math.round(winner.g / winner.w);
+            const b = Math.round(winner.b / winner.w);
             const toHex = (v: number) => v.toString(16).padStart(2, "0");
             resolve(`#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase());
           } catch {
