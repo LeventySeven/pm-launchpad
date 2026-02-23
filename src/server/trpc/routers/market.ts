@@ -2066,7 +2066,10 @@ export const marketRouter = router({
       }
 
       const useService = supabaseService !== supabase;
-      const client = useService ? (supabaseService as SupabaseDbClient) : (supabase as SupabaseDbClient);
+      // Multi-outcome RPC relies on auth.uid(), so it must run through the user-bound client.
+      const client = marketType === "multi_choice"
+        ? (supabase as SupabaseDbClient)
+        : (useService ? (supabaseService as SupabaseDbClient) : (supabase as SupabaseDbClient));
       const { data, error } = marketType === "multi_choice"
         ? await client.rpc("sell_position_multi_tx", {
             p_market_id: marketId,
