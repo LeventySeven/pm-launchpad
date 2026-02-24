@@ -262,13 +262,19 @@ const MarketPage: React.FC<MarketPageProps> = ({
   };
 
   const chartSeries = useMemo(() => {
-    const times = priceCandles
+    const nowTs = Date.now();
+    const createdTsRaw = Date.parse(String(market.createdAt));
+    const createdTs = Number.isFinite(createdTsRaw) ? createdTsRaw : nowTs;
+    const candleTimes = priceCandles
       .map((c) => Date.parse(String(c.bucket)))
       .filter((t) => Number.isFinite(t));
+    const times = [...candleTimes, createdTs, nowTs];
     const spansMultipleDays = (() => {
       if (times.length === 0) return false;
-      const first = new Date(times[0]);
-      const last = new Date(times[times.length - 1]);
+      const minTs = Math.min(...times);
+      const maxTs = Math.max(...times);
+      const first = new Date(minTs);
+      const last = new Date(maxTs);
       return (
         first.getFullYear() !== last.getFullYear() ||
         first.getMonth() !== last.getMonth() ||
@@ -295,6 +301,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
         color: o.chartColor ?? fallbackOutcomeColor(`${market.id}:${o.id}`),
         sortOrder: o.sortOrder ?? 0,
       }));
+      const initialProb = outcomeLines.length > 0 ? Number((100 / outcomeLines.length).toFixed(2)) : 0;
       const byTs = new Map<number, { ts: number; label: string; spansMultipleDays: boolean; values: Record<string, number> }>();
       priceCandles.forEach((c) => {
         const ts = Date.parse(String(c.bucket));
@@ -303,9 +310,51 @@ const MarketPage: React.FC<MarketPageProps> = ({
         row.values[c.outcomeId] = Number((c.close * 100).toFixed(2));
         byTs.set(ts, row);
       });
-      const data = Array.from(byTs.values())
-        .sort((a, b) => a.ts - b.ts)
-        .map((row) => ({ ...row, ...row.values }));
+      if (!byTs.has(createdTs)) {
+        const initValues: Record<string, number> = {};
+        outcomeLines.forEach((o) => {
+          initValues[o.id] = initialProb;
+        });
+        byTs.set(createdTs, { ts: createdTs, label: labelFor(createdTs), spansMultipleDays, values: initValues });
+      }
+
+      const sortedRows = Array.from(byTs.values()).sort((a, b) => a.ts - b.ts);
+      const lastValues: Record<string, number> = {};
+      outcomeLines.forEach((o) => {
+        lastValues[o.id] = initialProb;
+      });
+      const normalizedRows = sortedRows.map((row) => {
+        const values: Record<string, number> = {};
+        outcomeLines.forEach((o) => {
+          if (typeof row.values[o.id] === 'number' && Number.isFinite(row.values[o.id])) {
+            lastValues[o.id] = row.values[o.id];
+          }
+          values[o.id] = Number(lastValues[o.id].toFixed(2));
+        });
+        return { ...row, values };
+      });
+
+      const liveValues: Record<string, number> = {};
+      outcomeLines.forEach((o) => {
+        const liveProb = Number((market.outcomes ?? []).find((mo) => mo.id === o.id)?.probability ?? NaN);
+        liveValues[o.id] = Number.isFinite(liveProb)
+          ? Number((liveProb * 100).toFixed(2))
+          : Number(lastValues[o.id].toFixed(2));
+      });
+      const lastRow = normalizedRows[normalizedRows.length - 1] ?? null;
+      const liveChanged = lastRow
+        ? outcomeLines.some((o) => Math.abs((lastRow.values[o.id] ?? 0) - (liveValues[o.id] ?? 0)) > 0.05)
+        : true;
+      if (liveChanged) {
+        normalizedRows.push({
+          ts: Math.max(nowTs, (lastRow?.ts ?? 0) + 1),
+          label: labelFor(nowTs),
+          spansMultipleDays,
+          values: liveValues,
+        });
+      }
+
+      const data = normalizedRows.map((row) => ({ ...row, ...row.values }));
       return { mode: 'multi' as const, data, lines: outcomeLines.sort((a, b) => a.sortOrder - b.sortOrder) };
     }
 
@@ -313,16 +362,30 @@ const MarketPage: React.FC<MarketPageProps> = ({
       ? market.chance
       : Math.round(Number(market.yesPrice ?? 0.5) * 100);
 
-    const data = priceCandles
-      .map((c, idx) => {
+    const rows = priceCandles
+      .map((c) => {
         const ts = Date.parse(String(c.bucket));
         if (!Number.isFinite(ts)) return null;
-        const isLast = idx === priceCandles.length - 1;
-        const value = isLast ? fallbackChance : Number((c.close * 100).toFixed(2));
-        return { ts, label: labelFor(ts), value, spansMultipleDays };
+        return { ts, label: labelFor(ts), value: Number((c.close * 100).toFixed(2)), spansMultipleDays };
       })
-      .filter((v): v is { ts: number; label: string; value: number; spansMultipleDays: boolean } => Boolean(v));
-    return { mode: 'binary' as const, data, lines: [] };
+      .filter((v): v is { ts: number; label: string; value: number; spansMultipleDays: boolean } => Boolean(v))
+      .sort((a, b) => a.ts - b.ts);
+
+    if (rows.length === 0 || rows[0].ts > createdTs) {
+      rows.unshift({ ts: createdTs, label: labelFor(createdTs), value: 50, spansMultipleDays });
+    }
+
+    const last = rows[rows.length - 1] ?? null;
+    if (!last || Math.abs(last.value - fallbackChance) > 0.05) {
+      rows.push({
+        ts: Math.max(nowTs, (last?.ts ?? 0) + 1),
+        label: labelFor(nowTs),
+        value: Number(fallbackChance.toFixed(2)),
+        spansMultipleDays,
+      });
+    }
+
+    return { mode: 'binary' as const, data: rows, lines: [] };
   }, [priceCandles, lang, market.chance, market.yesPrice, isMulti, market.outcomes, market.id]);
 
   const displayedChance = isMulti
