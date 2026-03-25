@@ -1,5 +1,16 @@
-import HomePage from "../page";
+import { getHomePageInitialData } from "@/src/server/markets/pageData";
+import HomePageClient from "@/components/HomePageClient";
 
-export default function LeaderboardPage() {
-  return <HomePage />;
+export const revalidate = 15;
+
+export default async function LeaderboardPage() {
+  const initialData = await getHomePageInitialData();
+
+  return (
+    <HomePageClient
+      initialMarkets={initialData.initialMarkets}
+      initialCategories={initialData.initialCategories}
+      fetchedAt={initialData.fetchedAt}
+    />
+  );
 }

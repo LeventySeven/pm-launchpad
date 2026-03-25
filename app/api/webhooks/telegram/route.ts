@@ -14,15 +14,7 @@ Tap the button below to start predicting ⬇️`;
 
 const getMiniAppUrl = () => process.env.TELEGRAM_MINIAPP_URL?.trim() || null;
 
-const token = process.env.TELEGRAM_BOT_TOKEN;
-if (!token) {
-  throw new Error("TELEGRAM_BOT_TOKEN is not configured");
-}
-
-const bot = new Bot(token);
-bot.catch((err) => {
-  console.error("[telegram webhook] unhandled bot error", err.error);
-});
+const token = process.env.TELEGRAM_BOT_TOKEN?.trim() ?? "";
 
 const isStartCommandText = (text: string | undefined) => {
   if (!text) return false;
@@ -59,25 +51,47 @@ const replyWithStart = async (ctx: Context) => {
   });
 };
 
-bot.on("message:text", async (ctx) => {
-  if (!isStartCommandText(ctx.message.text)) return;
-  console.info("[telegram webhook] start command received", {
-    text: ctx.message.text,
-    chatId: ctx.chat?.id,
-    fromId: ctx.from?.id,
-  });
-  await replyWithStart(ctx);
-});
-bot.callbackQuery("start", async (ctx) => {
-  await ctx.answerCallbackQuery();
-  await replyWithStart(ctx);
-});
+// Lazy-initialize bot and webhook handler only when token is available.
+// This prevents build failures when TELEGRAM_BOT_TOKEN is not set.
+let webhookHandler: ((req: Request) => Promise<Response>) | null = null;
 
-const webhook = webhookCallback(bot, "std/http");
+function getWebhookHandler() {
+  if (webhookHandler) return webhookHandler;
+  if (!token) {
+    console.warn("[telegram webhook] TELEGRAM_BOT_TOKEN is not configured — webhook disabled.");
+    return null;
+  }
+
+  const bot = new Bot(token);
+  bot.catch((err) => {
+    console.error("[telegram webhook] unhandled bot error", err.error);
+  });
+
+  bot.on("message:text", async (ctx) => {
+    if (!isStartCommandText(ctx.message.text)) return;
+    console.info("[telegram webhook] start command received", {
+      text: ctx.message.text,
+      chatId: ctx.chat?.id,
+      fromId: ctx.from?.id,
+    });
+    await replyWithStart(ctx);
+  });
+  bot.callbackQuery("start", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await replyWithStart(ctx);
+  });
+
+  webhookHandler = webhookCallback(bot, "std/http");
+  return webhookHandler;
+}
 
 export const POST = async (req: Request) => {
   try {
-    return await webhook(req);
+    const handler = getWebhookHandler();
+    if (!handler) {
+      return new Response("Telegram webhook not configured", { status: 503 });
+    }
+    return await handler(req);
   } catch (err) {
     console.error("[telegram webhook] POST handler failed", err);
     return new Response("ok");

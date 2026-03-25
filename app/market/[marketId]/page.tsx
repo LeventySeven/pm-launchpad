@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import HomePage from "../../page";
+import { getMarketDetailInitialData } from "@/src/server/markets/pageData";
+import HomePageClient from "@/components/HomePageClient";
+
+export const revalidate = 15;
 
 type PageProps = {
   params: Promise<{ marketId: string }>;
@@ -78,6 +81,16 @@ export const generateMetadata = async ({ params }: PageProps): Promise<Metadata>
   };
 };
 
-export default function MarketRoutePage() {
-  return <HomePage />;
+export default async function MarketRoutePage({ params }: PageProps) {
+  const { marketId } = await params;
+  const initialData = await getMarketDetailInitialData(marketId);
+
+  return (
+    <HomePageClient
+      initialMarkets={initialData.initialMarkets}
+      initialCategories={initialData.initialCategories}
+      fetchedAt={initialData.fetchedAt}
+      initialMarketId={initialData.initialMarketId}
+    />
+  );
 }
