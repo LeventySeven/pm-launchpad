@@ -67,6 +67,8 @@ export interface Database {
           solana_wallet_address: string | null;
           solana_cluster: string | null;
           solana_wallet_connected_at: string | null;
+          follower_count: number;
+          following_count: number;
         };
         Insert: {
           id?: string;
@@ -89,6 +91,8 @@ export interface Database {
           solana_wallet_address?: string | null;
           solana_cluster?: string | null;
           solana_wallet_connected_at?: string | null;
+          follower_count?: number;
+          following_count?: number;
         };
         Update: {
           id?: string;
@@ -111,6 +115,8 @@ export interface Database {
           solana_wallet_address?: string | null;
           solana_cluster?: string | null;
           solana_wallet_connected_at?: string | null;
+          follower_count?: number;
+          following_count?: number;
         };
         Relationships: [];
       };
@@ -861,6 +867,130 @@ export interface Database {
           { foreignKeyName: "deposits_user_id_fkey"; columns: ["user_id"]; referencedRelation: "users"; referencedColumns: ["id"] },
           { foreignKeyName: "deposits_asset_code_fkey"; columns: ["asset_code"]; referencedRelation: "assets"; referencedColumns: ["code"] },
           { foreignKeyName: "deposits_wallet_tx_id_fkey"; columns: ["wallet_tx_id"]; referencedRelation: "wallet_transactions"; referencedColumns: ["id"] }
+        ];
+      };
+      // --- Social / Communities ---
+      user_follows: {
+        Row: {
+          follower_id: string;
+          following_id: string;
+          created_at: string;
+        };
+        Insert: {
+          follower_id: string;
+          following_id: string;
+          created_at?: string;
+        };
+        Update: {
+          follower_id?: string;
+          following_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          { foreignKeyName: "user_follows_follower_id_fkey"; columns: ["follower_id"]; referencedRelation: "users"; referencedColumns: ["id"] },
+          { foreignKeyName: "user_follows_following_id_fkey"; columns: ["following_id"]; referencedRelation: "users"; referencedColumns: ["id"] }
+        ];
+      };
+      communities: {
+        Row: {
+          id: string;
+          slug: string;
+          name: string;
+          description: string | null;
+          banner_url: string | null;
+          privacy: "public" | "private";
+          category: string | null;
+          created_by: string;
+          member_count: number;
+          market_count: number;
+          total_volume_minor: number;
+          importance_score: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          name: string;
+          description?: string | null;
+          banner_url?: string | null;
+          privacy?: "public" | "private";
+          category?: string | null;
+          created_by: string;
+          member_count?: number;
+          market_count?: number;
+          total_volume_minor?: number;
+          importance_score?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          slug?: string;
+          name?: string;
+          description?: string | null;
+          banner_url?: string | null;
+          privacy?: "public" | "private";
+          category?: string | null;
+          created_by?: string;
+          member_count?: number;
+          market_count?: number;
+          total_volume_minor?: number;
+          importance_score?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          { foreignKeyName: "communities_created_by_fkey"; columns: ["created_by"]; referencedRelation: "users"; referencedColumns: ["id"] }
+        ];
+      };
+      community_members: {
+        Row: {
+          community_id: string;
+          user_id: string;
+          role: "creator" | "moderator" | "member";
+          joined_at: string;
+        };
+        Insert: {
+          community_id: string;
+          user_id: string;
+          role?: "creator" | "moderator" | "member";
+          joined_at?: string;
+        };
+        Update: {
+          community_id?: string;
+          user_id?: string;
+          role?: "creator" | "moderator" | "member";
+          joined_at?: string;
+        };
+        Relationships: [
+          { foreignKeyName: "community_members_community_id_fkey"; columns: ["community_id"]; referencedRelation: "communities"; referencedColumns: ["id"] },
+          { foreignKeyName: "community_members_user_id_fkey"; columns: ["user_id"]; referencedRelation: "users"; referencedColumns: ["id"] }
+        ];
+      };
+      community_markets: {
+        Row: {
+          community_id: string;
+          market_id: string;
+          added_by: string;
+          added_at: string;
+        };
+        Insert: {
+          community_id: string;
+          market_id: string;
+          added_by: string;
+          added_at?: string;
+        };
+        Update: {
+          community_id?: string;
+          market_id?: string;
+          added_by?: string;
+          added_at?: string;
+        };
+        Relationships: [
+          { foreignKeyName: "community_markets_community_id_fkey"; columns: ["community_id"]; referencedRelation: "communities"; referencedColumns: ["id"] },
+          { foreignKeyName: "community_markets_market_id_fkey"; columns: ["market_id"]; referencedRelation: "markets"; referencedColumns: ["id"] },
+          { foreignKeyName: "community_markets_added_by_fkey"; columns: ["added_by"]; referencedRelation: "users"; referencedColumns: ["id"] }
         ];
       };
     };

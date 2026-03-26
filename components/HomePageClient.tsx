@@ -17,6 +17,8 @@ import { trpcClient } from "@/src/utils/trpcClient";
 import { Search, X, AlertCircle, Filter } from "lucide-react";
 import BottomMenu, { type ViewType } from "@/components/BottomMenu";
 import FriendsPage from "@/components/FriendsPage";
+import CommunityProfilePage from "@/components/CommunityProfilePage";
+import CommunityCreateModal from "@/components/CommunityCreateModal";
 import { leaderboardUsersSchema } from "@/src/schemas/leaderboard";
 import { positionsSchema, tradesSchema } from "@/src/schemas/portfolio";
 import { priceCandlesSchema, publicTradesSchema } from "@/src/schemas/marketInsights";
@@ -261,6 +263,10 @@ export type HomePageClientProps = {
   fetchedAt?: number;
   /** Pre-selected market ID (for /market/[marketId] routes). */
   initialMarketId?: string | null;
+  /** Pre-selected community slug (for /community/[slug] routes). */
+  initialCommunitySlug?: string | null;
+  /** Pre-selected username (for /u/[username] routes). */
+  initialProfileUsername?: string | null;
 };
 
 export default function HomePageClient({
@@ -268,6 +274,8 @@ export default function HomePageClient({
   initialCategories,
   fetchedAt: ssrFetchedAt,
   initialMarketId,
+  initialCommunitySlug,
+  initialProfileUsername,
 }: HomePageClientProps = {}) {
   // ---------------------------------------------------------------------------
   // SSR Bootstrap → Warm Cache → Empty fallback chain
@@ -590,6 +598,8 @@ export default function HomePageClient({
   type MarketBetIntent = { marketId: string; side?: "YES" | "NO"; outcomeId?: string; nonce: number } | null;
   const [marketBetIntent, setMarketBetIntent] = useState<MarketBetIntent>(null);
   const [showAdminModal, setShowAdminModal] = useState(false);
+  const [selectedCommunitySlug, setSelectedCommunitySlug] = useState<string | null>(initialCommunitySlug ?? null);
+  const [showCommunityCreateModal, setShowCommunityCreateModal] = useState(false);
   const [marketCandles, setMarketCandles] = useState<PriceCandle[]>([]);
   const [marketPublicTrades, setMarketPublicTrades] = useState<PublicTrade[]>([]);
 
@@ -2900,6 +2910,8 @@ export default function HomePageClient({
                       void loadLeaderboard(next);
                     }}
                     onOpenLeaderboardSort={() => setLeaderboardSortOpen(true)}
+                    onCommunityClick={(slug) => setSelectedCommunitySlug(slug)}
+                    onCreateCommunity={() => setShowCommunityCreateModal(true)}
                   />
                 </div>
 
@@ -3379,6 +3391,34 @@ export default function HomePageClient({
             navigateToMarketUrl(marketId);
           }
           setCurrentView("CATALOG");
+        }}
+      />
+      {/* Community Profile Page (full-screen overlay) */}
+      {selectedCommunitySlug && (
+        <div className="fixed inset-0 z-[70] bg-black overflow-y-auto" data-swipe-ignore="true">
+          <CommunityProfilePage
+            communitySlug={selectedCommunitySlug}
+            user={user}
+            lang={lang}
+            markets={markets}
+            onBack={() => setSelectedCommunitySlug(null)}
+            onMarketClick={(market) => {
+              setSelectedCommunitySlug(null);
+              setSelectedMarketId(market.id);
+              navigateToMarketUrl(market.id, market.title);
+            }}
+            onLogin={() => openAuth("SIGN_IN")}
+            onUserClick={(userId) => void openPublicProfile(userId)}
+          />
+        </div>
+      )}
+      {/* Community Create Modal */}
+      <CommunityCreateModal
+        isOpen={showCommunityCreateModal}
+        onClose={() => setShowCommunityCreateModal(false)}
+        lang={lang}
+        onCreate={async (input) => {
+          await trpcClient.community.create.mutate(input);
         }}
       />
       <AdminMarketModal

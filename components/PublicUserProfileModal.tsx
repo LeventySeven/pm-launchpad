@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { X, MessageCircle, Clock } from "lucide-react";
+import { X, MessageCircle, Clock, Users } from "lucide-react";
 import type { Market } from "../types";
+import FollowButton from "@/components/FollowButton";
 
 type PublicUser = {
   id: string;
@@ -38,6 +39,12 @@ type PublicUserProfileModalProps = {
   comments: PublicComment[];
   markets: Market[];
   onMarketClick: (marketId: string) => void;
+  /** Follow state (null = logged out or viewing own profile) */
+  followStatus?: { isFollowing: boolean; isFollowedBy: boolean } | null;
+  followerCount?: number;
+  followingCount?: number;
+  onFollow?: () => Promise<void>;
+  onUnfollow?: () => Promise<void>;
 };
 
 const hashStringToInt = (value: string) => {
@@ -129,6 +136,11 @@ const PublicUserProfileModal: React.FC<PublicUserProfileModalProps> = ({
   comments,
   markets,
   onMarketClick,
+  followStatus,
+  followerCount,
+  followingCount,
+  onFollow,
+  onUnfollow,
 }) => {
 
   const marketById = useMemo(() => new Map(markets.map((m) => [m.id, m])), [markets]);
@@ -199,13 +211,37 @@ const PublicUserProfileModal: React.FC<PublicUserProfileModalProps> = ({
                 <div className="text-zinc-400 font-bold">{displayName.slice(0, 2).toUpperCase()}</div>
               )}
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="text-lg font-semibold text-white truncate">{displayName || (lang === "RU" ? "Пользователь" : "User")}</div>
               {user?.username ? (
                 <div className="text-xs text-zinc-400 font-mono truncate">@{user.username}</div>
               ) : null}
             </div>
+            {followStatus && onFollow && onUnfollow && (
+              <FollowButton
+                isFollowing={followStatus.isFollowing}
+                isFollowedBy={followStatus.isFollowedBy}
+                onFollow={onFollow}
+                onUnfollow={onUnfollow}
+                lang={lang}
+                size="sm"
+              />
+            )}
           </div>
+
+          {/* Follower/Following counts */}
+          {(followerCount !== undefined || followingCount !== undefined) && (
+            <div className="flex items-center gap-4 mt-3">
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="font-bold text-white">{followerCount ?? 0}</span>
+                <span className="text-zinc-500">{lang === "RU" ? "подписчиков" : "followers"}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="font-bold text-white">{followingCount ?? 0}</span>
+                <span className="text-zinc-500">{lang === "RU" ? "подписок" : "following"}</span>
+              </div>
+            </div>
+          )}
 
           <div className="mt-4 border border-zinc-900 bg-black/60 rounded-2xl p-4">
             <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">PnL</div>
