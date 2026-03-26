@@ -740,75 +740,90 @@ export const marketRouter = router({
       }
 
       const rows: MarketWithAmm[] = data ?? [];
+      if (rows.length === 0) return [];
+
+      const marketIds = rows.map((r) => r.id);
       const liquidityByMarketId = new Map<string, number>(
         rows.map((r) => [r.id, Number(r.liquidity_b ?? 0)])
       );
-      const outcomesByMarketId = await fetchOutcomesByMarketIds(
-        supabaseService as SupabaseDbClient,
-        rows.map((r) => r.id),
-        liquidityByMarketId
-      );
-
-      // Compute market volume from candle aggregates (always use market_price_candles).
-      const volumeByMarketId = new Map<string, number>();
-      if (rows.length > 0) {
-        const marketIds = rows.map((r) => r.id);
-        const { data: candles, error: candlesError } = await supabase
-          .from("market_price_candles")
-          .select("market_id, volume_minor")
-          .in("market_id", marketIds)
-          .limit(20000);
-
-        if (!candlesError && candles) {
-          type CandleRow = Pick<
-            Database["public"]["Tables"]["market_price_candles"]["Row"],
-            "market_id" | "volume_minor"
-          >;
-          (candles as CandleRow[]).forEach((c) => {
-            const key = String(c.market_id);
-            const prev = volumeByMarketId.get(key) ?? 0;
-            const minor = Number(c.volume_minor ?? 0);
-            if (!Number.isFinite(minor) || minor <= 0) return;
-            volumeByMarketId.set(key, prev + toMajorUnits(minor, VCOIN_DECIMALS));
-          });
-        }
-      }
-
-      // Derive category labels from market_categories to avoid relying on category_label_* columns.
       const categoryIds = Array.from(
         new Set(rows.map((r) => r.category_id).filter((v): v is string => typeof v === "string" && v.length > 0))
       );
-
-      const labelsById = new Map<string, Pick<MarketCategoryRow, "label_ru" | "label_en">>();
-      if (categoryIds.length > 0) {
-        const { data: cats, error: catsError } = await supabaseService
-          .from("market_categories")
-          .select("id, label_ru, label_en")
-          .in("id", categoryIds);
-        if (!catsError) {
-          const typed = (cats ?? []) as Array<Pick<MarketCategoryRow, "id" | "label_ru" | "label_en">>;
-          typed.forEach((c) => labelsById.set(c.id, { label_ru: c.label_ru, label_en: c.label_en }));
-        }
-      }
-
       const creatorIds = Array.from(
         new Set(rows.map((r) => r.created_by).filter((v): v is string => typeof v === "string" && v.length > 0))
       );
+
+      // Run all dependent queries in parallel — they only need marketIds/categoryIds/creatorIds.
+      const [
+        outcomesByMarketId,
+        volumeResult,
+        categoriesResult,
+        creatorsResult,
+      ] = await Promise.all([
+        // 1. Outcomes (already parallel internally)
+        fetchOutcomesByMarketIds(
+          supabaseService as SupabaseDbClient,
+          marketIds,
+          liquidityByMarketId
+        ),
+
+        // 2. Volume aggregation via candle rows (will be replaced by RPC after migration)
+        supabase
+          .from("market_price_candles")
+          .select("market_id, volume_minor")
+          .in("market_id", marketIds)
+          .limit(20000),
+
+        // 3. Category labels
+        categoryIds.length > 0
+          ? supabaseService
+              .from("market_categories")
+              .select("id, label_ru, label_en")
+              .in("id", categoryIds)
+          : Promise.resolve({ data: [] as Array<Pick<MarketCategoryRow, "id" | "label_ru" | "label_en">>, error: null }),
+
+        // 4. Creator metadata
+        creatorIds.length > 0
+          ? supabaseService
+              .from("users")
+              .select("id, display_name, username, avatar_url, telegram_photo_url")
+              .in("id", creatorIds)
+          : Promise.resolve({ data: [] as Array<Pick<DbUserRow, "id" | "display_name" | "username" | "avatar_url" | "telegram_photo_url">>, error: null }),
+      ]);
+
+      // Process volume data (aggregate candle volumes per market)
+      const volumeByMarketId = new Map<string, number>();
+      if (!volumeResult.error && volumeResult.data) {
+        type CandleRow = Pick<
+          Database["public"]["Tables"]["market_price_candles"]["Row"],
+          "market_id" | "volume_minor"
+        >;
+        (volumeResult.data as CandleRow[]).forEach((c) => {
+          const key = String(c.market_id);
+          const minor = Number(c.volume_minor ?? 0);
+          if (!Number.isFinite(minor) || minor <= 0) return;
+          const prev = volumeByMarketId.get(key) ?? 0;
+          volumeByMarketId.set(key, prev + toMajorUnits(minor, VCOIN_DECIMALS));
+        });
+      }
+
+      // Process categories
+      const labelsById = new Map<string, Pick<MarketCategoryRow, "label_ru" | "label_en">>();
+      if (!categoriesResult.error && categoriesResult.data) {
+        const typed = (categoriesResult.data ?? []) as Array<Pick<MarketCategoryRow, "id" | "label_ru" | "label_en">>;
+        typed.forEach((c) => labelsById.set(c.id, { label_ru: c.label_ru, label_en: c.label_en }));
+      }
+
+      // Process creators
       const creatorsById = new Map<string, CreatorMeta>();
-      if (creatorIds.length > 0) {
-        const { data: creators, error: creatorsError } = await supabaseService
-          .from("users")
-          .select("id, display_name, username, avatar_url, telegram_photo_url")
-          .in("id", creatorIds);
-        if (!creatorsError && creators) {
-          (creators as Array<Pick<DbUserRow, "id" | "display_name" | "username" | "avatar_url" | "telegram_photo_url">>).forEach(
-            (u) => {
-              const name = u.display_name ?? u.username ?? null;
-              const avatarUrl = u.avatar_url ?? u.telegram_photo_url ?? null;
-              creatorsById.set(String(u.id), { name, avatarUrl });
-            }
-          );
-        }
+      if (!creatorsResult.error && creatorsResult.data) {
+        (creatorsResult.data as Array<Pick<DbUserRow, "id" | "display_name" | "username" | "avatar_url" | "telegram_photo_url">>).forEach(
+          (u) => {
+            const name = u.display_name ?? u.username ?? null;
+            const avatarUrl = u.avatar_url ?? u.telegram_photo_url ?? null;
+            creatorsById.set(String(u.id), { name, avatarUrl });
+          }
+        );
       }
 
       return rows.map((r) =>
