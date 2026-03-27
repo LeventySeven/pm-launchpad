@@ -649,8 +649,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
         )}
       </div>
 
-      {/* Solana Wallet Connection */}
-      <SolanaWalletSection lang={lang} dbPubkey={user?.solanaWalletAddress ?? null} />
+      {/* Solana Wallet Connection — hidden until on-chain features are enabled.
+         Component and logic preserved; just not rendered. */}
 
       {/* PnL graph (lightweight sparkline) */}
       <div className="mt-4 border border-zinc-900 bg-black rounded-2xl overflow-hidden">

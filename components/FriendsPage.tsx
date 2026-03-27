@@ -4,10 +4,9 @@ import React, { useMemo, useState } from 'react';
 import { Filter } from "lucide-react";
 import Leaderboard from './Leaderboard';
 import Referrals from './Referrals';
-import DiscoverPage from './DiscoverPage';
 import type { LeaderboardUser, User } from '../types';
 
-type FriendsTab = 'TOP' | 'DISCOVER' | 'REFERRALS';
+type FriendsTab = 'TOP' | 'REFERRALS';
 
 type FriendsPageProps = {
   lang: 'RU' | 'EN';
@@ -25,8 +24,6 @@ type FriendsPageProps = {
   leaderboardSort: 'PNL' | 'BETS';
   onLeaderboardSortChange: (sort: 'PNL' | 'BETS') => void;
   onOpenLeaderboardSort: () => void;
-  onCommunityClick: (slug: string) => void;
-  onCreateCommunity: () => void;
 };
 
 const FriendsPage: React.FC<FriendsPageProps> = ({
@@ -41,35 +38,35 @@ const FriendsPage: React.FC<FriendsPageProps> = ({
   leaderboardSort,
   onLeaderboardSortChange,
   onOpenLeaderboardSort,
-  onCommunityClick,
-  onCreateCommunity,
 }) => {
   const [tab, setTab] = useState<FriendsTab>('TOP');
-
-  const tabs: Array<{ id: FriendsTab; label: string }> = useMemo(() => [
-    { id: 'TOP', label: lang === 'RU' ? 'Топ' : 'Top' },
-    { id: 'DISCOVER', label: lang === 'RU' ? 'Хабы' : 'Discover' },
-    { id: 'REFERRALS', label: lang === 'RU' ? 'Друзья' : 'Friends' },
-  ], [lang]);
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 pb-32 pb-safe animate-in fade-in duration-300">
       {/* Tab bar */}
       <div className="mb-4 flex items-center gap-1 border border-zinc-900 bg-black rounded-full p-1">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`flex-1 rounded-full py-2 text-[11px] font-bold uppercase tracking-wider transition ${
-              tab === t.id
-                ? 'bg-zinc-950 text-white border border-zinc-800'
-                : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+        <button
+          type="button"
+          onClick={() => setTab('TOP')}
+          className={`flex-1 rounded-full py-2 text-[11px] font-bold uppercase tracking-wider transition ${
+            tab === 'TOP'
+              ? 'bg-zinc-950 text-white border border-zinc-800'
+              : 'text-zinc-400 hover:text-white'
+          }`}
+        >
+          {lang === 'RU' ? 'Топ' : 'Top'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('REFERRALS')}
+          className={`flex-1 rounded-full py-2 text-[11px] font-bold uppercase tracking-wider transition ${
+            tab === 'REFERRALS'
+              ? 'bg-zinc-950 text-white border border-zinc-800'
+              : 'text-zinc-400 hover:text-white'
+          }`}
+        >
+          {lang === 'RU' ? 'Рефералы' : 'Referrals'}
+        </button>
       </div>
 
       {/* TOP (Leaderboard) */}
@@ -104,17 +101,6 @@ const FriendsPage: React.FC<FriendsPageProps> = ({
             <Leaderboard users={leaderboardUsers} lang={lang} onUserClick={onUserClick} sortBy={leaderboardSort} />
           </>
         )
-      )}
-
-      {/* DISCOVER (Communities) */}
-      {tab === 'DISCOVER' && (
-        <DiscoverPage
-          lang={lang}
-          onCommunityClick={onCommunityClick}
-          onCreateCommunity={onCreateCommunity}
-          isLoggedIn={!!user}
-          onLogin={onLogin}
-        />
       )}
 
       {/* REFERRALS */}

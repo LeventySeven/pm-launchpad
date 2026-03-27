@@ -859,7 +859,8 @@ const MarketPage: React.FC<MarketPageProps> = ({
                 )}
 
                 <div className="space-y-6">
-                  {isOnChainMarket && (
+                  {/* On-chain section hidden — USDC/on-chain features not yet enabled in production */}
+                  {false && isOnChainMarket && (
                     <div className="rounded-2xl border border-zinc-900 bg-zinc-950/40 p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
@@ -1064,7 +1065,8 @@ const MarketPage: React.FC<MarketPageProps> = ({
                   </div>
                 )}
 
-                {user && onSellPosition && isOnChainMarket && (
+                {/* On-chain sell section hidden */}
+                {false && user && onSellPosition && isOnChainMarket && (
                   <div className="mt-6 space-y-3">
                     <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">
                       {lang === 'RU' ? 'On-chain позиция' : 'On-chain position'}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Users, BarChart3, Globe, Lock, Plus, Loader2 } from "lucide-react";
+import { ArrowLeft, Users, BarChart3, Globe, Lock, Plus, Loader2, Search, Check } from "lucide-react";
 import { trpcClient } from "@/src/utils/trpcClient";
 import type { Market, User } from "@/types";
 import MarketCard from "@/components/MarketCard";
@@ -38,6 +38,7 @@ type CommunityProfilePageProps = {
   markets: Market[];
   onBack: () => void;
   onMarketClick: (market: Market) => void;
+  onQuickBet?: (market: Market, side: "YES" | "NO") => void;
   onLogin: () => void;
   onUserClick: (userId: string) => void;
 };
@@ -58,6 +59,7 @@ export default function CommunityProfilePage({
   markets,
   onBack,
   onMarketClick,
+  onQuickBet,
   onLogin,
   onUserClick,
 }: CommunityProfilePageProps) {
@@ -71,26 +73,36 @@ export default function CommunityProfilePage({
   const [members, setMembers] = useState<MemberInfo[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [communityMarketIds, setCommunityMarketIds] = useState<string[]>([]);
+  // Add market modal state
+  const [showAddMarket, setShowAddMarket] = useState(false);
+  const [addMarketSearch, setAddMarketSearch] = useState("");
+  const [addingMarketId, setAddingMarketId] = useState<string | null>(null);
+  // Optimistic member count for instant UI
+  const [optimisticMemberCount, setOptimisticMemberCount] = useState<number | null>(null);
 
   const loadCommunity = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      // Fetch community data and market IDs in parallel
       const data = await trpcClient.community.bySlug.query({ slug: communitySlug });
       setCommunity(data);
+      setOptimisticMemberCount(null);
 
-      // Load market IDs
-      const marketData = await trpcClient.community.marketIds.query({
-        communityId: data.id,
-        limit: 50,
-      });
+      const [marketData, membershipData] = await Promise.all([
+        trpcClient.community.marketIds.query({ communityId: data.id, limit: 50 }),
+        user
+          ? trpcClient.community.members.query({ communityId: data.id, limit: 1 })
+              .then(() => trpcClient.community.userCommunities.query({ userId: user.id }))
+          : Promise.resolve([]),
+      ]);
+
       setCommunityMarketIds(marketData.marketIds);
 
-      // Check membership
-      if (user) {
-        const userCommunities = await trpcClient.community.userCommunities.query({ userId: user.id });
-        const membership = userCommunities.find((c) => c.id === data.id);
+      if (user && Array.isArray(membershipData)) {
+        const membership = membershipData.find((c: { id: string }) => c.id === data.id);
         setIsMember(!!membership);
+        setMemberRole(null); // Would need a dedicated endpoint for exact role
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load community");
@@ -112,12 +124,19 @@ export default function CommunityProfilePage({
         limit: 50,
       });
       setMembers(data.members);
+      // Check current user's role
+      if (user) {
+        const myMembership = data.members.find((m) => m.userId === user.id);
+        if (myMembership) {
+          setMemberRole(myMembership.role);
+        }
+      }
     } catch {
       // Silently fail
     } finally {
       setMembersLoading(false);
     }
-  }, [community]);
+  }, [community, user]);
 
   useEffect(() => {
     if (tab === "MEMBERS" && members.length === 0) {
@@ -132,23 +151,49 @@ export default function CommunityProfilePage({
     }
     if (!community) return;
     setJoinLoading(true);
+
+    // Optimistic update
+    const wasMember = isMember;
+    const prevCount = optimisticMemberCount ?? community.memberCount;
+    setIsMember(!wasMember);
+    setOptimisticMemberCount(wasMember ? Math.max(0, prevCount - 1) : prevCount + 1);
+
     try {
-      if (isMember) {
+      if (wasMember) {
         await trpcClient.community.leave.mutate({ communityId: community.id });
-        setIsMember(false);
       } else {
         await trpcClient.community.join.mutate({ communityId: community.id });
-        setIsMember(true);
       }
-      await loadCommunity();
     } catch {
-      // Silently fail
+      // Revert on error
+      setIsMember(wasMember);
+      setOptimisticMemberCount(null);
     } finally {
       setJoinLoading(false);
     }
   };
 
+  const handleAddMarket = async (marketId: string) => {
+    if (!community || !user) return;
+    setAddingMarketId(marketId);
+    try {
+      await trpcClient.community.addMarket.mutate({
+        communityId: community.id,
+        marketId,
+      });
+      setCommunityMarketIds((prev) => [...prev, marketId]);
+      setCommunity((prev) =>
+        prev ? { ...prev, marketCount: prev.marketCount + 1 } : prev,
+      );
+    } catch {
+      // Silently fail — likely duplicate
+    } finally {
+      setAddingMarketId(null);
+    }
+  };
+
   // Map community market IDs to actual Market objects from the catalog
+  const communityMarketIdSet = useMemo(() => new Set(communityMarketIds), [communityMarketIds]);
   const communityMarkets = useMemo(() => {
     const marketMap = new Map(markets.map((m) => [m.id, m]));
     return communityMarketIds
@@ -156,6 +201,20 @@ export default function CommunityProfilePage({
       .filter((m): m is Market => m !== undefined);
   }, [markets, communityMarketIds]);
 
+  // Markets available to add (not already in community)
+  const addableMarkets = useMemo(() => {
+    if (!addMarketSearch.trim()) return [];
+    const q = addMarketSearch.toLowerCase().trim();
+    return markets
+      .filter((m) => !communityMarketIdSet.has(m.id))
+      .filter((m) => {
+        const title = (lang === "RU" ? m.titleRu : m.titleEn) || m.title;
+        return title.toLowerCase().includes(q);
+      })
+      .slice(0, 8);
+  }, [markets, communityMarketIdSet, addMarketSearch, lang]);
+
+  const displayMemberCount = optimisticMemberCount ?? community?.memberCount ?? 0;
   const hue = community ? hashStringToInt(community.slug) % 360 : 200;
   const gradientA = `hsla(${hue}, 85%, 58%, 0.20)`;
   const gradientB = `hsla(${(hue + 30) % 360}, 85%, 58%, 0.16)`;
@@ -186,6 +245,8 @@ export default function CommunityProfilePage({
       </div>
     );
   }
+
+  const isCreator = user?.id === community.createdBy;
 
   return (
     <div className="pb-8">
@@ -229,14 +290,18 @@ export default function CommunityProfilePage({
 
           <button
             onClick={handleJoin}
-            disabled={joinLoading || memberRole === "creator"}
+            disabled={joinLoading || isCreator}
             className={`shrink-0 h-9 px-4 rounded-full text-xs font-semibold uppercase tracking-wider transition inline-flex items-center gap-2 ${
               isMember
                 ? "border border-zinc-700 bg-zinc-950/60 text-zinc-200 hover:border-red-500/50 hover:text-red-400"
                 : "bg-[rgba(245,68,166,1)] text-white hover:opacity-90"
             } disabled:opacity-50`}
           >
-            {joinLoading && <Loader2 size={14} className="animate-spin" />}
+            {joinLoading ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : isMember ? (
+              <Check size={14} />
+            ) : null}
             {isMember
               ? lang === "RU" ? "Участник" : "Joined"
               : lang === "RU" ? "Вступить" : "Join"}
@@ -247,7 +312,7 @@ export default function CommunityProfilePage({
         <div className="flex items-center gap-4 mt-4">
           <div className="flex items-center gap-1.5 text-xs text-zinc-400">
             <Users size={14} />
-            <span className="font-semibold text-white">{community.memberCount}</span>
+            <span className="font-semibold text-white">{displayMemberCount}</span>
             {lang === "RU" ? "участников" : "members"}
           </div>
           <div className="flex items-center gap-1.5 text-xs text-zinc-400">
@@ -282,6 +347,84 @@ export default function CommunityProfilePage({
         {/* Markets tab */}
         {tab === "MARKETS" && (
           <div>
+            {/* Add Market button (for members) */}
+            {isMember && (
+              <div className="mb-3">
+                {showAddMarket ? (
+                  <div className="border border-zinc-800 bg-zinc-950/40 rounded-2xl p-3">
+                    <div className="relative mb-2">
+                      <input
+                        type="text"
+                        value={addMarketSearch}
+                        onChange={(e) => setAddMarketSearch(e.target.value)}
+                        placeholder={lang === "RU" ? "Найти рынок для добавления..." : "Search markets to add..."}
+                        autoFocus
+                        className="w-full h-10 rounded-full bg-zinc-950 border border-zinc-900 px-4 pl-10 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700"
+                      />
+                      <Search size={16} className="absolute left-3.5 top-3 text-zinc-600" />
+                    </div>
+                    {addableMarkets.length > 0 && (
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                        {addableMarkets.map((m) => {
+                          const title = (lang === "RU" ? m.titleRu : m.titleEn) || m.title;
+                          const isAdding = addingMarketId === m.id;
+                          return (
+                            <button
+                              key={m.id}
+                              type="button"
+                              disabled={isAdding}
+                              onClick={() => void handleAddMarket(m.id)}
+                              className="w-full flex items-center gap-3 p-2.5 rounded-xl bg-zinc-900/40 hover:bg-zinc-900/70 transition text-left disabled:opacity-50"
+                            >
+                              <div className="h-8 w-8 rounded-lg bg-zinc-800 overflow-hidden shrink-0">
+                                {m.imageUrl && !m.imageUrl.startsWith("data:") ? (
+                                  <img src={m.imageUrl} alt="" className="h-full w-full object-cover" />
+                                ) : (
+                                  <div className="h-full w-full flex items-center justify-center text-zinc-600 text-[10px] font-bold">
+                                    {title.slice(0, 2).toUpperCase()}
+                                  </div>
+                                )}
+                              </div>
+                              <span className="text-sm text-zinc-200 truncate flex-1">{title}</span>
+                              {isAdding ? (
+                                <Loader2 size={14} className="animate-spin text-zinc-500 shrink-0" />
+                              ) : (
+                                <Plus size={14} className="text-zinc-500 shrink-0" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {addMarketSearch.trim() && addableMarkets.length === 0 && (
+                      <div className="text-center py-3 text-xs text-zinc-500">
+                        {lang === "RU" ? "Ничего не найдено" : "No results"}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddMarket(false);
+                        setAddMarketSearch("");
+                      }}
+                      className="mt-2 w-full h-8 rounded-full text-xs text-zinc-500 hover:text-white transition"
+                    >
+                      {lang === "RU" ? "Закрыть" : "Cancel"}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddMarket(true)}
+                    className="w-full h-10 rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/30 hover:bg-zinc-950/60 transition flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-400 hover:text-white"
+                  >
+                    <Plus size={14} />
+                    {lang === "RU" ? "Добавить рынок" : "Add Market"}
+                  </button>
+                )}
+              </div>
+            )}
+
             {communityMarkets.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {communityMarkets.map((market) => (
@@ -290,14 +433,16 @@ export default function CommunityProfilePage({
                     market={market}
                     bookmarked={false}
                     onClick={() => onMarketClick(market)}
-                    onQuickBet={() => {}}
+                    onQuickBet={onQuickBet ? (side) => onQuickBet(market, side) : () => {}}
                     lang={lang}
                   />
                 ))}
               </div>
             ) : (
               <div className="text-center py-12 text-zinc-500 text-sm">
-                {lang === "RU" ? "Пока нет рынков" : "No markets yet"}
+                {isMember
+                  ? lang === "RU" ? "Добавьте первый рынок!" : "Add the first market!"
+                  : lang === "RU" ? "Пока нет рынков" : "No markets yet"}
               </div>
             )}
           </div>

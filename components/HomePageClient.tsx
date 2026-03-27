@@ -19,6 +19,7 @@ import BottomMenu, { type ViewType } from "@/components/BottomMenu";
 import FriendsPage from "@/components/FriendsPage";
 import CommunityProfilePage from "@/components/CommunityProfilePage";
 import CommunityCreateModal from "@/components/CommunityCreateModal";
+import DiscoverPage from "@/components/DiscoverPage";
 import { leaderboardUsersSchema } from "@/src/schemas/leaderboard";
 import { positionsSchema, tradesSchema } from "@/src/schemas/portfolio";
 import { priceCandlesSchema, publicTradesSchema } from "@/src/schemas/marketInsights";
@@ -171,27 +172,27 @@ const buildMarketPath = (marketId: string, title?: string | null) => {
 
 const getPathForView = (view: ViewType) => {
   switch (view) {
-    case "FRIENDS":
+    case "LEADERBOARD":
       return "/leaderboard";
-    case "FEED":
-      return "/mybets";
+    case "SOCIAL":
+      return "/discover";
     case "PROFILE":
       return "/profile";
-    case "CATALOG":
+    case "FEED":
     default:
-      return "/catalog";
+      return "/";
   }
 };
 
 const getViewFromLocation = (): ViewType => {
-  if (typeof window === "undefined") return "CATALOG";
+  if (typeof window === "undefined") return "FEED";
   const path = window.location.pathname.toLowerCase();
-  if (path === "/" || path.startsWith("/catalog")) return "CATALOG";
-  if (path.startsWith("/leaderboard") || path.startsWith("/friends")) return "FRIENDS";
+  if (path === "/" || path.startsWith("/catalog") || path.startsWith("/market/")) return "FEED";
+  if (path.startsWith("/leaderboard") || path.startsWith("/friends")) return "LEADERBOARD";
+  if (path.startsWith("/discover") || path.startsWith("/community")) return "SOCIAL";
   if (path.startsWith("/mybets") || path.startsWith("/feed")) return "FEED";
   if (path.startsWith("/profile")) return "PROFILE";
-  if (path.startsWith("/market/")) return "CATALOG";
-  return "CATALOG";
+  return "FEED";
 };
 
 const getMarketIdFromLocation = () => {
@@ -538,7 +539,7 @@ export default function HomePageClient({
       // ignore
     }
     setSelectedMarketId(marketId);
-    setCurrentView("CATALOG");
+    setCurrentView("FEED");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [currentView, setCurrentView] = useState<ViewType>(() => getViewFromLocation());
@@ -567,7 +568,7 @@ export default function HomePageClient({
       const marketId = getMarketIdFromLocation();
       setSelectedMarketId(marketId);
       setCurrentView(getViewFromLocation());
-      if (marketId) setCurrentView("CATALOG");
+      if (marketId) setCurrentView("FEED");
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
@@ -654,6 +655,11 @@ export default function HomePageClient({
   const [publicProfilePnl, setPublicProfilePnl] = useState(0);
   const [publicProfileComments, setPublicProfileComments] = useState<PublicProfileComment[]>([]);
   const [publicProfileBets, setPublicProfileBets] = useState<PublicProfileBet[]>([]);
+  const [publicProfileFollowerCount, setPublicProfileFollowerCount] = useState(0);
+  const [publicProfileFollowingCount, setPublicProfileFollowingCount] = useState(0);
+  const [publicProfileMarketsCreated, setPublicProfileMarketsCreated] = useState(0);
+  const [publicProfileTotalVolume, setPublicProfileTotalVolume] = useState(0);
+  const [publicProfileFollowStatus, setPublicProfileFollowStatus] = useState<{ isFollowing: boolean; isFollowedBy: boolean } | null>(null);
   const publicProfileRequestIdRef = useRef(0);
   const [lastOnchainTxBase64, setLastOnchainTxBase64] = useState<string | null>(null);
   type MarketCategoryStrict = { id: string; labelRu: string; labelEn: string };
@@ -1053,7 +1059,7 @@ export default function HomePageClient({
       if (pendingMarketId) {
         setSelectedMarketId(pendingMarketId);
         navigateToMarketUrl(pendingMarketId);
-        setCurrentView("CATALOG");
+        setCurrentView("FEED");
         localStorage.removeItem("pending_market_id");
       }
     } catch {
@@ -1085,7 +1091,7 @@ export default function HomePageClient({
       if (pendingMarketId) {
         setSelectedMarketId(pendingMarketId);
         navigateToMarketUrl(pendingMarketId);
-        setCurrentView("CATALOG");
+        setCurrentView("FEED");
         localStorage.removeItem("pending_market_id");
       }
     } catch {
@@ -1238,7 +1244,7 @@ export default function HomePageClient({
       setUser(null);
       setMyPositions([]);
       setMyTrades([]);
-      setCurrentView("CATALOG");
+      setCurrentView("FEED");
       setMarketBetIntent(null);
       setSelectedMarketId(null);
       navigateToCatalogUrl();
@@ -1888,10 +1894,9 @@ export default function HomePageClient({
       setCatalogFiltersOpen(false);
       setCurrentView(view);
       navigateToViewUrl(view);
-      if (view === "FRIENDS") {
+      if (view === "LEADERBOARD") {
         void loadLeaderboard();
-      } else if (view === "FEED" || view === "CATALOG") {
-        // Refresh markets when returning to feed or catalog to show updated percentages
+      } else if (view === "FEED") {
         void loadMarkets();
       }
     },
@@ -1924,7 +1929,7 @@ export default function HomePageClient({
     // Only treat as page swipe if mostly horizontal and large enough.
     if (absX < 60 || absX < absY * 1.2) return;
 
-    const order: ViewType[] = ["FRIENDS", "CATALOG", "FEED", "PROFILE"];
+    const order: ViewType[] = ["LEADERBOARD", "FEED", "SOCIAL", "PROFILE"];
     const idx = Math.max(0, order.indexOf(currentView));
     const nextIdx = dx < 0 ? Math.min(order.length - 1, idx + 1) : Math.max(0, idx - 1);
     const next = order[nextIdx] ?? currentView;
@@ -2443,16 +2448,34 @@ export default function HomePageClient({
       setPublicProfilePnl(0);
       setPublicProfileComments([]);
       setPublicProfileBets([]);
+      setPublicProfileFollowerCount(0);
+      setPublicProfileFollowingCount(0);
+      setPublicProfileMarketsCreated(0);
+      setPublicProfileTotalVolume(0);
+      setPublicProfileFollowStatus(null);
       publicProfileRequestIdRef.current += 1;
       const requestId = publicProfileRequestIdRef.current;
 
       try {
-        const [u, stats, comments, bets] = await Promise.all([
+        // Fetch all profile data in parallel
+        const queries: [
+          ReturnType<typeof trpcClient.user.publicUser.query>,
+          ReturnType<typeof trpcClient.user.publicUserStats.query>,
+          ReturnType<typeof trpcClient.user.publicUserComments.query>,
+          ReturnType<typeof trpcClient.user.publicUserVotes.query>,
+          Promise<{ isFollowing: boolean; isFollowedBy: boolean } | null>,
+        ] = [
           trpcClient.user.publicUser.query({ userId }),
           trpcClient.user.publicUserStats.query({ userId }),
           trpcClient.user.publicUserComments.query({ userId, limit: 50 }),
           trpcClient.user.publicUserVotes.query({ userId, limit: 200 }),
-        ]);
+          // Follow status: only check if logged in and not viewing own profile
+          user && user.id !== userId
+            ? trpcClient.follow.status.query({ targetUserId: userId })
+            : Promise.resolve(null),
+        ];
+
+        const [u, stats, comments, bets, followStatusResult] = await Promise.all(queries);
         if (requestId !== publicProfileRequestIdRef.current) return;
 
         setPublicProfileUser({
@@ -2463,6 +2486,11 @@ export default function HomePageClient({
           telegramPhotoUrl: u.telegramPhotoUrl ?? null,
         });
         setPublicProfilePnl(Number(stats.pnlMajor ?? 0));
+        setPublicProfileFollowerCount(Number(stats.followerCount ?? 0));
+        setPublicProfileFollowingCount(Number(stats.followingCount ?? 0));
+        setPublicProfileMarketsCreated(Number(stats.marketsCreated ?? 0));
+        setPublicProfileTotalVolume(Number(stats.totalVolumeMajor ?? 0));
+        setPublicProfileFollowStatus(followStatusResult);
         setPublicProfileComments(
           (comments ?? []).map((c) => ({
             id: requireValue(c.id, "PUBLIC_COMMENT_ID_MISSING"),
@@ -2490,7 +2518,7 @@ export default function HomePageClient({
         setPublicProfileLoading(false);
       }
     },
-    [lang]
+    [lang, user]
   );
 
   const closePublicProfile = useCallback(() => {
@@ -2747,11 +2775,11 @@ export default function HomePageClient({
 
   const shellViewIndex = (() => {
     switch (currentView) {
-      case "FRIENDS":
+      case "LEADERBOARD":
         return 0;
-      case "CATALOG":
-        return 1;
       case "FEED":
+        return 1;
+      case "SOCIAL":
         return 2;
       case "PROFILE":
         return 3;
@@ -2773,7 +2801,7 @@ export default function HomePageClient({
             onHelpClick={() => setShowOnboarding(true)}
             onLogoClick={() => {
               setSelectedMarketId(null);
-              setCurrentView("CATALOG");
+              setCurrentView("FEED");
               navigateToCatalogUrl();
               void loadMarkets();
             }}
@@ -2852,7 +2880,7 @@ export default function HomePageClient({
             lang={lang}
             user={user}
             onLoginRequest={() => openAuth("SIGN_IN")}
-            onCreateMarket={handleOpenCreateMarket}
+
             onChange={(view) => {
               // Bottom nav always navigates back to the main shell
               setMarketBetIntent(null);
@@ -2876,7 +2904,7 @@ export default function HomePageClient({
             onLogoClick={() => {
               setMarketBetIntent(null);
               setSelectedMarketId(null);
-              setCurrentView("CATALOG");
+              setCurrentView("FEED");
               navigateToCatalogUrl();
             }}
             lang={lang}
@@ -2893,7 +2921,7 @@ export default function HomePageClient({
                 className="flex w-[400%] transition-transform duration-200 ease-out will-change-transform"
                 style={{ transform: `translateX(-${shellViewIndex * 25}%)` }}
               >
-                {/* FRIENDS */}
+                {/* LEADERBOARD */}
                 <div className="w-1/4">
                   <FriendsPage
                     lang={lang}
@@ -2910,8 +2938,6 @@ export default function HomePageClient({
                       void loadLeaderboard(next);
                     }}
                     onOpenLeaderboardSort={() => setLeaderboardSortOpen(true)}
-                    onCommunityClick={(slug) => setSelectedCommunitySlug(slug)}
-                    onCreateCommunity={() => setShowCommunityCreateModal(true)}
                   />
                 </div>
 
@@ -3023,83 +3049,16 @@ export default function HomePageClient({
                   </div>
                 </div>
 
-                {/* MY BETS (formerly FEED) */}
+                {/* SOCIAL (Communities) */}
                 <div className="w-1/4">
-                  <div>
-                    {user && bookmarkedMarkets.length > 0 && (
-                      <>
-                        <div className="px-4 pt-3 pb-2">
-                          <div className="text-xs font-bold uppercase tracking-widest text-zinc-500">
-                            {lang === "RU" ? "Закладки" : "Bookmarks"}
-                          </div>
-                        </div>
-                        <div className="px-4 pt-2">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-8">
-                            {bookmarkedMarkets.map((market) => (
-                              <MarketCard
-                                key={`bm-${market.id}`}
-                                market={market}
-                                bookmarked
-                                onClick={() => {
-                                  setMarketBetIntent(null);
-                                  void openMarketWithAuthCheck(market);
-                                }}
-                                onQuickBet={(side) => handleOpenMarketBet(market, side)}
-                                lang={lang}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      </>
-                    )}
-
-                    <div className="px-4 pt-3 pb-2">
-                      <div className="text-xs font-bold uppercase tracking-widest text-zinc-500">
-                        {lang === "RU" ? "Мои ставки" : "My bets"}
-                      </div>
-                    </div>
-
-                    <div className="px-4 pt-2">
-                      {loadingMarkets ? (
-                        <div className="text-center py-10 text-zinc-500">
-                          {marketsLoadingMessage || (lang === "RU" ? "Загрузка рынков..." : "Loading markets...")}
-                        </div>
-                      ) : !user ? (
-                        <div className="text-center py-20 text-zinc-500 px-4">
-                          <p className="text-lg mb-2">{lang === "RU" ? "Войдите, чтобы увидеть ваши ставки" : "Log in to see your bets"}</p>
-                          <p className="text-sm">
-                            {lang === "RU" ? "Каталог доступен без входа." : "The catalog is available without logging in."}
-                          </p>
-                        </div>
-                      ) : feedMarkets.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-8">
-                          {feedMarkets.map((market) => (
-                            <MarketCard
-                              key={market.id}
-                              market={market}
-                              bookmarked={bookmarkedMarketIds.has(market.id)}
-                              onClick={() => {
-                                setMarketBetIntent(null);
-                                void openMarketWithAuthCheck(market);
-                              }}
-                              onQuickBet={(side) => handleOpenMarketBet(market, side)}
-                              lang={lang}
-                            />
-                          ))}
-                        </div>
-                      ) : marketsError ? (
-                        <div className="text-center py-20 text-zinc-500 px-4">
-                          <p className="text-sm">{marketsError}</p>
-                        </div>
-                      ) : (
-                        <div className="text-center py-20 text-zinc-500 px-4">
-                          <p className="text-lg mb-2">{lang === "RU" ? "У вас пока нет ставок" : "No bets yet"}</p>
-                          <p className="text-sm">
-                            {lang === "RU" ? "Откройте рынок в каталоге, чтобы сделать ставку." : "Open a market in the catalog to place a bet."}
-                          </p>
-                        </div>
-                      )}
-                    </div>
+                  <div className="max-w-2xl mx-auto py-6 pb-32 pb-safe animate-in fade-in duration-300">
+                    <DiscoverPage
+                      lang={lang}
+                      onCommunityClick={(slug) => setSelectedCommunitySlug(slug)}
+                      onCreateCommunity={() => setShowCommunityCreateModal(true)}
+                      isLoggedIn={!!user}
+                      onLogin={() => openAuth("SIGN_IN")}
+                    />
                   </div>
                 </div>
 
@@ -3149,7 +3108,7 @@ export default function HomePageClient({
             lang={lang}
             user={user}
             onLoginRequest={() => openAuth("SIGN_IN")}
-            onCreateMarket={handleOpenCreateMarket}
+
             onChange={(view) => {
               setMarketBetIntent(null);
               goToView(view);
@@ -3159,7 +3118,7 @@ export default function HomePageClient({
       )}
 
       {/* Catalog filters modal (rendered outside swipe/transform container) */}
-      {catalogFiltersOpen && currentView === "CATALOG" && (
+      {catalogFiltersOpen && currentView === "FEED" && (
         <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-4" data-swipe-ignore="true">
           <div
             className="absolute inset-0 bg-black/80 backdrop-blur-sm"
@@ -3281,7 +3240,7 @@ export default function HomePageClient({
         </div>
       )}
 
-      {leaderboardSortOpen && currentView === "FRIENDS" && (
+      {leaderboardSortOpen && currentView === "LEADERBOARD" && (
         <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-4" data-swipe-ignore="true">
           <div
             className="absolute inset-0 bg-black/80 backdrop-blur-sm"
@@ -3380,6 +3339,21 @@ export default function HomePageClient({
         bets={publicProfileBets}
         comments={publicProfileComments}
         markets={markets}
+        followerCount={publicProfileFollowerCount}
+        followingCount={publicProfileFollowingCount}
+        marketsCreated={publicProfileMarketsCreated}
+        totalVolumeMajor={publicProfileTotalVolume}
+        followStatus={publicProfileFollowStatus}
+        onFollow={publicProfileUser ? async () => {
+          await trpcClient.follow.follow.mutate({ targetUserId: publicProfileUser.id });
+          setPublicProfileFollowStatus((prev) => prev ? { ...prev, isFollowing: true } : { isFollowing: true, isFollowedBy: false });
+          setPublicProfileFollowerCount((prev) => prev + 1);
+        } : undefined}
+        onUnfollow={publicProfileUser ? async () => {
+          await trpcClient.follow.unfollow.mutate({ targetUserId: publicProfileUser.id });
+          setPublicProfileFollowStatus((prev) => prev ? { ...prev, isFollowing: false } : { isFollowing: false, isFollowedBy: false });
+          setPublicProfileFollowerCount((prev) => Math.max(0, prev - 1));
+        } : undefined}
         onMarketClick={(marketId) => {
           closePublicProfile();
           setMarketBetIntent(null);
@@ -3390,7 +3364,7 @@ export default function HomePageClient({
             setSelectedMarketId(marketId);
             navigateToMarketUrl(marketId);
           }
-          setCurrentView("CATALOG");
+          setCurrentView("FEED");
         }}
       />
       {/* Community Profile Page (full-screen overlay) */}
@@ -3407,6 +3381,10 @@ export default function HomePageClient({
               setSelectedMarketId(market.id);
               navigateToMarketUrl(market.id, market.title);
             }}
+            onQuickBet={(market, side) => {
+              setSelectedCommunitySlug(null);
+              handleOpenMarketBet(market, side);
+            }}
             onLogin={() => openAuth("SIGN_IN")}
             onUserClick={(userId) => void openPublicProfile(userId)}
           />
@@ -3418,7 +3396,10 @@ export default function HomePageClient({
         onClose={() => setShowCommunityCreateModal(false)}
         lang={lang}
         onCreate={async (input) => {
-          await trpcClient.community.create.mutate(input);
+          const created = await trpcClient.community.create.mutate(input);
+          // Navigate to the newly created community
+          setShowCommunityCreateModal(false);
+          setSelectedCommunitySlug(created.slug);
         }}
       />
       <AdminMarketModal

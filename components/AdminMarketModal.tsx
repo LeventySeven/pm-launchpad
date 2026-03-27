@@ -573,37 +573,8 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
               )}
             </div>
 
-            {mode === "create" && isAdmin && (
-              <div>
-                <label className="block text-xs font-bold text-white mb-2">
-                  {t("Актив расчёта", "Settlement asset")}
-                </label>
-                <div className="flex items-center gap-2">
-                  {(["VCOIN", "USDC"] as const).map((asset) => (
-                    <button
-                      key={asset}
-                      type="button"
-                      onClick={() => setSettlementAssetCode(asset)}
-                      className={`flex-1 h-10 rounded-xl border text-sm font-semibold transition ${
-                        settlementAssetCode === asset
-                          ? "border-[rgba(245,68,166,1)] text-white bg-[rgba(245,68,166,0.10)]"
-                          : "border-zinc-900 text-zinc-300 hover:text-white hover:border-zinc-700"
-                      }`}
-                    >
-                      {asset}
-                    </button>
-                  ))}
-                </div>
-                {settlementAssetCode === "USDC" && (
-                  <p className="mt-2 text-xs text-zinc-500">
-                    {t(
-                      "USDC сейчас в тестовом режиме — функция в разработке.",
-                      "USDC is in test mode — this feature is still in development."
-                    )}
-                  </p>
-                )}
-              </div>
-            )}
+            {/* Settlement asset selector hidden — USDC not yet enabled in production.
+               Logic preserved in backend; always defaults to VCOIN. */}
             {mode === "create" && (
               <div>
                 <label className="block text-xs font-bold text-white mb-2">{t("Тип рынка", "Market type")}</label>

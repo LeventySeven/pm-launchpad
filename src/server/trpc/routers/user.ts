@@ -435,104 +435,68 @@ export const userRouter = router({
         pnlMajor: z.number(),
         betCount: z.number(),
         rank: z.number(),
+        marketsCreated: z.number(),
+        totalVolumeMajor: z.number(),
+        followerCount: z.number(),
+        followingCount: z.number(),
       })
     )
     .query(async ({ ctx, input }) => {
       const { supabase, supabaseService } = ctx;
-      const { data, error } = await supabase
-        .from("leaderboard_public")
-        .select("pnl_minor, bet_count, rank")
-        .eq("user_id", input.userId)
-        .maybeSingle();
 
-      if (error) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      // Fetch leaderboard stats, user counters, and created markets count in parallel
+      const [leaderboardRes, userCountsRes, createdMarketsRes] = await Promise.all([
+        supabase
+          .from("leaderboard_public")
+          .select("pnl_minor, bet_count, rank")
+          .eq("user_id", input.userId)
+          .maybeSingle(),
+        supabaseService
+          .from("users")
+          .select("follower_count, following_count")
+          .eq("id", input.userId)
+          .maybeSingle(),
+        supabaseService
+          .from("markets")
+          .select("id", { count: "exact", head: true })
+          .eq("created_by", input.userId),
+      ]);
+
+      if (leaderboardRes.error) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: leaderboardRes.error.message });
       }
-      if (!data) {
-        return { pnlMajor: 0, betCount: 0, rank: 0 };
-      }
 
-      const row = data as Pick<LeaderboardRow, "pnl_minor" | "bet_count" | "rank">;
-      let pnlMajor = 0;
+      const row = leaderboardRes.data as Pick<LeaderboardRow, "pnl_minor" | "bet_count" | "rank"> | null;
+      const pnlMajor = row ? toMajorUnits(Number(row.pnl_minor ?? 0), VCOIN_DECIMALS) : 0;
 
+      // Volume: sum from wallet_transactions for this user (trading-related kinds)
+      let totalVolumeMajor = 0;
       try {
-        const [{ data: tradesData, error: tradesError }, { data: positionsData, error: positionsError }] =
-          await Promise.all([
-            supabaseService
-              .from("trades")
-              .select("user_id, market_id, outcome, action, shares_delta, collateral_gross_minor, created_at, asset_code")
-              .eq("user_id", input.userId),
-            supabaseService
-              .from("positions")
-              .select("user_id, market_id, outcome, shares, avg_entry_price")
-              .eq("user_id", input.userId),
-          ]);
+        const { data: volData } = await supabaseService
+          .from("wallet_transactions")
+          .select("amount_minor")
+          .eq("user_id", input.userId)
+          .in("kind", ["trade"]);
 
-        if (tradesError) {
-          throw tradesError;
+        if (volData) {
+          const total = (volData as Array<{ amount_minor: number }>).reduce(
+            (sum, r) => sum + Math.abs(Number(r.amount_minor ?? 0)),
+            0,
+          );
+          totalVolumeMajor = toMajorUnits(total, VCOIN_DECIMALS);
         }
-        if (positionsError) {
-          throw positionsError;
-        }
-
-        const trades = (tradesData ?? []) as Array<
-          Pick<
-            TradeRow,
-            "user_id" | "market_id" | "outcome" | "action" | "shares_delta" | "collateral_gross_minor" | "created_at" | "asset_code"
-          >
-        >;
-        const realizedByUser = buildRealizedPnlByUser(trades);
-        const realized = realizedByUser.get(input.userId) ?? 0;
-
-        const positions = (positionsData ?? []) as Array<
-          Pick<PositionRow, "user_id" | "market_id" | "outcome" | "shares" | "avg_entry_price">
-        >;
-        const marketIds = Array.from(new Set(positions.map((p) => String(p.market_id))));
-
-        if (marketIds.length > 0) {
-          const [{ data: marketsData, error: marketsError }, { data: ammData, error: ammError }] =
-            await Promise.all([
-              supabaseService
-                .from("markets")
-                .select("id, state, resolve_outcome, settlement_asset_code")
-                .in("id", marketIds),
-              supabaseService
-                .from("market_amm_state")
-                .select("market_id, q_yes, q_no, b")
-                .in("market_id", marketIds),
-            ]);
-
-          if (marketsError) {
-            throw marketsError;
-          }
-          if (ammError) {
-            throw ammError;
-          }
-
-          const marketsById = new Map<string, Pick<MarketRow, "state" | "resolve_outcome" | "settlement_asset_code">>();
-          (marketsData ?? []).forEach((m) => {
-            marketsById.set(String(m.id), m as Pick<MarketRow, "state" | "resolve_outcome" | "settlement_asset_code">);
-          });
-
-          const ammByMarketId = new Map<string, Pick<AmmStateRow, "q_yes" | "q_no" | "b">>();
-          (ammData ?? []).forEach((a) => {
-            ammByMarketId.set(String(a.market_id), a as Pick<AmmStateRow, "q_yes" | "q_no" | "b">);
-          });
-
-          const pnlByUser = buildMarkToMarketPnLByUser(positions, marketsById, ammByMarketId);
-          const unrealized = pnlByUser.get(input.userId) ?? 0;
-          pnlMajor = realized + unrealized;
-        } else {
-          pnlMajor = realized;
-        }
-      } catch (err) {
-        console.warn("publicUserStats pnl calc failed; falling back to zero", err);
+      } catch {
+        // Best-effort
       }
 
       return {
         pnlMajor,
-        betCount: Number(row.bet_count ?? 0),
-        rank: Number(row.rank ?? 0),
+        betCount: Number(row?.bet_count ?? 0),
+        rank: Number(row?.rank ?? 0),
+        marketsCreated: createdMarketsRes.count ?? 0,
+        totalVolumeMajor,
+        followerCount: Number(userCountsRes.data?.follower_count ?? 0),
+        followingCount: Number(userCountsRes.data?.following_count ?? 0),
       };
     }),
 
