@@ -12,7 +12,7 @@ interface LeaderboardProps {
 const Leaderboard: React.FC<LeaderboardProps> = ({ users, onUserClick, lang, sortBy }) => {
   const formatPnl = (value: number) =>
     `$${value.toLocaleString(undefined, {
-      maximumFractionDigits: 3,
+      maximumFractionDigits: 0,
     })}`;
 
   return (

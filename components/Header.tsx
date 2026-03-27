@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Globe, HelpCircle, Wallet } from 'lucide-react';
+import { Search, Globe, HelpCircle, Wallet, ExternalLink } from 'lucide-react';
 import Button from './Button';
 import { User } from '../types';
 
@@ -68,6 +68,16 @@ const Header: React.FC<HeaderProps> = ({
 
         {/* Actions */}
         <div className="flex items-center gap-3">
+          <a
+            href="https://www.yallayalla.io/catalog"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center rounded-full text-xs font-bold ring-offset-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-700 border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60 text-zinc-300 hover:text-white h-9 px-3 gap-1.5"
+          >
+            <ExternalLink size={12} className="text-white" />
+            {lang === 'RU' ? 'Агрегатор' : 'Aggregator'}
+          </a>
+
           {onHelpClick && (
             <button
               onClick={onHelpClick}

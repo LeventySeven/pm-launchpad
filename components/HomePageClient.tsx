@@ -297,6 +297,7 @@ export default function HomePageClient({
   }, []); // Only compute once on mount
   const [activeCategoryId, setActiveCategoryId] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState<AuthMode>("SIGN_IN");
@@ -2944,19 +2945,30 @@ export default function HomePageClient({
                 {/* CATALOG */}
                 <div className="w-1/4">
                   <div>
-                    {/* Mobile search (desktop search is in Header) */}
-                    <div className="px-4 pt-2 pb-3 md:hidden">
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          placeholder={lang === "RU" ? "Поиск..." : "Search..."}
-                          className="w-full h-10 rounded-full bg-zinc-950 border border-zinc-900 px-4 pl-10 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700"
-                        />
-                        <Search size={16} className="absolute left-3.5 top-3 text-zinc-600" />
+                    {/* Mobile search expanded (desktop search is in Header) */}
+                    {mobileSearchOpen && (
+                      <div className="px-4 pt-2 pb-3 md:hidden">
+                        <div className="relative">
+                          <input
+                            type="text"
+                            autoFocus
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onBlur={() => { if (!searchQuery) setMobileSearchOpen(false); }}
+                            placeholder={lang === "RU" ? "Поиск..." : "Search..."}
+                            className="w-full h-10 rounded-full bg-zinc-950 border border-zinc-900 px-4 pl-10 pr-10 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700"
+                          />
+                          <Search size={16} className="absolute left-3.5 top-3 text-zinc-600" />
+                          <button
+                            type="button"
+                            onClick={() => { setSearchQuery(""); setMobileSearchOpen(false); }}
+                            className="absolute right-3 top-2.5 text-zinc-500 hover:text-zinc-300"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     {/* Categories */}
                     <div className="px-4 pb-3 border-b border-zinc-900">
@@ -2999,14 +3011,25 @@ export default function HomePageClient({
                         <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
                           {lang === "RU" ? "Фильтры" : "Filters"}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setCatalogFiltersOpen(true)}
-                          className="h-9 rounded-full border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/70 px-3 text-xs font-semibold text-zinc-200 hover:text-white transition-colors inline-flex items-center gap-2"
-                        >
-                          <Filter size={14} className="text-zinc-300" />
-                          <span>{lang === "RU" ? "Фильтр" : "Filter"}</span>
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {/* Mobile search toggle button */}
+                          <button
+                            type="button"
+                            onClick={() => setMobileSearchOpen((v) => !v)}
+                            className="md:hidden h-9 w-9 rounded-full border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/70 text-zinc-300 hover:text-white transition-colors inline-flex items-center justify-center"
+                            aria-label={lang === "RU" ? "Поиск" : "Search"}
+                          >
+                            <Search size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCatalogFiltersOpen(true)}
+                            className="h-9 rounded-full border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/70 px-3 text-xs font-semibold text-zinc-200 hover:text-white transition-colors inline-flex items-center gap-2"
+                          >
+                            <Filter size={14} className="text-zinc-300" />
+                            <span>{lang === "RU" ? "Фильтр" : "Filter"}</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
 
