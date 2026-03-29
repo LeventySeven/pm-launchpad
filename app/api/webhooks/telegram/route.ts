@@ -87,6 +87,15 @@ function getWebhookHandler() {
 
 export const POST = async (req: Request) => {
   try {
+    // Validate Telegram webhook secret token if configured
+    const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
+    if (webhookSecret) {
+      const headerSecret = req.headers.get("x-telegram-bot-api-secret-token") ?? "";
+      if (headerSecret !== webhookSecret) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+    }
+
     const handler = getWebhookHandler();
     if (!handler) {
       return new Response("Telegram webhook not configured", { status: 503 });

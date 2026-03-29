@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { publicProcedure, router } from "../trpc";
+import { protectedProcedure, publicProcedure, router } from "../trpc";
 import {
   calculateBoundedPrices,
   calculateBuyCost,
@@ -3306,6 +3306,121 @@ export const marketRouter = router({
       }
 
       return { id: market.id, titleRu: market.title_rus ?? market.title_eng, titleEn: market.title_eng };
+    }),
+
+  /** Lightweight market creation for community members. Binary YES/NO only, minimal fields. */
+  quickCreate: protectedProcedure
+    .input(
+      z.object({
+        communityId: z.string().uuid(),
+        title: z.string().min(5).max(200),
+        resolvesAt: z.string(), // ISO datetime
+        lang: z.enum(["RU", "EN"]).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { supabaseService, userId } = ctx;
+      const db = supabaseService as SupabaseDbClient;
+
+      // 1. Verify community membership
+      const { data: membership } = await (supabaseService as any)
+        .from("community_members")
+        .select("role")
+        .eq("community_id", input.communityId)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (!membership) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Must be a community member" });
+      }
+
+      // 2. Rate limit: 5 markets per user per day per community
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const { count } = await (supabaseService as any)
+        .from("community_markets")
+        .select("market_id", { count: "exact", head: true })
+        .eq("community_id", input.communityId)
+        .eq("added_by", userId)
+        .gte("added_at", today.toISOString());
+
+      if ((count ?? 0) >= 5) {
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "DAILY_LIMIT_REACHED" });
+      }
+
+      // 3. Validate dates
+      const resolvesAtMs = Date.parse(input.resolvesAt);
+      if (!Number.isFinite(resolvesAtMs)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid resolution date" });
+      }
+      const now = Date.now();
+      if (resolvesAtMs < now) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Resolution date must be in the future" });
+      }
+      const oneYear = 365 * 24 * 60 * 60 * 1000;
+      if (resolvesAtMs > now + oneYear) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Resolution date must be within 1 year" });
+      }
+
+      const title = input.title.trim();
+      const isRu = input.lang === "RU";
+      const isoDate = new Date(resolvesAtMs).toISOString();
+
+      // 4. Insert market
+      const { data: market, error: marketError } = await db
+        .from("markets")
+        .insert({
+          title_rus: isRu ? title : null,
+          title_eng: isRu ? null : title,
+          description: null,
+          source: null,
+          image_url: null,
+          state: "open",
+          closes_at: isoDate,
+          expires_at: isoDate,
+          created_by: userId,
+          settlement_asset_code: DEFAULT_ASSET,
+          fee_bps: 0,
+          liquidity_b: 100,
+          amm_type: "lmsr",
+          category_id: null,
+          market_type: "binary",
+        })
+        .select("id, title_rus, title_eng")
+        .single();
+
+      if (marketError || !market) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: marketError?.message ?? "Failed to create market" });
+      }
+
+      // 5. Init binary AMM state
+      const { error: ammError } = await db
+        .from("market_amm_state")
+        .upsert(
+          { market_id: market.id, b: 100, q_yes: 0, q_no: 0, last_price_yes: 0.5, fee_accumulated_minor: 0 },
+          { onConflict: "market_id", ignoreDuplicates: true }
+        );
+
+      if (ammError) {
+        await supabaseService.from("markets").delete().eq("id", market.id);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: ammError.message });
+      }
+
+      // 6. Link to community
+      const { error: linkError } = await (supabaseService as any)
+        .from("community_markets")
+        .insert({ community_id: input.communityId, market_id: market.id, added_by: userId });
+
+      if (linkError) {
+        await supabaseService.from("market_amm_state").delete().eq("market_id", market.id);
+        await supabaseService.from("markets").delete().eq("id", market.id);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: linkError.message });
+      }
+
+      return {
+        id: market.id,
+        title: market.title_eng ?? market.title_rus ?? title,
+      };
     }),
 
   updateMarket: publicProcedure

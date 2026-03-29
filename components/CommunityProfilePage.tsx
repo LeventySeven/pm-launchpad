@@ -5,6 +5,7 @@ import { ArrowLeft, Users, BarChart3, Globe, Lock, Plus, Loader2, Search, Check,
 import { trpcClient } from "@/src/utils/trpcClient";
 import type { Market, User } from "@/types";
 import MarketCard from "@/components/MarketCard";
+import ShareCard from "@/components/ShareCard";
 
 type CommunityData = {
   id: string;
@@ -96,7 +97,23 @@ export default function CommunityProfilePage({
   const [isMember, setIsMember] = useState(false);
   const [memberRole, setMemberRole] = useState<string | null>(null);
   const [joinLoading, setJoinLoading] = useState(false);
-  const [tab, setTab] = useState<"MARKETS" | "EVENTS" | "MESSAGES">("MARKETS");
+  const [tab, setTab] = useState<"ACTIVITY" | "MARKETS" | "EVENTS">("ACTIVITY");
+  // Quick create
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [quickCreateTitle, setQuickCreateTitle] = useState("");
+  const [quickCreateDate, setQuickCreateDate] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() + 7);
+    return d.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
+  });
+  const [quickCreateLoading, setQuickCreateLoading] = useState(false);
+  const [quickCreateError, setQuickCreateError] = useState<string | null>(null);
+  // Activity feed
+  const [activityItems, setActivityItems] = useState<Array<{ id: string; type: string; userName: string; userAvatar: string | null; marketTitle: string; marketId: string | null; createdAt: string }>>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  // Share card state
+  const [shareCardOpen, setShareCardOpen] = useState(false);
+  const [shareCardMarketId, setShareCardMarketId] = useState("");
+  const [shareCardTitle, setShareCardTitle] = useState("");
   const [members, setMembers] = useState<MemberInfo[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersDropdownOpen, setMembersDropdownOpen] = useState(false);
@@ -230,9 +247,7 @@ export default function CommunityProfilePage({
     } catch { /* silent */ } finally { setMessagesLoading(false); }
   }, [community]);
 
-  useEffect(() => {
-    if (tab === "MESSAGES") void loadMessages();
-  }, [tab, loadMessages]);
+  // Messages loading removed — tab replaced by activity feed
 
   const handleSendMessage = async () => {
     if (!community || !user || !messageInput.trim() || sendingMessage) return;
@@ -253,6 +268,68 @@ export default function CommunityProfilePage({
       setMessageInput("");
     } catch { /* silent */ } finally { setSendingMessage(false); }
   };
+
+  // Quick-create market handler
+  const handleQuickCreate = async () => {
+    if (!community || !user || quickCreateLoading) return;
+    const title = quickCreateTitle.trim();
+    if (title.length < 5) { setQuickCreateError(lang === "RU" ? "Минимум 5 символов" : "Minimum 5 characters"); return; }
+    setQuickCreateLoading(true);
+    setQuickCreateError(null);
+    try {
+      const result = await trpcClient.market.quickCreate.mutate({
+        communityId: community.id,
+        title,
+        resolvesAt: new Date(quickCreateDate).toISOString(),
+        lang,
+      });
+      setQuickCreateOpen(false);
+      setQuickCreateTitle("");
+      // Show share card
+      setShareCardMarketId(result.id);
+      setShareCardTitle(result.title);
+      setShareCardOpen(true);
+      // Refresh market list
+      void loadCommunity();
+    } catch (err: any) {
+      const msg = err?.message ?? "";
+      if (msg.includes("DAILY_LIMIT")) {
+        setQuickCreateError(lang === "RU" ? "Достигнут дневной лимит" : "Daily limit reached");
+      } else {
+        setQuickCreateError(lang === "RU" ? "Не удалось создать" : "Failed to create");
+      }
+    } finally { setQuickCreateLoading(false); }
+  };
+
+  // Activity feed loader (simple: recent trades + joins for community markets)
+  const loadActivityFeed = useCallback(async () => {
+    if (!community) return;
+    setActivityLoading(true);
+    try {
+      // Fetch community market IDs, then recent trades on those markets
+      const marketData = await trpcClient.community.marketIds.query({ communityId: community.id, limit: 50 });
+      const mIds = marketData.marketIds ?? [];
+      // Build activity items from members (joins) — simple approach for MVP
+      const membersData = await trpcClient.community.members.query({ communityId: community.id, limit: 20 });
+      const items: typeof activityItems = (membersData.members ?? []).map((m) => ({
+        id: `join-${m.userId}`,
+        type: "join",
+        userName: m.displayName ?? m.username,
+        userAvatar: m.avatarUrl,
+        marketTitle: "",
+        marketId: null,
+        createdAt: m.joinedAt,
+      }));
+      // Sort by date desc
+      items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setActivityItems(items.slice(0, 30));
+    } catch { /* silent */ } finally { setActivityLoading(false); }
+  }, [community]);
+
+  useEffect(() => {
+    if (tab === "ACTIVITY" && activityItems.length === 0) void loadActivityFeed();
+  }, [tab, activityItems.length, loadActivityFeed]);
+
 
   const handleJoin = async () => {
     if (!user) {
@@ -441,11 +518,11 @@ export default function CommunityProfilePage({
       {/* Tabs */}
       <div className="px-5 pt-3">
         <div className="flex items-center gap-1 border border-zinc-900 bg-black rounded-full p-1 mb-4">
-          {(["MARKETS", "EVENTS", "MESSAGES"] as const).map((t) => {
+          {(["ACTIVITY", "MARKETS", "EVENTS"] as const).map((t) => {
             const labels: Record<typeof t, { ru: string; en: string; icon: React.ReactNode }> = {
+              ACTIVITY: { ru: "Лента", en: "Feed", icon: <MessageCircle size={12} /> },
               MARKETS: { ru: "Рынки", en: "Markets", icon: <BarChart3 size={12} /> },
               EVENTS: { ru: "События", en: "Events", icon: <Calendar size={12} /> },
-              MESSAGES: { ru: "Чат", en: "Chat", icon: <MessageCircle size={12} /> },
             };
             return (
               <button
@@ -661,78 +738,133 @@ export default function CommunityProfilePage({
           </div>
         )}
 
-        {/* Messages tab */}
-        {tab === "MESSAGES" && (
-          <div className="flex flex-col" style={{ minHeight: 300 }}>
-            {!isMember ? (
-              <div className="text-center py-12 text-zinc-500 text-sm">
-                {lang === "RU" ? "Вступите в сообщество, чтобы читать и писать сообщения" : "Join the community to read and write messages"}
+        {/* Activity feed tab */}
+        {tab === "ACTIVITY" && (
+          <div>
+            {activityLoading ? (
+              <div className="text-center py-12 text-zinc-500">
+                <Loader2 size={20} className="animate-spin mx-auto" />
+              </div>
+            ) : activityItems.length > 0 ? (
+              <div className="space-y-2">
+                {activityItems.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => item.marketId && onMarketClick(markets.find((m) => m.id === item.marketId) ?? { id: item.marketId } as any)}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl bg-zinc-950/30 hover:bg-zinc-950/60 transition text-left"
+                  >
+                    {item.userAvatar ? (
+                      <img src={item.userAvatar} alt="" className="h-8 w-8 rounded-full object-cover shrink-0" />
+                    ) : (
+                      <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400 shrink-0">
+                        {item.userName.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm text-zinc-300">
+                        <span className="font-medium text-white">{item.userName}</span>
+                        {" "}
+                        {item.type === "join"
+                          ? (lang === "RU" ? "присоединился" : "joined")
+                          : item.type === "bet"
+                            ? (lang === "RU" ? "сделал ставку на" : "bet on")
+                            : (lang === "RU" ? "создал" : "created")}
+                        {item.marketTitle && (
+                          <span className="text-[rgba(245,68,166,1)]"> {item.marketTitle}</span>
+                        )}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-zinc-600 shrink-0">
+                      {new Date(item.createdAt).toLocaleDateString(lang === "RU" ? "ru-RU" : "en-US", { month: "short", day: "numeric" })}
+                    </div>
+                  </button>
+                ))}
               </div>
             ) : (
-              <>
-                {/* Message input */}
-                <div className="flex items-center gap-2 mb-4">
-                  <input
-                    type="text"
-                    value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void handleSendMessage(); } }}
-                    placeholder={lang === "RU" ? "Написать сообщение..." : "Write a message..."}
-                    className="flex-1 h-10 rounded-full bg-zinc-950 border border-zinc-900 px-4 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700"
-                  />
+              <div className="text-center py-16">
+                <div className="text-zinc-500 text-sm mb-3">
+                  {lang === "RU" ? "Пока нет активности" : "No activity yet"}
+                </div>
+                {isMember && (
                   <button
                     type="button"
-                    onClick={() => void handleSendMessage()}
-                    disabled={!messageInput.trim() || sendingMessage}
-                    className="h-10 w-10 rounded-full bg-[rgba(245,68,166,1)] hover:opacity-90 disabled:opacity-40 flex items-center justify-center transition"
+                    onClick={() => setQuickCreateOpen(true)}
+                    className="px-4 py-2 rounded-full bg-[rgba(245,68,166,1)] text-white text-xs font-semibold"
                   >
-                    {sendingMessage ? <Loader2 size={16} className="animate-spin text-white" /> : <Send size={16} className="text-white" />}
+                    {lang === "RU" ? "Создать первый прогноз!" : "Create the first prediction!"}
                   </button>
-                </div>
-
-                {/* Messages list */}
-                {messagesLoading ? (
-                  <div className="text-center py-12 text-zinc-500">
-                    <Loader2 size={20} className="animate-spin mx-auto" />
-                  </div>
-                ) : messages.length > 0 ? (
-                  <div className="space-y-3">
-                    {messages.map((msg) => {
-                      const isOwn = msg.userId === user?.id;
-                      return (
-                        <div key={msg.id} className={`flex gap-2.5 ${isOwn ? "flex-row-reverse" : ""}`}>
-                          <div className="shrink-0">
-                            {msg.authorAvatarUrl ? (
-                              <img src={msg.authorAvatarUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
-                            ) : (
-                              <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400">
-                                {msg.authorName.slice(0, 2).toUpperCase()}
-                              </div>
-                            )}
-                          </div>
-                          <div className={`max-w-[75%] ${isOwn ? "text-right" : ""}`}>
-                            <div className="text-[11px] text-zinc-500 mb-0.5">{msg.authorName}</div>
-                            <div className={`inline-block px-3 py-2 rounded-2xl text-sm ${isOwn ? "bg-[rgba(245,68,166,0.15)] text-zinc-100" : "bg-zinc-900 text-zinc-200"}`}>
-                              {msg.body}
-                            </div>
-                            <div className="text-[10px] text-zinc-600 mt-0.5">
-                              {new Date(msg.createdAt).toLocaleTimeString(lang === "RU" ? "ru-RU" : "en-US", { hour: "2-digit", minute: "2-digit" })}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 text-zinc-500 text-sm">
-                    {lang === "RU" ? "Нет сообщений. Начните разговор!" : "No messages yet. Start the conversation!"}
-                  </div>
                 )}
-              </>
+              </div>
             )}
           </div>
         )}
       </div>
+
+      {/* ── FAB: Quick Create (visible on all tabs for members) ── */}
+      {isMember && !quickCreateOpen && (
+        <button
+          type="button"
+          onClick={() => { if (!user) { onLogin(); return; } setQuickCreateOpen(true); }}
+          className="fixed bottom-24 right-5 z-50 h-14 w-14 rounded-full bg-[rgba(245,68,166,1)] shadow-lg shadow-pink-500/20 hover:opacity-90 flex items-center justify-center transition"
+        >
+          <Plus size={24} className="text-white" />
+        </button>
+      )}
+
+      {/* ── Quick Create Overlay ── */}
+      {quickCreateOpen && (
+        <div className="fixed inset-0 z-[85] bg-black/60 backdrop-blur-sm flex items-end justify-center" onClick={() => setQuickCreateOpen(false)}>
+          <div className="w-full max-w-md bg-[#111111] border-t border-zinc-800/60 rounded-t-2xl p-5 animate-slide-up" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-center pt-0 pb-3">
+              <div className="w-10 h-1 rounded-full bg-zinc-700" />
+            </div>
+            <div className="text-sm font-bold text-white mb-4">
+              {lang === "RU" ? "Новый прогноз" : "New Prediction"}
+            </div>
+            <input
+              type="text"
+              value={quickCreateTitle}
+              onChange={(e) => setQuickCreateTitle(e.target.value)}
+              placeholder={lang === "RU" ? "Что произойдёт?" : "What will happen?"}
+              autoFocus
+              maxLength={200}
+              className="w-full h-12 rounded-xl bg-zinc-950 border border-zinc-900 px-4 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700 mb-3"
+            />
+            <div className="flex items-center gap-2 mb-3">
+              <label className="text-xs text-zinc-500 shrink-0">{lang === "RU" ? "Дата:" : "Resolves:"}</label>
+              <input
+                type="datetime-local"
+                value={quickCreateDate}
+                onChange={(e) => setQuickCreateDate(e.target.value)}
+                className="flex-1 h-10 rounded-lg bg-zinc-950 border border-zinc-900 px-3 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-700"
+              />
+            </div>
+            {quickCreateError && (
+              <div className="text-xs text-red-400 mb-3">{quickCreateError}</div>
+            )}
+            <button
+              type="button"
+              onClick={() => void handleQuickCreate()}
+              disabled={quickCreateLoading || quickCreateTitle.trim().length < 5}
+              className="w-full h-12 rounded-full bg-[rgba(245,68,166,1)] hover:opacity-90 disabled:opacity-40 text-white font-semibold text-sm flex items-center justify-center gap-2 transition"
+            >
+              {quickCreateLoading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+              {lang === "RU" ? "Создать" : "Create"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Share Card ── */}
+      <ShareCard
+        isOpen={shareCardOpen}
+        onClose={() => setShareCardOpen(false)}
+        lang={lang}
+        marketTitle={shareCardTitle}
+        marketId={shareCardMarketId}
+        action="created"
+      />
 
       {/* ── Members Dropdown Overlay ── */}
       {membersDropdownOpen && (
