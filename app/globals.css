@@ -120,6 +120,14 @@ body {
   animation: trophyGlow 3s ease-in-out infinite;
 }
 
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slideUp 0.25s ease-out;
+}
+
 ::selection {
   background-color: rgba(245, 68, 166, 1);
   color: #ffffff;

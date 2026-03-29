@@ -2818,6 +2818,13 @@ export default function HomePageClient({
               navigateToCatalogUrl();
               void loadMarkets();
             }}
+            onAggregatorClick={() => {
+              setMarketBetIntent(null);
+              setSelectedMarketId(null);
+              setCurrentView("FEED");
+              navigateToCatalogUrl();
+              void loadMarkets();
+            }}
             lang={lang}
             onToggleLang={handleToggleLang}
           />
@@ -2919,6 +2926,13 @@ export default function HomePageClient({
               setSelectedMarketId(null);
               setCurrentView("FEED");
               navigateToCatalogUrl();
+            }}
+            onAggregatorClick={() => {
+              setMarketBetIntent(null);
+              setSelectedMarketId(null);
+              setCurrentView("FEED");
+              navigateToCatalogUrl();
+              void loadMarkets();
             }}
             lang={lang}
             onToggleLang={handleToggleLang}
