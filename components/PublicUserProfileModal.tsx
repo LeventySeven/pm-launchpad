@@ -34,6 +34,13 @@ type RecentMarket = {
   feeMajor?: number;
 };
 
+export type ProfileCommunity = {
+  id: string;
+  slug: string;
+  name: string;
+  bannerUrl: string | null;
+};
+
 type PublicUserProfileModalProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -45,7 +52,9 @@ type PublicUserProfileModalProps = {
   bets: PublicBet[];
   comments: PublicComment[];
   markets: Market[];
+  communities?: ProfileCommunity[];
   onMarketClick: (marketId: string) => void;
+  onCommunityClick?: (slug: string) => void;
   followStatus?: { isFollowing: boolean; isFollowedBy: boolean } | null;
   followerCount?: number;
   followingCount?: number;
@@ -147,7 +156,9 @@ const PublicUserProfileModal: React.FC<PublicUserProfileModalProps> = ({
   bets,
   comments,
   markets,
+  communities,
   onMarketClick,
+  onCommunityClick,
   followStatus,
   followerCount,
   followingCount,
@@ -277,6 +288,36 @@ const PublicUserProfileModal: React.FC<PublicUserProfileModalProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* ── Communities ── */}
+              {communities && communities.length > 0 && (
+                <div className="mt-5">
+                  <div className="text-sm font-bold text-white mb-3">
+                    {lang === "RU" ? "Сообщества" : "Communities"}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {communities.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => onCommunityClick?.(c.slug)}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-zinc-800/60 bg-zinc-900/40 hover:bg-zinc-900/70 transition"
+                      >
+                        <div className="h-5 w-5 rounded-full bg-zinc-800 overflow-hidden shrink-0">
+                          {c.bannerUrl ? (
+                            <img src={c.bannerUrl} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center text-zinc-500 text-[9px] font-bold">
+                              {c.name.slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-xs text-zinc-300 font-medium truncate max-w-[120px]">{c.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* ── Recent Markets ── */}
               {recentMarkets.length > 0 && (

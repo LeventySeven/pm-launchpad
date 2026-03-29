@@ -163,22 +163,43 @@ export async function getMarketDetailInitialData(
   marketId: string
 ): Promise<MarketDetailInitialData> {
   try {
-    // Fetch home data and market detail in parallel, sharing one caller
-    const [homeData, marketDetail] = await Promise.all([
-      getHomePageInitialData(),
+    // Single caller shared across all queries — avoids creating duplicate
+    // Supabase clients and tRPC context objects.
+    const caller = createServerCaller();
+
+    const [marketsRaw, categoriesRaw, marketDetail] = await Promise.all([
       withTimeout(
-        createServerCaller().market.getMarket({ marketId }).catch(() => null),
+        caller.market.listMarkets({ onlyOpen: false }),
+        SSR_TIMEOUT_MS,
+        [],
+      ),
+      withTimeout(
+        caller.market.listCategories(),
+        SSR_TIMEOUT_MS,
+        [],
+      ),
+      withTimeout(
+        caller.market.getMarket({ marketId }).catch(() => null),
         SSR_TIMEOUT_MS,
         null,
       ),
     ]);
+
+    const markets = (marketsRaw ?? []) as unknown as MarketApiRow[];
+    const categories: MarketCategoryRow[] = (categoriesRaw ?? []).map((c) => ({
+      id: c.id,
+      labelRu: c.labelRu,
+      labelEn: c.labelEn,
+    }));
 
     const detail = marketDetail
       ? (marketDetail as unknown as MarketApiRow)
       : null;
 
     return {
-      ...homeData,
+      initialMarkets: markets,
+      initialCategories: categories,
+      fetchedAt: Date.now(),
       initialMarketId: marketId,
       initialMarketDetail: detail,
     };

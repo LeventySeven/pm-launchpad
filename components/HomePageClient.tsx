@@ -661,6 +661,7 @@ export default function HomePageClient({
   const [publicProfileMarketsCreated, setPublicProfileMarketsCreated] = useState(0);
   const [publicProfileTotalVolume, setPublicProfileTotalVolume] = useState(0);
   const [publicProfileFollowStatus, setPublicProfileFollowStatus] = useState<{ isFollowing: boolean; isFollowedBy: boolean } | null>(null);
+  const [publicProfileCommunities, setPublicProfileCommunities] = useState<Array<{ id: string; slug: string; name: string; bannerUrl: string | null }>>([]);
   const publicProfileRequestIdRef = useRef(0);
   const [lastOnchainTxBase64, setLastOnchainTxBase64] = useState<string | null>(null);
   type MarketCategoryStrict = { id: string; labelRu: string; labelEn: string };
@@ -2454,6 +2455,7 @@ export default function HomePageClient({
       setPublicProfileMarketsCreated(0);
       setPublicProfileTotalVolume(0);
       setPublicProfileFollowStatus(null);
+      setPublicProfileCommunities([]);
       publicProfileRequestIdRef.current += 1;
       const requestId = publicProfileRequestIdRef.current;
 
@@ -2465,6 +2467,7 @@ export default function HomePageClient({
           ReturnType<typeof trpcClient.user.publicUserComments.query>,
           ReturnType<typeof trpcClient.user.publicUserVotes.query>,
           Promise<{ isFollowing: boolean; isFollowedBy: boolean } | null>,
+          ReturnType<typeof trpcClient.community.userCommunities.query>,
         ] = [
           trpcClient.user.publicUser.query({ userId }),
           trpcClient.user.publicUserStats.query({ userId }),
@@ -2474,9 +2477,10 @@ export default function HomePageClient({
           user && user.id !== userId
             ? trpcClient.follow.status.query({ targetUserId: userId })
             : Promise.resolve(null),
+          trpcClient.community.userCommunities.query({ userId }),
         ];
 
-        const [u, stats, comments, bets, followStatusResult] = await Promise.all(queries);
+        const [u, stats, comments, bets, followStatusResult, userCommunities] = await Promise.all(queries);
         if (requestId !== publicProfileRequestIdRef.current) return;
 
         setPublicProfileUser({
@@ -2492,6 +2496,14 @@ export default function HomePageClient({
         setPublicProfileMarketsCreated(Number(stats.marketsCreated ?? 0));
         setPublicProfileTotalVolume(Number(stats.totalVolumeMajor ?? 0));
         setPublicProfileFollowStatus(followStatusResult);
+        setPublicProfileCommunities(
+          (userCommunities ?? []).map((c) => ({
+            id: c.id,
+            slug: c.slug,
+            name: c.name,
+            bannerUrl: c.bannerUrl ?? null,
+          }))
+        );
         setPublicProfileComments(
           (comments ?? []).map((c) => ({
             id: requireValue(c.id, "PUBLIC_COMMENT_ID_MISSING"),
@@ -3362,6 +3374,11 @@ export default function HomePageClient({
         bets={publicProfileBets}
         comments={publicProfileComments}
         markets={markets}
+        communities={publicProfileCommunities}
+        onCommunityClick={(slug) => {
+          closePublicProfile();
+          setSelectedCommunitySlug(slug);
+        }}
         followerCount={publicProfileFollowerCount}
         followingCount={publicProfileFollowingCount}
         marketsCreated={publicProfileMarketsCreated}

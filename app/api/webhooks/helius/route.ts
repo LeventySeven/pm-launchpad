@@ -84,73 +84,80 @@ export async function POST(req: Request) {
   const solanaCluster = (process.env.SOLANA_CLUSTER || process.env.NEXT_PUBLIC_SOLANA_CLUSTER || "devnet").toLowerCase();
   const cluster = solanaCluster === "mainnet-beta" ? "mainnet-beta" : solanaCluster === "testnet" ? "testnet" : "devnet";
 
-  let processed = 0;
-  let ignored = 0;
+  // Pre-extract all events with their parsed fields
+  const parsed = events.map((e) => ({
+    raw: e,
+    txSig: extractTxSig(e),
+    userPubkey: extractUserPubkey(e),
+    marketPda: extractMarketPda(e),
+  }));
 
-  for (const e of events) {
-    const txSig = extractTxSig(e);
-    const userPubkey = extractUserPubkey(e);
-    const marketPda = extractMarketPda(e);
+  // Filter to events with valid txSig
+  const valid = parsed.filter((p) => p.txSig);
+  const ignored = parsed.length - valid.length;
 
-    if (!txSig) {
-      ignored += 1;
-      continue;
-    }
-
-    // Resolve user_id via users.solana_wallet_address
-    let userId: string | null = null;
-    if (userPubkey) {
-      const { data: u } = await supabase
-        .from("users")
-        .select("id")
-        .eq("solana_wallet_address", userPubkey)
-        .maybeSingle();
-      userId = u?.id ?? null;
-    }
-
-    if (!userId) {
-      // Can't insert without user_id due to NOT NULL; keep it as ignored for now.
-      ignored += 1;
-      continue;
-    }
-
-    // Resolve market_id (optional) via market_onchain_map
-    let marketId: string | null = null;
-    if (marketPda) {
-      const { data: m } = await supabase
-        .from("market_onchain_map")
-        .select("market_id")
-        .eq("solana_cluster", cluster)
-        .eq("market_pda", marketPda)
-        .maybeSingle();
-      marketId = (m as { market_id: string } | null)?.market_id ?? null;
-    }
-
-    // Upsert into on_chain_transactions as confirmed.
-    // NOTE: tx_type isn't standardized yet for webhook payload mapping. Store it as 'deposit' for now.
-    const row: Database["public"]["Tables"]["on_chain_transactions"]["Insert"] = {
-        user_id: userId,
-        solana_cluster: cluster,
-        tx_sig: txSig,
-        status: "confirmed",
-        tx_type: "deposit",
-        amount_minor: null,
-        asset_code: "USDC",
-        market_id: marketId,
-        trade_id: null,
-        nonce: null,
-        gas_used: null,
-        gas_price_gwei: null,
-        block_number: null,
-        block_timestamp: null,
-        error_message: null,
-        metadata: e,
-      };
-    await supabase.from("on_chain_transactions").upsert(row, { onConflict: "solana_cluster,tx_sig" });
-
-    processed += 1;
+  if (valid.length === 0) {
+    return NextResponse.json({ ok: true, processed: 0, ignored });
   }
 
-  return NextResponse.json({ ok: true, processed, ignored });
+  // Batch-resolve all unique wallet addresses and market PDAs upfront (2 queries instead of N*2)
+  const uniqueWallets = [...new Set(valid.map((p) => p.userPubkey).filter(Boolean))] as string[];
+  const uniquePdas = [...new Set(valid.map((p) => p.marketPda).filter(Boolean))] as string[];
+
+  const [usersResult, marketsResult] = await Promise.all([
+    uniqueWallets.length > 0
+      ? supabase.from("users").select("id, solana_wallet_address").in("solana_wallet_address", uniqueWallets)
+      : Promise.resolve({ data: [] as { id: string; solana_wallet_address: string }[] }),
+    uniquePdas.length > 0
+      ? supabase.from("market_onchain_map").select("market_id, market_pda").eq("solana_cluster", cluster).in("market_pda", uniquePdas)
+      : Promise.resolve({ data: [] as { market_id: string; market_pda: string }[] }),
+  ]);
+
+  const walletToUser = new Map<string, string>();
+  for (const u of (usersResult.data ?? []) as { id: string; solana_wallet_address: string }[]) {
+    walletToUser.set(u.solana_wallet_address, u.id);
+  }
+
+  const pdaToMarket = new Map<string, string>();
+  for (const m of (marketsResult.data ?? []) as { market_id: string; market_pda: string }[]) {
+    pdaToMarket.set(m.market_pda, m.market_id);
+  }
+
+  // Build rows for batch upsert
+  const rows: Database["public"]["Tables"]["on_chain_transactions"]["Insert"][] = [];
+  let skipped = 0;
+
+  for (const p of valid) {
+    const userId = p.userPubkey ? walletToUser.get(p.userPubkey) ?? null : null;
+    if (!userId) { skipped += 1; continue; }
+
+    const marketId = p.marketPda ? pdaToMarket.get(p.marketPda) ?? null : null;
+
+    rows.push({
+      user_id: userId,
+      solana_cluster: cluster,
+      tx_sig: p.txSig!,
+      status: "confirmed",
+      tx_type: "deposit",
+      amount_minor: null,
+      asset_code: "USDC",
+      market_id: marketId,
+      trade_id: null,
+      nonce: null,
+      gas_used: null,
+      gas_price_gwei: null,
+      block_number: null,
+      block_timestamp: null,
+      error_message: null,
+      metadata: p.raw,
+    });
+  }
+
+  // Single batch upsert instead of N individual upserts
+  if (rows.length > 0) {
+    await supabase.from("on_chain_transactions").upsert(rows, { onConflict: "solana_cluster,tx_sig" });
+  }
+
+  return NextResponse.json({ ok: true, processed: rows.length, ignored: ignored + skipped });
 }
 

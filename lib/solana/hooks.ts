@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { uuidToBytes16 } from "./pdas";
 
 // Account data layout constants
 const POSITION_SEED = Buffer.from("position");
@@ -19,15 +20,6 @@ const MARKET_OUTCOME_OFFSET = 8 + 16;
 const MARKET_Q_YES_OFFSET = 8 + 16 + 1;
 const MARKET_Q_NO_OFFSET = 8 + 16 + 1 + 8;
 const MARKET_B_OFFSET = 8 + 16 + 1 + 8 + 8;
-
-/**
- * Convert UUID string to 16-byte buffer for PDA derivation
- */
-function uuidToBytes16(uuid: string): Buffer {
-  const hex = uuid.replace(/-/g, "").toLowerCase();
-  if (hex.length !== 32) throw new Error("Invalid UUID");
-  return Buffer.from(hex, "hex");
-}
 
 /**
  * Read u64 from buffer at offset (little-endian)

@@ -59,6 +59,26 @@ type UserInsert = Database["public"]["Tables"]["users"]["Insert"];
 type WalletBalanceInsert = Database["public"]["Tables"]["wallet_balances"]["Insert"];
 type WalletBalanceRow = Pick<Database["public"]["Tables"]["wallet_balances"]["Row"], "balance_minor">;
 
+/**
+ * Fetch user row + wallet balance in a single parallel call.
+ * Eliminates the repeated sequential user-then-wallet pattern.
+ */
+async function fetchUserWithBalance(
+  db: ReturnType<typeof import("../../supabase/client").getSupabaseServiceClient>,
+  userId: string,
+): Promise<{ userRow: DbUserRow; balanceMinor: number } | null> {
+  const [userResult, walletResult] = await Promise.all([
+    db.from(USERS_TABLE).select(publicColumns).eq("id", userId).maybeSingle(),
+    db.from(WALLET_BALANCES_TABLE).select("balance_minor").eq("user_id", userId).eq("asset_code", DEFAULT_ASSET).maybeSingle(),
+  ]);
+  if (userResult.error || !userResult.data) return null;
+  const wallet = walletResult.data as WalletBalanceRow | null;
+  return {
+    userRow: userResult.data as DbUserRow,
+    balanceMinor: wallet ? Number(wallet.balance_minor ?? 0) : 0,
+  };
+}
+
 const TELEGRAM_PLACEHOLDER_DOMAIN = "telegram.local";
 const buildTelegramEmail = (telegramId: number) => `tg_${telegramId}@${TELEGRAM_PLACEHOLDER_DOMAIN}`;
 const buildTelegramUsername = (telegramId: number) => `tg_${telegramId}`;
@@ -252,43 +272,42 @@ export const authRouter = router({
           { onConflict: "user_id,asset_code", ignoreDuplicates: true }
         );
 
-      // Fetch wallet balance (supports DB trigger-based initial credit)
-      const { data: walletRow } = await supabaseService
-        .from("wallet_balances")
+      // Fetch wallet balance + attach referral + auto-login in parallel
+      const walletPromise = supabaseService
+        .from(WALLET_BALANCES_TABLE)
         .select("balance_minor")
         .eq("user_id", inserted.data.id)
         .eq("asset_code", DEFAULT_ASSET)
         .maybeSingle();
 
-      const wallet = walletRow as WalletBalanceRow | null;
-      const balanceMinor = wallet ? Number(wallet.balance_minor ?? 0) : 0;
+      const referralPromise = referralCode
+        ? supabaseService
+            .from("users")
+            .select("id, referral_enabled")
+            .eq("referral_code", referralCode)
+            .maybeSingle()
+            .then(({ data: referrerRow }) => {
+              if (referrerRow?.id && referrerRow.id !== userId && referrerRow.referral_enabled === true) {
+                return supabaseService
+                  .from("user_referrals")
+                  .upsert({ user_id: userId, referrer_user_id: referrerRow.id }, { onConflict: "user_id" });
+              }
+            })
+        : Promise.resolve();
 
-      // Attach referral (optional). We don't block signup if the code is invalid.
-      if (referralCode) {
-        const { data: referrerRow } = await supabaseService
-          .from("users")
-          .select("id, referral_enabled")
-          .eq("referral_code", referralCode)
-          .maybeSingle();
-
-        // Only accept codes that are explicitly enabled.
-        if (referrerRow?.id && referrerRow.id !== userId && referrerRow.referral_enabled === true) {
-          await supabaseService
-            .from("user_referrals")
-            .upsert(
-              {
-                user_id: userId,
-                referrer_user_id: referrerRow.id,
-              },
-              { onConflict: "user_id" }
-            );
-        }
-      }
-
-      const autoLogin = await supabase.auth.signInWithPassword({
+      const autoLoginPromise = supabase.auth.signInWithPassword({
         email,
         password: input.password,
       });
+
+      const [walletResult, , autoLogin] = await Promise.all([
+        walletPromise,
+        referralPromise,
+        autoLoginPromise,
+      ]);
+
+      const wallet = walletResult.data as WalletBalanceRow | null;
+      const balanceMinor = wallet ? Number(wallet.balance_minor ?? 0) : 0;
 
       if (autoLogin.error || !autoLogin.data?.session) {
         throw new TRPCError({
@@ -352,43 +371,22 @@ export const authRouter = router({
 
       const authUser = signIn.data.user;
 
-      const { data: userRow, error } = await supabaseService
-        .from("users")
-        .select(publicColumns)
-        .eq("id", authUser.id)
-        .maybeSingle();
-
-      if (error || !userRow) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "Invalid credentials",
-        });
+      const result = await fetchUserWithBalance(supabaseService, authUser.id);
+      if (!result) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid credentials" });
       }
-
-      const authRow = userRow as DbUserRow;
-
-      // Fetch wallet balance
-      const { data: walletRow } = await supabaseService
-        .from("wallet_balances")
-        .select("balance_minor")
-        .eq("user_id", authRow.id)
-        .eq("asset_code", DEFAULT_ASSET)
-        .maybeSingle();
-
-      const wallet = walletRow as WalletBalanceRow | null;
-      const balanceMinor = wallet ? Number(wallet.balance_minor ?? 0) : 0;
 
       persistSupabaseSession(signIn.data.session, setCookie);
 
       const token = await signAuthToken({
-        sub: String(authRow.id),
-        email: authRow.email,
-        username: authRow.username,
-        isAdmin: Boolean(authRow.is_admin),
+        sub: String(result.userRow.id),
+        email: result.userRow.email,
+        username: result.userRow.username,
+        isAdmin: Boolean(result.userRow.is_admin),
       });
       setCookie(authCookie(token));
 
-      return { user: toPublicUser(authRow, Number(balanceMinor)) };
+      return { user: toPublicUser(result.userRow, result.balanceMinor) };
     }),
 
   /**
@@ -541,23 +539,25 @@ export const authRouter = router({
 
       persistSupabaseSession(signIn.data.session, setCookie);
 
-      const { data: walletRow } = await supabaseService
-        .from("wallet_balances")
-        .select("balance_minor")
-        .eq("user_id", upserted.data.id)
-        .eq("asset_code", DEFAULT_ASSET)
-        .maybeSingle();
-
-      const wallet = walletRow as WalletBalanceRow | null;
-      const balanceMinor = wallet ? Number(wallet.balance_minor ?? 0) : 0;
-
-      const token = await signAuthToken({
-        sub: String(upserted.data.id),
-        email: upserted.data.email,
-        username: upserted.data.username,
-        isAdmin: Boolean((upserted.data as DbUserRow).is_admin),
-      });
+      // Fetch wallet balance in parallel with JWT signing
+      const [walletResult, token] = await Promise.all([
+        supabaseService
+          .from(WALLET_BALANCES_TABLE)
+          .select("balance_minor")
+          .eq("user_id", upserted.data.id)
+          .eq("asset_code", DEFAULT_ASSET)
+          .maybeSingle(),
+        signAuthToken({
+          sub: String(upserted.data.id),
+          email: upserted.data.email,
+          username: upserted.data.username,
+          isAdmin: Boolean((upserted.data as DbUserRow).is_admin),
+        }),
+      ]);
       setCookie(authCookie(token));
+
+      const wallet = walletResult.data as WalletBalanceRow | null;
+      const balanceMinor = wallet ? Number(wallet.balance_minor ?? 0) : 0;
 
       return { user: toPublicUser(upserted.data as DbUserRow, balanceMinor) };
     }),
@@ -590,42 +590,24 @@ export const authRouter = router({
     }
 
     try {
-      const { data: userRow, error: userError } = await supabaseService
-        .from("users")
-        .select(publicColumns)
-        .eq("id", sessionUserId)
-        .maybeSingle();
-
-      if (userError || !userRow) {
+      const result = await fetchUserWithBalance(supabaseService, sessionUserId);
+      if (!result) {
         setCookie(clearCookie(SUPABASE_ACCESS_COOKIE));
         setCookie(clearCookie(SUPABASE_REFRESH_COOKIE));
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: userError?.message ?? "REFRESH_FAILED",
-        });
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "REFRESH_FAILED" });
       }
 
-      const authRow = userRow as DbUserRow;
-      const { data: walletRow } = await supabaseService
-        .from("wallet_balances")
-        .select("balance_minor")
-        .eq("user_id", authRow.id)
-        .eq("asset_code", DEFAULT_ASSET)
-        .maybeSingle();
-
-      const wallet = walletRow as WalletBalanceRow | null;
-      const balanceMinor = wallet ? Number(wallet.balance_minor ?? 0) : 0;
-
       const token = await signAuthToken({
-        sub: String(authRow.id),
-        email: authRow.email,
-        username: authRow.username,
-        isAdmin: Boolean(authRow.is_admin),
+        sub: String(result.userRow.id),
+        email: result.userRow.email,
+        username: result.userRow.username,
+        isAdmin: Boolean(result.userRow.is_admin),
       });
       setCookie(authCookie(token));
 
-      return { user: toPublicUser(authRow, Number(balanceMinor)) };
+      return { user: toPublicUser(result.userRow, result.balanceMinor) };
     } catch (err) {
+      if (err instanceof TRPCError) throw err;
       console.warn("Failed to hydrate user after refresh", err);
       setCookie(clearCookie(SUPABASE_ACCESS_COOKIE));
       setCookie(clearCookie(SUPABASE_REFRESH_COOKIE));
@@ -640,29 +622,9 @@ export const authRouter = router({
 
     try {
       const payload = await verifyAuthToken(token);
-      // NOTE: we lock down direct reads on public.users for anon/authenticated to prevent email leakage.
-      // This endpoint is server-side, authenticated via our own JWT cookie, so it's safe to use service_role
-      // to fetch the current user row.
-      const { data, error } = await supabaseService
-        .from("users")
-        .select(publicColumns)
-        .eq("id", payload.sub)
-        .maybeSingle();
-      if (error || !data) return null;
-      const currentUser = data as DbUserRow;
-
-      // Fetch wallet balance
-      const { data: walletRow } = await supabaseService
-        .from("wallet_balances")
-        .select("balance_minor")
-        .eq("user_id", currentUser.id)
-        .eq("asset_code", DEFAULT_ASSET)
-        .maybeSingle();
-
-      const wallet = walletRow as WalletBalanceRow | null;
-      const balanceMinor = wallet ? Number(wallet.balance_minor ?? 0) : 0;
-
-      return toPublicUser(currentUser, Number(balanceMinor));
+      const result = await fetchUserWithBalance(supabaseService, payload.sub);
+      if (!result) return null;
+      return toPublicUser(result.userRow, result.balanceMinor);
     } catch {
       return null;
     }
