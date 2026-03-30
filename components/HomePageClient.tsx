@@ -298,6 +298,7 @@ export default function HomePageClient({
   const [activeCategoryId, setActiveCategoryId] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [aggregatorOpen, setAggregatorOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState<AuthMode>("SIGN_IN");
@@ -2820,13 +2821,6 @@ export default function HomePageClient({
               navigateToCatalogUrl();
               void loadMarkets();
             }}
-            onAggregatorClick={() => {
-              setMarketBetIntent(null);
-              setSelectedMarketId(null);
-              setCurrentView("FEED");
-              navigateToCatalogUrl();
-              void loadMarkets();
-            }}
             lang={lang}
             onToggleLang={handleToggleLang}
           />
@@ -2902,7 +2896,11 @@ export default function HomePageClient({
             lang={lang}
             user={user}
             onLoginRequest={() => openAuth("SIGN_IN")}
-
+            onCreateMarket={() => {
+              if (currentView !== "FEED") goToView("FEED");
+              setShowAdminModal(true);
+            }}
+            onAggregatorClick={() => setAggregatorOpen(true)}
             onChange={(view) => {
               // Bottom nav always navigates back to the main shell
               setMarketBetIntent(null);
@@ -2928,13 +2926,6 @@ export default function HomePageClient({
               setSelectedMarketId(null);
               setCurrentView("FEED");
               navigateToCatalogUrl();
-            }}
-            onAggregatorClick={() => {
-              setMarketBetIntent(null);
-              setSelectedMarketId(null);
-              setCurrentView("FEED");
-              navigateToCatalogUrl();
-              void loadMarkets();
             }}
             lang={lang}
             onToggleLang={handleToggleLang}
@@ -3160,7 +3151,11 @@ export default function HomePageClient({
             lang={lang}
             user={user}
             onLoginRequest={() => openAuth("SIGN_IN")}
-
+            onCreateMarket={() => {
+              if (currentView !== "FEED") goToView("FEED");
+              setShowAdminModal(true);
+            }}
+            onAggregatorClick={() => setAggregatorOpen(true)}
             onChange={(view) => {
               setMarketBetIntent(null);
               goToView(view);
@@ -3424,6 +3419,31 @@ export default function HomePageClient({
           setCurrentView("FEED");
         }}
       />
+      {/* Aggregator (yallayalla.io) full-screen iframe overlay */}
+      {aggregatorOpen && (
+        <div className="fixed inset-0 z-[95] bg-black flex flex-col" data-swipe-ignore="true">
+          <div className="flex items-center gap-3 px-3 h-11 shrink-0 border-b border-zinc-900 bg-black">
+            <button
+              type="button"
+              onClick={() => setAggregatorOpen(false)}
+              className="h-8 w-8 rounded-full border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-white flex items-center justify-center transition"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+            </button>
+            <span className="text-xs font-bold text-white uppercase tracking-wider">
+              {lang === "RU" ? "Агрегатор" : "Aggregator"}
+            </span>
+            <span className="text-[10px] text-zinc-500">yallayalla.io</span>
+          </div>
+          <iframe
+            src="https://www.yallayalla.io/catalog"
+            className="flex-1 w-full border-0"
+            allow="clipboard-write"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+          />
+        </div>
+      )}
+
       {/* Community Profile Page (full-screen overlay) */}
       {selectedCommunitySlug && (
         <div className="fixed inset-0 z-[70] bg-black overflow-y-auto" data-swipe-ignore="true">
