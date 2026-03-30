@@ -25,77 +25,58 @@ const BottomMenu: React.FC<BottomMenuProps> = ({ currentView, onChange, lang, us
     }
   };
 
+  const tabClass = (active: boolean) =>
+    `flex flex-col items-center justify-center gap-0.5 flex-1 py-2 ${active ? 'text-white' : 'text-zinc-500'}`;
+
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 pb-safe">
-      {/* Raised center FAB (+) */}
+    <>
+      {/* Raised center FAB (+) — positioned OUTSIDE the nav bar so it floats above */}
       {onCreateMarket && (
-        <div className="absolute left-1/2 -translate-x-1/2 -top-5 z-10">
-          <button
-            type="button"
-            onClick={() => { if (!user) { onLoginRequest(); return; } onCreateMarket(); }}
-            className="h-14 w-14 rounded-full bg-[rgba(245,68,166,1)] shadow-lg shadow-pink-500/30 flex items-center justify-center transition hover:opacity-90 active:scale-95 border-4 border-black"
-          >
-            <Plus size={24} className="text-white" />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => { if (!user) { onLoginRequest(); return; } onCreateMarket(); }}
+          className="fixed z-[52] left-1/2 -translate-x-1/2 bottom-[52px] h-14 w-14 rounded-full bg-[rgba(245,68,166,1)] shadow-lg shadow-pink-500/30 flex items-center justify-center hover:opacity-90 active:scale-95 border-[3px] border-black"
+          style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
+        >
+          <Plus size={24} className="text-white" />
+        </button>
       )}
 
-      {/* Tab bar */}
-      <div className="h-16 bg-black/90 backdrop-blur border-t border-zinc-900 flex items-center justify-around">
-        <button
-          onClick={() => onChange('FEED')}
-          className={`flex flex-col items-center justify-center gap-1 w-16 ${
-            currentView === 'FEED' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-          }`}
-        >
-          <Newspaper size={20} />
-          <span className="text-[10px] font-medium">{lang === 'RU' ? 'Лента' : 'Feed'}</span>
-        </button>
-
-        <button
-          onClick={() => onChange('SOCIAL')}
-          className={`flex flex-col items-center justify-center gap-1 w-16 ${
-            currentView === 'SOCIAL' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-          }`}
-        >
-          <Compass size={20} />
-          <span className="text-[10px] font-medium">{lang === 'RU' ? 'Хабы' : 'Hubs'}</span>
-        </button>
-
-        {/* Spacer for FAB */}
-        <div className="w-16" />
-
-        {onAggregatorClick ? (
-          <button
-            onClick={onAggregatorClick}
-            className="flex flex-col items-center justify-center gap-1 w-16 text-zinc-500 hover:text-zinc-300"
-          >
-            <LayoutGrid size={20} />
-            <span className="text-[10px] font-medium">{lang === 'RU' ? 'Маркет' : 'Market'}</span>
+      {/* Tab bar — fully opaque background */}
+      <nav className="fixed bottom-0 left-0 right-0 z-[51] border-t border-zinc-900 bg-black pb-safe">
+        <div className="h-14 flex items-stretch">
+          <button onClick={() => onChange('FEED')} className={tabClass(currentView === 'FEED')}>
+            <Newspaper size={18} />
+            <span className="text-[10px] font-medium leading-none">{lang === 'RU' ? 'Лента' : 'Feed'}</span>
           </button>
-        ) : (
-          <button
-            onClick={() => onChange('LEADERBOARD')}
-            className={`flex flex-col items-center justify-center gap-1 w-16 ${
-              currentView === 'LEADERBOARD' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            <BarChart3 size={20} />
-            <span className="text-[10px] font-medium">{lang === 'RU' ? 'Топ' : 'Top'}</span>
-          </button>
-        )}
 
-        <button
-          onClick={() => handleProtectedClick('PROFILE')}
-          className={`flex flex-col items-center justify-center gap-1 w-16 ${
-            currentView === 'PROFILE' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-          }`}
-        >
-          <UserIcon size={20} />
-          <span className="text-[10px] font-medium">{lang === 'RU' ? 'Профиль' : 'Profile'}</span>
-        </button>
-      </div>
-    </div>
+          <button onClick={() => onChange('SOCIAL')} className={tabClass(currentView === 'SOCIAL')}>
+            <Compass size={18} />
+            <span className="text-[10px] font-medium leading-none">{lang === 'RU' ? 'Хабы' : 'Hubs'}</span>
+          </button>
+
+          {/* Center spacer for FAB */}
+          <div className="flex-1" />
+
+          {onAggregatorClick ? (
+            <button onClick={onAggregatorClick} className={tabClass(false)}>
+              <LayoutGrid size={18} />
+              <span className="text-[10px] font-medium leading-none">{lang === 'RU' ? 'Маркет' : 'Market'}</span>
+            </button>
+          ) : (
+            <button onClick={() => onChange('LEADERBOARD')} className={tabClass(currentView === 'LEADERBOARD')}>
+              <BarChart3 size={18} />
+              <span className="text-[10px] font-medium leading-none">{lang === 'RU' ? 'Топ' : 'Top'}</span>
+            </button>
+          )}
+
+          <button onClick={() => handleProtectedClick('PROFILE')} className={tabClass(currentView === 'PROFILE')}>
+            <UserIcon size={18} />
+            <span className="text-[10px] font-medium leading-none">{lang === 'RU' ? 'Профиль' : 'Profile'}</span>
+          </button>
+        </div>
+      </nav>
+    </>
   );
 };
 
