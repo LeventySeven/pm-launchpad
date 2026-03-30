@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Globe, HelpCircle, Wallet } from 'lucide-react';
+import { Search, Globe, HelpCircle, Wallet, LayoutGrid } from 'lucide-react';
 import Button from './Button';
 import { User } from '../types';
 
@@ -35,10 +35,10 @@ const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-900 bg-black/80 backdrop-blur supports-[backdrop-filter]:bg-black/60">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 h-12 sm:h-14 flex items-center justify-between gap-2">
         {/* Logo */}
         <div
-          className={`flex items-center gap-2 ${onLogoClick ? 'cursor-pointer' : 'cursor-default'}`}
+          className={`flex items-center gap-1.5 sm:gap-2 shrink-0 ${onLogoClick ? 'cursor-pointer' : 'cursor-default'}`}
           onClick={onLogoClick}
           role={onLogoClick ? 'button' : undefined}
           aria-label={onLogoClick ? t.home : undefined}
@@ -46,53 +46,56 @@ const Header: React.FC<HeaderProps> = ({
           <img
             src="/white.svg"
             alt="Logo"
-            className="h-4 w-auto block"
+            className="h-3.5 sm:h-4 w-auto block"
             draggable={false}
           />
-          <div>
-            <h1 className="text-sm font-bold tracking-tight text-white leading-none uppercase transition-colors">
-              YALLA MARKET
-            </h1>
-          </div>
+          <h1 className="text-xs sm:text-sm font-bold tracking-tight text-white leading-none uppercase">
+            YALLA
+          </h1>
         </div>
 
-        {/* Search (Desktop) */}
+        {/* Search (Desktop only) */}
         <div className="hidden md:flex flex-1 max-w-sm mx-8 relative">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={t.search}
-            className="flex h-9 w-full rounded-full border border-zinc-900 bg-zinc-950/40 px-3 py-1 pl-9 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-9 w-full rounded-full border border-zinc-900 bg-zinc-950/40 px-3 py-1 pl-9 text-sm shadow-sm transition-colors placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700"
           />
           <Search size={14} className="absolute left-3 top-2.5 text-zinc-600" />
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onAggregatorClick}
-            className="inline-flex items-center justify-center rounded-full text-xs font-bold ring-offset-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-700 border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60 text-zinc-300 hover:text-white h-9 px-3 gap-1.5"
-          >
-            <Globe size={12} className="text-white" />
-            {lang === 'RU' ? 'Агрегатор' : 'Aggregator'}
-          </button>
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {onAggregatorClick && (
+            <button
+              type="button"
+              onClick={onAggregatorClick}
+              className="inline-flex items-center justify-center rounded-full text-xs font-bold transition-colors border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60 text-zinc-300 hover:text-white h-8 sm:h-9 px-2.5 sm:px-3 gap-1.5"
+              title={lang === 'RU' ? 'Агрегатор' : 'Aggregator'}
+            >
+              <LayoutGrid size={14} className="text-white" />
+              <span className="hidden sm:inline">{lang === 'RU' ? 'Агрегатор' : 'Aggregator'}</span>
+            </button>
+          )}
 
           {onHelpClick && (
             <button
+              type="button"
               onClick={onHelpClick}
-              className="inline-flex items-center justify-center rounded-full text-sm font-medium ring-offset-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-700 border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60 text-zinc-300 hover:text-white h-9 w-9"
+              className="inline-flex items-center justify-center rounded-full transition-colors border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60 text-zinc-300 hover:text-white h-8 w-8 sm:h-9 sm:w-9"
               title={t.help}
             >
-              <HelpCircle size={16} className="text-white" />
+              <HelpCircle size={14} className="text-white" />
             </button>
           )}
 
           {onToggleLang && (
             <button
+              type="button"
               onClick={onToggleLang}
-              className="inline-flex items-center justify-center rounded-full text-xs font-bold ring-offset-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-700 border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60 text-zinc-300 hover:text-white h-9 px-3 gap-2"
+              className="inline-flex items-center justify-center rounded-full text-xs font-bold transition-colors border border-zinc-900 bg-zinc-950/40 hover:bg-zinc-950/60 text-zinc-300 hover:text-white h-8 sm:h-9 px-2.5 sm:px-3 gap-1"
             >
               <Globe size={12} className="text-white" />
               {lang}
@@ -100,9 +103,10 @@ const Header: React.FC<HeaderProps> = ({
           )}
 
           {!user && onAuthClick && (
-            <Button type="button" onClick={onAuthClick} className="flex items-center gap-2 text-sm">
-              <Wallet size={16} />
-              <span>{t.registration}</span>
+            <Button type="button" onClick={onAuthClick} className="flex items-center gap-1.5 text-xs sm:text-sm h-8 sm:h-9 px-3">
+              <Wallet size={14} />
+              <span className="hidden sm:inline">{t.registration}</span>
+              <span className="sm:hidden">{lang === 'RU' ? 'Войти' : 'Login'}</span>
             </Button>
           )}
         </div>
