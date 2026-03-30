@@ -1807,25 +1807,25 @@ export default function HomePageClient({
   const hasMoreCatalogMarkets = catalogVisibleCount < catalogMarkets.length;
 
   // IntersectionObserver: load more 480px before sentinel enters viewport
+  const catalogLengthRef = useRef(catalogMarkets.length);
+  catalogLengthRef.current = catalogMarkets.length;
+
   useEffect(() => {
     const sentinel = catalogSentinelRef.current;
-    if (!sentinel) return;
+    if (!sentinel || !hasMoreCatalogMarkets) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && hasMoreCatalogMarkets) {
-          setCatalogVisibleCount((prev) => Math.min(prev + CATALOG_PAGE_SIZE, catalogMarkets.length));
+        if (entry.isIntersecting) {
+          setCatalogVisibleCount((prev) => Math.min(prev + CATALOG_PAGE_SIZE, catalogLengthRef.current));
         }
       },
-      {
-        rootMargin: "480px 0px",
-        threshold: 0.01,
-      },
+      { rootMargin: "480px 0px", threshold: 0.01 },
     );
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasMoreCatalogMarkets, catalogMarkets.length]);
+  }, [hasMoreCatalogMarkets]);
 
   // Feed: markets where the user currently has bets (positions).
   const myBetMarketIds = useMemo(() => {
@@ -1893,6 +1893,8 @@ export default function HomePageClient({
         setTimeout(scrollToTop, 0);
       }
       setMarketBetIntent(null);
+      setSelectedMarketId(null);
+      setMobileSearchOpen(false);
       setCatalogFiltersOpen(false);
       setCurrentView(view);
       navigateToViewUrl(view);
@@ -2981,6 +2983,7 @@ export default function HomePageClient({
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onBlur={() => { if (!searchQuery) setMobileSearchOpen(false); }}
+                            onKeyDown={(e) => { if (e.key === "Escape") { setSearchQuery(""); setMobileSearchOpen(false); } }}
                             placeholder={lang === "RU" ? "Поиск..." : "Search..."}
                             className="w-full h-10 rounded-full bg-zinc-950 border border-zinc-900 px-4 pl-10 pr-10 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700"
                           />

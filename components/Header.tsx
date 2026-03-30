@@ -1,11 +1,11 @@
 import React from 'react';
-import { Search, Globe, HelpCircle, Wallet, LayoutGrid } from 'lucide-react';
+import { Globe, HelpCircle, Wallet, LayoutGrid } from 'lucide-react';
 import Button from './Button';
 import { User } from '../types';
 
 interface HeaderProps {
-  searchQuery: string;
-  onSearchChange: (value: string) => void;
+  searchQuery?: string;
+  onSearchChange?: (value: string) => void;
   user?: User | null;
   onAuthClick?: () => void;
   lang?: 'RU' | 'EN';
@@ -16,8 +16,6 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({
-  searchQuery,
-  onSearchChange,
   user,
   onAuthClick,
   lang = 'RU',
@@ -28,7 +26,6 @@ const Header: React.FC<HeaderProps> = ({
 }) => {
   const t = {
     home: lang === 'RU' ? 'На главную' : 'Go to home',
-    search: lang === 'RU' ? 'Поиск...' : 'Search...',
     help: lang === 'RU' ? 'Помощь' : 'Help',
     registration: lang === 'RU' ? 'Регистрация' : 'Registration',
   };
@@ -54,17 +51,8 @@ const Header: React.FC<HeaderProps> = ({
           </h1>
         </div>
 
-        {/* Search (Desktop only) */}
-        <div className="hidden md:flex flex-1 max-w-sm mx-8 relative">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder={t.search}
-            className="flex h-9 w-full rounded-full border border-zinc-900 bg-zinc-950/40 px-3 py-1 pl-9 text-sm shadow-sm transition-colors placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700"
-          />
-          <Search size={14} className="absolute left-3 top-2.5 text-zinc-600" />
-        </div>
+        {/* Spacer — search moved to catalog filter area */}
+        <div className="flex-1" />
 
         {/* Actions */}
         <div className="flex items-center gap-1.5 sm:gap-2">

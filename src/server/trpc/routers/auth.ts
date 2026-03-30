@@ -200,6 +200,11 @@ export const authRouter = router({
       const displayName = input.displayName?.trim() || username;
       const referralCode = input.referralCode?.trim() || null;
 
+      // Block signups with reserved internal email domain
+      if (email.endsWith(`@${TELEGRAM_PLACEHOLDER_DOMAIN}`)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This email domain is reserved" });
+      }
+
       const existing = await supabaseService
         .from("users")
         .select("id")
