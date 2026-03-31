@@ -9,6 +9,21 @@ type DbClient = SupabaseClient<Database, "public">;
 // Helper types
 type CreatorInfo = { name: string; avatar: string | null };
 
+/** Batch-fetch user display info by IDs. Reused across communities, events, messages. */
+async function batchFetchCreators(userIds: string[], db: DbClient): Promise<Map<string, CreatorInfo>> {
+  if (userIds.length === 0) return new Map();
+  const { data } = await db
+    .from("users")
+    .select("id, display_name, username, avatar_url, telegram_photo_url")
+    .in("id", userIds);
+  return new Map(
+    (data ?? []).map((u) => [
+      String(u.id),
+      { name: u.display_name ?? u.username ?? "", avatar: u.avatar_url ?? u.telegram_photo_url ?? null },
+    ]),
+  );
+}
+
 export type CommunityPublic = {
   id: string;
   slug: string;
@@ -685,15 +700,7 @@ export async function listEvents(
   const pageRows = hasMore ? rows.slice(0, input.limit) : rows;
   const nextCursor = hasMore ? String(pageRows[pageRows.length - 1]?.starts_at ?? "") : null;
 
-  // Batch fetch creators
-  const creatorIds = [...new Set(pageRows.map((r: any) => String(r.created_by)))] as string[];
-  const { data: creators } = creatorIds.length > 0
-    ? await db.from("users").select("id, display_name, username, avatar_url, telegram_photo_url").in("id", creatorIds)
-    : { data: [] };
-
-  const creatorsMap = new Map<string, CreatorInfo>(
-    (creators ?? []).map((u) => [String(u.id), { name: u.display_name ?? u.username ?? "", avatar: u.avatar_url ?? u.telegram_photo_url ?? null }]),
-  );
+  const creatorsMap = await batchFetchCreators([...new Set(pageRows.map((r: any) => String(r.created_by)))] as string[], db);
 
   return {
     events: pageRows.map((r: any) => {
@@ -802,14 +809,7 @@ export async function listMessages(
   const nextCursor = hasMore ? String(pageRows[pageRows.length - 1]?.created_at ?? "") : null;
 
   // Batch fetch authors
-  const authorIds = [...new Set(pageRows.map((r: any) => String(r.user_id)))] as string[];
-  const { data: authors } = authorIds.length > 0
-    ? await db.from("users").select("id, display_name, username, avatar_url, telegram_photo_url").in("id", authorIds)
-    : { data: [] };
-
-  const authorsMap = new Map<string, CreatorInfo>(
-    (authors ?? []).map((u) => [String(u.id), { name: u.display_name ?? u.username ?? "", avatar: u.avatar_url ?? u.telegram_photo_url ?? null }]),
-  );
+  const authorsMap = await batchFetchCreators([...new Set(pageRows.map((r: any) => String(r.user_id)))] as string[], db);
 
   return {
     messages: pageRows.map((r: any) => {

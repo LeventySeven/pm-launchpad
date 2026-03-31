@@ -299,6 +299,8 @@ export default function HomePageClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [aggregatorOpen, setAggregatorOpen] = useState(false);
+  const [aggregatorLoaded, setAggregatorLoaded] = useState(false);
+  const aggregatorMountedRef = useRef(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState<AuthMode>("SIGN_IN");
@@ -1838,33 +1840,33 @@ export default function HomePageClient({
     );
   }, [myPositions]);
 
-  const feedMarkets = useMemo(() => {
+  // Pre-sort feed markets (doesn't depend on searchQuery — avoids re-sort on every keystroke)
+  const feedMarketsSorted = useMemo(() => {
     if (!user) return [];
-    const q = searchQuery.trim().toLowerCase();
-    const base = markets.filter((m) => myBetMarketIds.has(m.id));
-    const filtered = !q
-      ? base
-      : base.filter((market) => {
-          const targetTitle = (lang === "RU" ? market.titleRu : market.titleEn) ?? market.title;
-          return targetTitle.toLowerCase().includes(q);
-        });
-
-    // Open markets first, then soonest closing/ending.
     const sortTs = (iso?: string | null) => {
       if (!iso) return Number.POSITIVE_INFINITY;
       const t = Date.parse(iso);
       return Number.isFinite(t) ? t : Number.POSITIVE_INFINITY;
     };
+    return markets
+      .filter((m) => myBetMarketIds.has(m.id))
+      .sort((a, b) => {
+        const aClosed = a.state === "resolved";
+        const bClosed = b.state === "resolved";
+        if (aClosed !== bClosed) return aClosed ? 1 : -1;
+        return sortTs(a.closesAt ?? a.expiresAt) - sortTs(b.closesAt ?? b.expiresAt);
+      });
+  }, [user, markets, myBetMarketIds]);
 
-    return [...filtered].sort((a, b) => {
-      const aClosed = a.state === "resolved";
-      const bClosed = b.state === "resolved";
-      if (aClosed !== bClosed) return aClosed ? 1 : -1;
-      const at = sortTs(a.closesAt ?? a.expiresAt);
-      const bt = sortTs(b.closesAt ?? b.expiresAt);
-      return at - bt;
+  // Filter by search (cheap string match, re-runs on keystroke but no re-sort)
+  const feedMarkets = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return feedMarketsSorted;
+    return feedMarketsSorted.filter((m) => {
+      const title = (lang === "RU" ? m.titleRu : m.titleEn) ?? m.title;
+      return title.toLowerCase().includes(q);
     });
-  }, [user, markets, myBetMarketIds, searchQuery, lang]);
+  }, [feedMarketsSorted, searchQuery, lang]);
 
   const bookmarkedMarketIds = useMemo(() => new Set(myBookmarks.map((b) => b.marketId)), [myBookmarks]);
   const bookmarkedMarkets = useMemo(() => {
@@ -3419,27 +3421,36 @@ export default function HomePageClient({
           setCurrentView("FEED");
         }}
       />
-      {/* Aggregator (yallayalla.io) full-screen iframe overlay */}
-      {aggregatorOpen && (
-        <div className="fixed inset-0 z-[95] bg-black flex flex-col" data-swipe-ignore="true">
+      {/* Aggregator iframe — stays mounted after first open for instant re-open */}
+      {aggregatorOpen && (() => { aggregatorMountedRef.current = true; return null; })()}
+      {aggregatorMountedRef.current && (
+        <div
+          className={`fixed inset-0 z-[95] bg-black flex flex-col ${aggregatorOpen ? "" : "hidden"}`}
+          data-swipe-ignore="true"
+        >
           <div className="flex items-center gap-3 px-3 h-11 shrink-0 border-b border-zinc-900 bg-black">
             <button
               type="button"
               onClick={() => setAggregatorOpen(false)}
-              className="h-8 w-8 rounded-full border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-white flex items-center justify-center transition"
+              className="h-8 w-8 rounded-full border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-white flex items-center justify-center"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
             </button>
             <span className="text-xs font-bold text-white uppercase tracking-wider">
               {lang === "RU" ? "Агрегатор" : "Aggregator"}
             </span>
-            <span className="text-[10px] text-zinc-500">yallayalla.io</span>
+            <span className="text-[10px] text-zinc-500 flex-1">yallayalla.io</span>
+            {!aggregatorLoaded && (
+              <div className="h-4 w-4 border-2 border-zinc-600 border-t-white rounded-full animate-spin" />
+            )}
           </div>
           <iframe
             src="https://www.yallayalla.io/catalog"
             className="flex-1 w-full border-0"
             allow="clipboard-write"
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+            loading="lazy"
+            onLoad={() => setAggregatorLoaded(true)}
           />
         </div>
       )}

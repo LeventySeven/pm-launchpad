@@ -40,11 +40,14 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  try {
-    // Required call for SSR auth flow. Supabase refreshes/rotates cookies as needed.
-    await supabase.auth.getUser();
-  } catch (err) {
-    console.warn("Supabase middleware session update failed", err);
+  // Only refresh session if the user has auth cookies — skip for anonymous visitors
+  const hasAuthCookies = request.cookies.getAll().some((c) => c.name.startsWith("sb-"));
+  if (hasAuthCookies) {
+    try {
+      await supabase.auth.getUser();
+    } catch {
+      // Session expired or invalid — cookies will be cleared by Supabase
+    }
   }
 
   return response;

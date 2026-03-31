@@ -909,18 +909,16 @@ export const userRouter = router({
       const limit = input?.limit ?? 25;
       const sortBy = input?.sortBy ?? "PNL";
 
-      // Fetch more than we need so we can filter out 0 pnl / 0 bets users.
-      const fetchLimit = Math.min(500, Math.max(100, limit * 5));
-
+      // Filter at DB level: skip users with zero bets (avoids fetching 500 then filtering in JS)
       let q = supabase
         .from("leaderboard_public")
         .select("user_id, name, username, avatar_url, balance_minor, pnl_minor, bet_count, referrals, rank")
-        // Stable ordering based on requested sort.
+        .gt("bet_count", 0)
         .order(sortBy === "BETS" ? "bet_count" : "pnl_minor", { ascending: false })
         .order(sortBy === "BETS" ? "pnl_minor" : "bet_count", { ascending: false })
         .order("balance_minor", { ascending: false })
         .order("user_id", { ascending: true })
-        .limit(fetchLimit);
+        .limit(limit);
 
       const { data, error } = await q;
 
@@ -933,113 +931,24 @@ export const userRouter = router({
 
       const rows = (data ?? []) as LeaderboardRow[];
 
-      let unrealizedByUser = new Map<string, number>();
-      let realizedByUser = new Map<string, number>();
-      try {
-        const userIds = Array.from(new Set(rows.map((r) => String(r.user_id))));
-        if (userIds.length > 0) {
-          const [{ data: positionsData, error: positionsError }, { data: tradesData, error: tradesError }] =
-            await Promise.all([
-              supabaseService
-                .from("positions")
-                .select("user_id, market_id, outcome, shares, avg_entry_price")
-                .in("user_id", userIds),
-              supabaseService
-                .from("trades")
-                .select("user_id, market_id, outcome, action, shares_delta, collateral_gross_minor, created_at, asset_code")
-                .in("user_id", userIds),
-            ]);
-
-          if (positionsError) {
-            throw positionsError;
-          }
-          if (tradesError) {
-            throw tradesError;
-          }
-
-          const positions = (positionsData ?? []) as Array<
-            Pick<PositionRow, "user_id" | "market_id" | "outcome" | "shares" | "avg_entry_price">
-          >;
-          const trades = (tradesData ?? []) as Array<
-            Pick<
-              TradeRow,
-              "user_id" | "market_id" | "outcome" | "action" | "shares_delta" | "collateral_gross_minor" | "created_at" | "asset_code"
-            >
-          >;
-          realizedByUser = buildRealizedPnlByUser(trades);
-          const marketIds = Array.from(new Set(positions.map((p) => String(p.market_id))));
-
-          if (marketIds.length > 0) {
-            const [{ data: marketsData, error: marketsError }, { data: ammData, error: ammError }] =
-              await Promise.all([
-                supabaseService
-                  .from("markets")
-                  .select("id, state, resolve_outcome, settlement_asset_code")
-                  .in("id", marketIds),
-                supabaseService
-                  .from("market_amm_state")
-                  .select("market_id, q_yes, q_no, b")
-                  .in("market_id", marketIds),
-              ]);
-
-            if (marketsError) {
-              throw marketsError;
-            }
-            if (ammError) {
-              throw ammError;
-            }
-
-            const marketsById = new Map<string, Pick<MarketRow, "state" | "resolve_outcome" | "settlement_asset_code">>();
-            (marketsData ?? []).forEach((m) => {
-              marketsById.set(String(m.id), m as Pick<MarketRow, "state" | "resolve_outcome" | "settlement_asset_code">);
-            });
-
-            const ammByMarketId = new Map<string, Pick<AmmStateRow, "q_yes" | "q_no" | "b">>();
-            (ammData ?? []).forEach((a) => {
-              ammByMarketId.set(String(a.market_id), a as Pick<AmmStateRow, "q_yes" | "q_no" | "b">);
-            });
-
-            unrealizedByUser = buildMarkToMarketPnLByUser(positions, marketsById, ammByMarketId);
-          }
-        }
-      } catch (err) {
-        console.warn("leaderboard pnl calc failed; falling back to realized-only", err);
-      }
-
-      const mapped = rows.map((r) => {
+      // Use the DB's pre-computed pnl_minor directly.
+      // The leaderboard_public view already computes realized PnL via wallet_transactions.
+      // This avoids 4 extra round-trips (positions, trades, markets, AMM) + heavy JS FIFO matching.
+      return rows.map((r, idx) => {
         const name = (r.name || r.username || "").trim() || "Trader";
         const avatar = r.avatar_url || buildInitialsAvatarDataUrl(name, { bg: "#111111", fg: "#ffffff" });
-        const userId = String(r.user_id);
-        const realized = realizedByUser.get(userId) ?? 0;
-        const unrealized = unrealizedByUser.get(userId) ?? 0;
-        const pnlMajor = realized + unrealized;
         return {
-          id: userId,
-          rank: Number(r.rank ?? 0),
+          id: String(r.user_id),
+          rank: idx + 1,
           name,
           username: r.username ?? undefined,
           avatar,
           balance: toMajorUnits(Number(r.balance_minor ?? 0), VCOIN_DECIMALS),
-          pnl: pnlMajor,
+          pnl: toMajorUnits(Number(r.pnl_minor ?? 0), VCOIN_DECIMALS),
           referrals: Number(r.referrals ?? 0),
           betCount: Number(r.bet_count ?? 0),
         };
       });
-
-      const filtered = mapped.filter((r) => r.pnl !== 0 && r.betCount !== 0);
-      const sorted = [...filtered].sort((a, b) => {
-        if (sortBy === "BETS") {
-          if (b.betCount !== a.betCount) return b.betCount - a.betCount;
-          if (b.pnl !== a.pnl) return b.pnl - a.pnl;
-        } else {
-          if (b.pnl !== a.pnl) return b.pnl - a.pnl;
-          if (b.betCount !== a.betCount) return b.betCount - a.betCount;
-        }
-        if (b.balance !== a.balance) return b.balance - a.balance;
-        return a.id.localeCompare(b.id);
-      });
-
-      return sorted.slice(0, limit).map((r, idx) => ({ ...r, rank: idx + 1 }));
     }),
 
   // ============================================================================
