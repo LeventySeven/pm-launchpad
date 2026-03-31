@@ -3445,7 +3445,7 @@ export default function HomePageClient({
             )}
           </div>
           <iframe
-            src="https://www.yallayalla.io/catalog"
+            src="https://www.yallayalla.io/catalog?embed=1"
             className="flex-1 w-full border-0"
             allow="clipboard-write"
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
