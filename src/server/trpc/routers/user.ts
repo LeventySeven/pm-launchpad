@@ -1,7 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { publicProcedure, router } from "../trpc";
+import { publicProcedure, protectedProcedure, router } from "../trpc";
 import { calculateBoundedPrices, toMajorUnits } from "../helpers/pricing";
+import { getWalletBalance, unwrap } from "../helpers/db";
 import type { Database } from "../../../types/database";
 import { randomBytes } from "node:crypto";
 import { leaderboardUsersSchema } from "../../../schemas/leaderboard";
@@ -241,16 +242,7 @@ export const userRouter = router({
 
       const existingRow = existing.data as UserRow | null;
       if (existingRow) {
-        // Fetch wallet balance for existing user
-        const { data: walletRow } = await supabase
-          .from("wallet_balances")
-          .select("balance_minor")
-          .eq("user_id", existingRow.id)
-          .eq("asset_code", DEFAULT_ASSET)
-          .maybeSingle();
-
-        const wallet = walletRow as WalletBalanceRow | null;
-        const balanceMinor = wallet ? Number(wallet.balance_minor ?? 0) : 0;
+        const balanceMinor = await getWalletBalance(supabase, existingRow.id);
         return formatUser(existingRow, balanceMinor);
       }
 
@@ -323,22 +315,14 @@ export const userRouter = router({
       if (!targetUser) {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "User not found after registration" });
       }
-      const { data: walletRow } = await supabase
-        .from("wallet_balances")
-        .select("balance_minor")
-        .eq("user_id", targetUser.id)
-        .eq("asset_code", DEFAULT_ASSET)
-        .maybeSingle();
-
-      const wallet = walletRow as WalletBalanceRow | null;
-      const balanceMinor = wallet ? Number(wallet.balance_minor ?? 0) : 0;
+      const balanceMinor = await getWalletBalance(supabase, targetUser.id);
       return formatUser(targetUser, balanceMinor);
     }),
 
   /**
    * Get wallet transactions for the current user
    */
-  myWalletTransactions: publicProcedure
+  myWalletTransactions: protectedProcedure
     .output(
       z.array(
         z.object({
@@ -355,9 +339,6 @@ export const userRouter = router({
     )
     .query(async ({ ctx }) => {
       const { supabase, authUser } = ctx;
-      if (!authUser) {
-        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
-      }
 
       const { data, error } = await supabase
         .from("wallet_transactions")
@@ -669,7 +650,7 @@ export const userRouter = router({
   /**
    * Update display name for the current user (mutable nickname).
    */
-  updateDisplayName: publicProcedure
+  updateDisplayName: protectedProcedure
     .input(
       z.object({
         displayName: z.string().min(2).max(32),
@@ -678,9 +659,6 @@ export const userRouter = router({
     .output(z.object(userShape))
     .mutation(async ({ ctx, input }) => {
       const { supabaseService, authUser } = ctx;
-      if (!authUser) {
-        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
-      }
 
       const nextName = normalizeDisplayName(input.displayName);
       if (nextName.length < 2) {
@@ -701,15 +679,7 @@ export const userRouter = router({
         });
       }
 
-      const { data: walletRow } = await supabaseService
-        .from("wallet_balances")
-        .select("balance_minor")
-        .eq("user_id", authUser.id)
-        .eq("asset_code", DEFAULT_ASSET)
-        .maybeSingle();
-
-      const wallet = walletRow as WalletBalanceRow | null;
-      const balanceMinor = wallet ? Number(wallet.balance_minor ?? 0) : 0;
+      const balanceMinor = await getWalletBalance(supabaseService, authUser.id);
       return formatUser(updated.data as UserRow, balanceMinor);
     }),
 
@@ -717,7 +687,7 @@ export const userRouter = router({
    * Update avatar URL for the current user (custom avatar).
    * Pass null/empty to clear and fall back to Telegram avatar (if any).
    */
-  updateAvatarUrl: publicProcedure
+  updateAvatarUrl: protectedProcedure
     .input(
       z.object({
         avatarUrl: z.string().max(2048).nullable(),
@@ -726,9 +696,6 @@ export const userRouter = router({
     .output(z.object(userShape))
     .mutation(async ({ ctx, input }) => {
       const { supabaseService, authUser } = ctx;
-      if (!authUser) {
-        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
-      }
 
       let next: string | null = input.avatarUrl ? input.avatarUrl.trim() : null;
       if (next === "") next = null;
@@ -759,15 +726,7 @@ export const userRouter = router({
         });
       }
 
-      const { data: walletRow } = await supabaseService
-        .from("wallet_balances")
-        .select("balance_minor")
-        .eq("user_id", authUser.id)
-        .eq("asset_code", DEFAULT_ASSET)
-        .maybeSingle();
-
-      const wallet = walletRow as WalletBalanceRow | null;
-      const balanceMinor = wallet ? Number(wallet.balance_minor ?? 0) : 0;
+      const balanceMinor = await getWalletBalance(supabaseService, authUser.id);
       return formatUser(updated.data as UserRow, balanceMinor);
     }),
 
@@ -775,7 +734,7 @@ export const userRouter = router({
    * Create a referral link/code for the current user.
    * Default commission is 50% (0.5) unless already set (e.g. 70% issued manually in Supabase).
    */
-  createReferralLink: publicProcedure
+  createReferralLink: protectedProcedure
     .output(
       z.object({
         referralCode: z.string(),
@@ -785,9 +744,6 @@ export const userRouter = router({
     )
     .mutation(async ({ ctx }) => {
       const { supabaseService, authUser } = ctx;
-      if (!authUser) {
-        throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
-      }
 
       const existing = await supabaseService
         .from("users")
@@ -844,51 +800,60 @@ export const userRouter = router({
         };
       }
 
-      // Generate a unique code (best-effort).
-      let code: string | null = null;
-      for (let i = 0; i < 8; i++) {
+      // Generate a unique code with retry on constraint violation (race-safe).
+      const MAX_ATTEMPTS = 8;
+      for (let i = 0; i < MAX_ATTEMPTS; i++) {
         const candidate = buildReferralCode();
-        const { data: conflict } = await supabaseService
+        const updated = await supabaseService
           .from("users")
-          .select("id")
-          .eq("referral_code", candidate)
+          .update({
+            referral_code: candidate,
+            referral_commission_rate: desiredRate,
+            referral_enabled: true,
+          })
+          .eq("id", authUser.id)
+          .is("referral_code", null) // only set if not already claimed by a concurrent request
+          .select("referral_code, referral_commission_rate, referral_enabled")
           .maybeSingle();
-        if (!conflict) {
-          code = candidate;
-          break;
+
+        // Unique constraint violation → retry with a new code
+        if (updated.error && String(updated.error.code) === "23505") continue;
+
+        if (updated.error) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: updated.error.message ?? "Failed to create referral link",
+          });
         }
+
+        // If no row returned, the user already got a code from a concurrent request — re-fetch
+        if (!updated.data) {
+          const refetch = await supabaseService
+            .from("users")
+            .select("referral_code, referral_commission_rate, referral_enabled")
+            .eq("id", authUser.id)
+            .single();
+          if (refetch.error || !refetch.data?.referral_code) {
+            throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to confirm referral code" });
+          }
+          return {
+            referralCode: String(refetch.data.referral_code),
+            referralCommissionRate: Number(refetch.data.referral_commission_rate ?? desiredRate),
+            referralEnabled: refetch.data.referral_enabled === true,
+          };
+        }
+
+        return {
+          referralCode: String(updated.data.referral_code),
+          referralCommissionRate: Number(updated.data.referral_commission_rate ?? desiredRate),
+          referralEnabled: updated.data.referral_enabled === true,
+        };
       }
 
-      if (!code) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to generate referral code",
-        });
-      }
-
-      const updated = await supabaseService
-        .from("users")
-        .update({
-          referral_code: code,
-          referral_commission_rate: desiredRate,
-          referral_enabled: true,
-        })
-        .eq("id", authUser.id)
-        .select("referral_code, referral_commission_rate, referral_enabled")
-        .single();
-
-      if (updated.error || !updated.data) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: updated.error?.message ?? "Failed to create referral link",
-        });
-      }
-
-      return {
-        referralCode: String(updated.data.referral_code),
-        referralCommissionRate: Number(updated.data.referral_commission_rate ?? desiredRate),
-        referralEnabled: updated.data.referral_enabled === true,
-      };
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to generate unique referral code after retries",
+      });
     }),
 
   /**
@@ -959,7 +924,7 @@ export const userRouter = router({
    * Link a Solana wallet pubkey to the current user.
    * Called from frontend after successful Solana Wallet Adapter connection.
    */
-  linkWallet: publicProcedure
+  linkWallet: protectedProcedure
     .input(
       z.object({
         solanaWalletAddress: z.string().min(32).max(64),
@@ -975,25 +940,9 @@ export const userRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const { supabaseService, authUser } = ctx;
-      if (!authUser) throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
 
       const normalizedAddress = normalizeSolanaPubkey(input.solanaWalletAddress);
       const cluster = normalizeSolanaCluster(input.solanaCluster);
-
-      // Check if this wallet is already linked to another user
-      const { data: existingUser, error: existingError } = await supabaseService
-        .from("users")
-        .select("id, solana_wallet_address")
-        .eq("solana_wallet_address", normalizedAddress)
-        .neq("id", authUser.id)
-        .maybeSingle();
-
-      if (existingError) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: existingError.message });
-      }
-      if (existingUser) {
-        throw new TRPCError({ code: "CONFLICT", message: "WALLET_ALREADY_LINKED" });
-      }
 
       const now = new Date().toISOString();
       const { data: updated, error: updateError } = await supabaseService
@@ -1007,11 +956,18 @@ export const userRouter = router({
         .select("solana_wallet_address, solana_cluster, solana_wallet_connected_at")
         .single();
 
-      if (updateError || !updated) {
+      if (updateError) {
+        // Unique constraint violation means another user already linked this wallet
+        if (String(updateError.code) === "23505") {
+          throw new TRPCError({ code: "CONFLICT", message: "WALLET_ALREADY_LINKED" });
+        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: updateError?.message ?? "Failed to link wallet",
+          message: updateError.message ?? "Failed to link wallet",
         });
+      }
+      if (!updated) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
       }
 
       return {
@@ -1026,11 +982,10 @@ export const userRouter = router({
   /**
    * Unlink Solana wallet from the current user.
    */
-  unlinkWallet: publicProcedure
+  unlinkWallet: protectedProcedure
     .output(z.object({ success: z.boolean() }))
     .mutation(async ({ ctx }) => {
       const { supabaseService, authUser } = ctx;
-      if (!authUser) throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
 
       const { error: updateError } = await supabaseService
         .from("users")
@@ -1050,7 +1005,7 @@ export const userRouter = router({
   /**
    * Get Solana wallet connection status for the current user.
    */
-  getWalletStatus: publicProcedure
+  getWalletStatus: protectedProcedure
     .output(
       z.object({
         isConnected: z.boolean(),
@@ -1061,7 +1016,6 @@ export const userRouter = router({
     )
     .query(async ({ ctx }) => {
       const { supabaseService, authUser } = ctx;
-      if (!authUser) throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
 
       const { data, error } = await supabaseService
         .from("users")
@@ -1093,12 +1047,11 @@ export const userRouter = router({
    * Update Solana cluster (when user switches networks).
    * Note: procedure name is preserved for API compatibility.
    */
-  updateWalletChain: publicProcedure
+  updateWalletChain: protectedProcedure
     .input(z.object({ solanaCluster: z.enum(["devnet", "testnet", "mainnet-beta"]) }))
     .output(z.object({ solanaCluster: z.enum(["devnet", "testnet", "mainnet-beta"]) }))
     .mutation(async ({ ctx, input }) => {
       const { supabaseService, authUser } = ctx;
-      if (!authUser) throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
 
       // Verify user has a wallet linked
       const { data: user, error: userError } = await supabaseService

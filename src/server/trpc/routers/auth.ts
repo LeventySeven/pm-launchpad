@@ -12,10 +12,10 @@ const SUPABASE_ACCESS_COOKIE = "sb_access_token";
 const SUPABASE_REFRESH_COOKIE = "sb_refresh_token";
 const SUPABASE_REFRESH_MAX_AGE = 60 * 60 * 24 * 180; // 180 days
 const sameSiteCookie = process.env.NODE_ENV === "production" ? "None" : "Lax";
-const secureCookie = process.env.NODE_ENV === "production" ? " Secure;" : "";
+const secureCookie = process.env.NODE_ENV === "production" ? "Secure;" : "";
 
 const buildCookie = (name: string, value: string, maxAgeSeconds: number) =>
-  `${name}=${value}; HttpOnly; Path=/; SameSite=${sameSiteCookie}; Max-Age=${maxAgeSeconds};${secureCookie}`;
+  `${name}=${value}; HttpOnly; Path=/; SameSite=${sameSiteCookie}; Max-Age=${maxAgeSeconds}; ${secureCookie}`.trimEnd();
 
 const clearCookie = (name: string) => buildCookie(name, "", 0);
 
@@ -205,18 +205,19 @@ export const authRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "This email domain is reserved" });
       }
 
-      const existing = await supabaseService
-        .from("users")
-        .select("id")
-        .or(`email.eq.${email},username.eq.${username}`)
-        .maybeSingle();
+      const [byEmail, byUsername] = await Promise.all([
+        supabaseService.from("users").select("id").eq("email", email).maybeSingle(),
+        supabaseService.from("users").select("id").eq("username", username).maybeSingle(),
+      ]);
 
-      if (existing.error) {
+      if (byEmail.error || byUsername.error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: existing.error.message,
+          message: byEmail.error?.message ?? byUsername.error?.message ?? "Lookup failed",
         });
       }
+
+      const existing = { data: byEmail.data ?? byUsername.data };
 
       if (existing.data) {
         throw new TRPCError({
@@ -311,6 +312,9 @@ export const authRouter = router({
         autoLoginPromise,
       ]);
 
+      if (walletResult.error) {
+        console.warn("signUp: wallet fetch failed", walletResult.error.message);
+      }
       const wallet = walletResult.data as WalletBalanceRow | null;
       const balanceMinor = wallet ? Number(wallet.balance_minor ?? 0) : 0;
 
@@ -561,6 +565,9 @@ export const authRouter = router({
       ]);
       setCookie(authCookie(token));
 
+      if (walletResult.error) {
+        console.warn("telegramLogin: wallet fetch failed", walletResult.error.message);
+      }
       const wallet = walletResult.data as WalletBalanceRow | null;
       const balanceMinor = wallet ? Number(wallet.balance_minor ?? 0) : 0;
 

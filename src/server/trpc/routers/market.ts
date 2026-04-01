@@ -10,6 +10,7 @@ import {
   toMinorUnits,
 } from "../helpers/pricing";
 import { generateMarketContext } from "../../ai/marketContextAgent";
+import { validateMarketDates, unwrap } from "../helpers/db";
 import type { Database } from "../../../types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Connection, Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
@@ -3116,22 +3117,7 @@ export const marketRouter = router({
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
       }
 
-      const expiresAtMs = Date.parse(input.expiresAt);
-      const closesAtMs = input.closesAt ? Date.parse(input.closesAt) : expiresAtMs;
-      if (!Number.isFinite(closesAtMs) || !Number.isFinite(expiresAtMs)) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid dates" });
-      }
-      if (closesAtMs > expiresAtMs) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Trading close must be <= end time" });
-      }
-      // Validate dates are not in the past
-      const now = Date.now();
-      if (expiresAtMs < now) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Event end time must be in the future" });
-      }
-      if (closesAtMs < now) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Trading close time must be in the future" });
-      }
+      const { closesAtMs, expiresAtMs } = validateMarketDates(input.expiresAt, input.closesAt);
 
       const { data: category, error: categoryError } = await supabaseService
         .from("market_categories")
@@ -3457,21 +3443,7 @@ export const marketRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "MARKET_NOT_OPEN" });
       }
 
-      const expiresAtMs = Date.parse(input.expiresAt);
-      const closesAtMs = input.closesAt ? Date.parse(input.closesAt) : expiresAtMs;
-      if (!Number.isFinite(closesAtMs) || !Number.isFinite(expiresAtMs)) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid dates" });
-      }
-      if (closesAtMs > expiresAtMs) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Trading close must be <= end time" });
-      }
-      const now = Date.now();
-      if (expiresAtMs < now) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Event end time must be in the future" });
-      }
-      if (closesAtMs < now) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Trading close time must be in the future" });
-      }
+      const { closesAtMs, expiresAtMs } = validateMarketDates(input.expiresAt, input.closesAt);
 
       const { data: category, error: categoryError } = await supabaseService
         .from("market_categories")
@@ -3541,26 +3513,9 @@ export const marketRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "MARKET_HAS_BETS" });
       }
 
-      const { data: comments, error: commentsError } = await supabaseService
-        .from("market_comments")
-        .select("id")
-        .eq("market_id", input.marketId);
-      if (commentsError) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: commentsError.message });
-      }
-      const commentIds = (comments ?? []).map((c) => String((c as { id: string }).id));
-      if (commentIds.length > 0) {
-        const { error: likesError } = await supabaseService
-          .from("market_comment_likes")
-          .delete()
-          .in("comment_id", commentIds);
-        if (likesError) {
-          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: likesError.message });
-        }
-      }
-
-      const deletions = await Promise.all([
-        supabaseService.from("market_comments").delete().eq("market_id", input.marketId),
+      // Fetch comment IDs and delete non-dependent tables in parallel
+      const [commentsResult, ...independentDeletions] = await Promise.all([
+        supabaseService.from("market_comments").select("id").eq("market_id", input.marketId),
         supabaseService.from("market_bookmarks").delete().eq("market_id", input.marketId),
         supabaseService.from("market_context").delete().eq("market_id", input.marketId),
         supabaseService.from("market_price_candles").delete().eq("market_id", input.marketId),
@@ -3571,18 +3526,27 @@ export const marketRouter = router({
         supabaseService.from("on_chain_transactions").delete().eq("market_id", input.marketId),
       ]);
 
-      const deletionError = deletions.find((res) => res.error)?.error;
-      if (deletionError) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: deletionError.message });
+      const firstError = independentDeletions.find((r) => r.error)?.error;
+      if (firstError) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: firstError.message });
       }
 
-      const { error: marketDeleteError } = await supabaseService
-        .from("markets")
-        .delete()
-        .eq("id", input.marketId);
+      // Delete comment likes (depends on comment IDs), then comments and market
+      const commentIds = (commentsResult.data ?? []).map((c: any) => String(c.id));
+      if (commentIds.length > 0) {
+        await supabaseService.from("market_comment_likes").delete().in("comment_id", commentIds);
+      }
 
-      if (marketDeleteError) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: marketDeleteError.message });
+      const [commentsDelete, marketDelete] = await Promise.all([
+        supabaseService.from("market_comments").delete().eq("market_id", input.marketId),
+        supabaseService.from("markets").delete().eq("id", input.marketId),
+      ]);
+
+      if (commentsDelete.error || marketDelete.error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: commentsDelete.error?.message ?? marketDelete.error?.message ?? "Delete failed",
+        });
       }
 
       return { ok: true };
