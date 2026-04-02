@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from "react";
-import { X, Loader2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { X, Loader2, ImagePlus } from "lucide-react";
 
 type CommunityCreateModalProps = {
   isOpen: boolean;
@@ -13,6 +13,7 @@ type CommunityCreateModalProps = {
     description?: string;
     category?: string;
     privacy: "public" | "private";
+    bannerFile?: File;
   }) => Promise<void>;
 };
 
@@ -49,8 +50,22 @@ export default function CommunityCreateModal({
   const [slugManual, setSlugManual] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
+
+  const handleBannerSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setError(lang === "RU" ? "Макс. 5MB" : "Max 5MB");
+      return;
+    }
+    setBannerFile(file);
+    setBannerPreview(URL.createObjectURL(file));
+  };
 
   const handleNameChange = (value: string) => {
     setName(value);
@@ -64,12 +79,15 @@ export default function CommunityCreateModal({
     setLoading(true);
     setError(null);
     try {
+      // If banner file selected, we pass a placeholder — the caller should upload after creation
+      // For now, pass undefined and let the caller handle post-create banner upload
       await onCreate({
         name: name.trim(),
         slug: slug.trim(),
         description: description.trim() || undefined,
         category: category || undefined,
         privacy,
+        bannerFile: bannerFile ?? undefined,
       });
       // Reset form
       setName("");
@@ -78,6 +96,8 @@ export default function CommunityCreateModal({
       setCategory("");
       setPrivacy("public");
       setSlugManual(false);
+      setBannerPreview(null);
+      setBannerFile(null);
       onClose();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to create community";
@@ -108,6 +128,36 @@ export default function CommunityCreateModal({
 
         {/* Form */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {/* Banner */}
+          <div>
+            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 block">
+              {lang === "RU" ? "Баннер" : "Banner"}
+            </label>
+            <input
+              ref={bannerInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              onChange={handleBannerSelect}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => bannerInputRef.current?.click()}
+              className="w-full h-28 rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/30 hover:bg-zinc-950/60 transition flex items-center justify-center overflow-hidden"
+            >
+              {bannerPreview ? (
+                <img src={bannerPreview} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="flex flex-col items-center gap-1.5 text-zinc-500">
+                  <ImagePlus size={24} />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider">
+                    {lang === "RU" ? "Загрузить баннер" : "Upload banner"}
+                  </span>
+                </div>
+              )}
+            </button>
+          </div>
+
           {/* Name */}
           <div>
             <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 block">

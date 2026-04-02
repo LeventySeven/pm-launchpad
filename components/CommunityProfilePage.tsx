@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Users, BarChart3, Globe, Lock, Plus, Loader2, Search, Check, Calendar, MessageCircle, X, Send, MapPin, ChevronDown } from "lucide-react";
+import { ArrowLeft, Users, BarChart3, Globe, Lock, Plus, Loader2, Search, Check, Calendar, MessageCircle, X, Send, MapPin, ChevronDown, Camera } from "lucide-react";
 import { trpcClient } from "@/src/utils/trpcClient";
 import type { Market, User } from "@/types";
 import MarketCard from "@/components/MarketCard";
@@ -448,12 +448,40 @@ export default function CommunityProfilePage({
           backgroundPosition: "center",
         }}
       >
-        <button
-          onClick={onBack}
-          className="h-9 w-9 rounded-full border border-zinc-900 bg-black/60 backdrop-blur hover:bg-black/80 flex items-center justify-center text-zinc-300 mb-4"
-        >
-          <ArrowLeft size={16} />
-        </button>
+        <div className="flex items-center justify-between mb-4">
+          <button
+            onClick={onBack}
+            className="h-9 w-9 rounded-full border border-zinc-900 bg-black/60 backdrop-blur hover:bg-black/80 flex items-center justify-center text-zinc-300"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          {(isCreator || memberRole === "moderator") && (
+            <label className="h-9 px-3 rounded-full border border-zinc-900 bg-black/60 backdrop-blur hover:bg-black/80 flex items-center justify-center gap-1.5 text-zinc-300 cursor-pointer text-[10px] font-semibold uppercase tracking-wider">
+              <Camera size={14} />
+              {lang === "RU" ? "Баннер" : "Banner"}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file || !community) return;
+                  const form = new FormData();
+                  form.append("file", file);
+                  form.append("communityId", community.id);
+                  try {
+                    const res = await fetch("/api/community-banner/upload", { method: "POST", body: form });
+                    const json = await res.json();
+                    if (json.bannerUrl) {
+                      setCommunity((prev) => prev ? { ...prev, bannerUrl: json.bannerUrl } : prev);
+                    }
+                  } catch { /* silent */ }
+                  e.target.value = "";
+                }}
+              />
+            </label>
+          )}
+        </div>
 
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">

@@ -3484,8 +3484,15 @@ export default function HomePageClient({
         onClose={() => setShowCommunityCreateModal(false)}
         lang={lang}
         onCreate={async (input) => {
-          const created = await trpcClient.community.create.mutate(input);
-          // Navigate to the newly created community
+          const { bannerFile, ...createInput } = input;
+          const created = await trpcClient.community.create.mutate(createInput);
+          // Upload banner if provided
+          if (bannerFile && created.id) {
+            const form = new FormData();
+            form.append("file", bannerFile);
+            form.append("communityId", created.id);
+            await fetch("/api/community-banner/upload", { method: "POST", body: form }).catch(() => {});
+          }
           setShowCommunityCreateModal(false);
           setSelectedCommunitySlug(created.slug);
         }}
