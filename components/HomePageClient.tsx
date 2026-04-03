@@ -38,9 +38,9 @@ if (typeof window !== "undefined") {
   (window as unknown as { runWalletDiagnostics?: typeof runDiagnostics }).runWalletDiagnostics = runDiagnostics;
 }
 
-// VCOIN decimals for display
-const VCOIN_DECIMALS = 6;
-const toMajorUnits = (minor: number) => minor / Math.pow(10, VCOIN_DECIMALS);
+// TOMATO decimals for display
+const TOMATO_DECIMALS = 6;
+const toMajorUnits = (minor: number) => minor / Math.pow(10, TOMATO_DECIMALS);
 
 type ErrorLike = string | Error | { message?: string; data?: { message?: string } } | null | undefined;
 const getErrorMessage = (error: ErrorLike): string => {
@@ -2139,7 +2139,7 @@ export default function HomePageClient({
         selectedMarket && selectedMarket.id === marketId
           ? selectedMarket
           : feedMarkets.find((m) => m.id === marketId) || filteredMarkets.find((m) => m.id === marketId) || null;
-      const settlementAsset = String(marketForAsset?.settlementAsset || "VCOIN").toUpperCase();
+      const settlementAsset = String(marketForAsset?.settlementAsset || "TOMATO").toUpperCase();
       const isOnChain = settlementAsset === "USDC" || settlementAsset === "USDT";
 
       // Verify auth is still valid before placing bet (in case cookies expired or weren't set)
@@ -2256,7 +2256,7 @@ export default function HomePageClient({
         return;
       }
 
-      // Legacy VCOIN flow (unchanged)
+      // Legacy TOMATO flow (unchanged)
       const res = await trpcClient.market.placeBet.mutate({
         amount,
         marketId,
@@ -2599,7 +2599,7 @@ export default function HomePageClient({
         selectedMarket && selectedMarket.id === marketId
           ? selectedMarket
           : feedMarkets.find((m) => m.id === marketId) || filteredMarkets.find((m) => m.id === marketId) || null;
-      const settlementAsset = String(marketForAsset?.settlementAsset || "VCOIN").toUpperCase();
+      const settlementAsset = String(marketForAsset?.settlementAsset || "TOMATO").toUpperCase();
       const isOnChain = settlementAsset === "USDC" || settlementAsset === "USDT";
 
       if (isOnChain) {

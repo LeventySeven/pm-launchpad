@@ -272,9 +272,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   const activeBets = bets.filter((b) => b.status === 'open' && Number(b.shares ?? 0) > 0);
   const settledBets = bets.filter((b) => b.status !== 'open');
 
-  const formatMoney = (value: number) => `$${value.toFixed(2)}`;
+  const formatMoney = (value: number) => `🍅${value.toFixed(2)}`;
   const formatPct = (value: number) => `${value.toFixed(1)}%`;
-  const formatSignedMoney = (value: number) => `${value >= 0 ? '+' : '-'}$${Math.abs(value).toFixed(2)}`;
+  const formatSignedMoney = (value: number) => `${value >= 0 ? '+' : '-'}🍅${Math.abs(value).toFixed(2)}`;
 
   const accentSeed = String(user?.avatarUrl ?? user?.telegramPhotoUrl ?? user?.id ?? displayName);
   const [accent, setAccent] = useState(() => accentPairFromSeed(accentSeed));

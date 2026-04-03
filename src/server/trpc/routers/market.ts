@@ -28,8 +28,8 @@ import bs58 from "bs58";
 type SupabaseDbClient = SupabaseClient<Database, "public">;
 
 // Default asset for the platform
-const DEFAULT_ASSET = "VCOIN";
-const VCOIN_DECIMALS = 6;
+const DEFAULT_ASSET = "TOMATO";
+const TOMATO_DECIMALS = 6;
 
 type MarketRow = Database["public"]["Tables"]["markets"]["Row"];
 type DbUserRow = Database["public"]["Tables"]["users"]["Row"];
@@ -312,7 +312,7 @@ const deriveVolumeMajor = (amm: AmmStateRow | null, feeBps?: number | null) => {
     return 0;
   }
   const volumeMinor = (feeMinor * 10000) / bps;
-  return toMajorUnits(volumeMinor, VCOIN_DECIMALS);
+  return toMajorUnits(volumeMinor, TOMATO_DECIMALS);
 };
 
 const normalizeHexColor = (value: string | null | undefined): string | null => {
@@ -804,7 +804,7 @@ export const marketRouter = router({
           const minor = Number(c.volume_minor ?? 0);
           if (!Number.isFinite(minor) || minor <= 0) return;
           const prev = volumeByMarketId.get(key) ?? 0;
-          volumeByMarketId.set(key, prev + toMajorUnits(minor, VCOIN_DECIMALS));
+          volumeByMarketId.set(key, prev + toMajorUnits(minor, TOMATO_DECIMALS));
         });
       }
 
@@ -880,7 +880,7 @@ export const marketRouter = router({
           return Number.isFinite(n) && n > 0 ? acc + n : acc;
         }, 0);
         if (totalMinor > 0) {
-          volumeMajor = toMajorUnits(totalMinor, VCOIN_DECIMALS);
+          volumeMajor = toMajorUnits(totalMinor, TOMATO_DECIMALS);
         }
       }
       const labelsById = new Map<string, Pick<MarketCategoryRow, "label_ru" | "label_en">>();
@@ -1168,7 +1168,7 @@ export const marketRouter = router({
           marketId,
           outcomeId,
           price: Number(result.price_after),
-          volumeMinor: toMinorUnits(amount, VCOIN_DECIMALS),
+          volumeMinor: toMinorUnits(amount, TOMATO_DECIMALS),
         });
       }
 
@@ -2331,7 +2331,7 @@ export const marketRouter = router({
       }
 
       const rows = (data ?? []) as PositionWithMarket[];
-      return rows.map((r) => mapPositionRow(r, VCOIN_DECIMALS));
+      return rows.map((r) => mapPositionRow(r, TOMATO_DECIMALS));
     }),
 
   /**
@@ -2371,7 +2371,7 @@ export const marketRouter = router({
       }
 
       const rows: TradeWithMarket[] = data ?? [];
-      return rows.map((r) => mapTradeRow(r, VCOIN_DECIMALS));
+      return rows.map((r) => mapTradeRow(r, TOMATO_DECIMALS));
     }),
 
   /**
@@ -2584,9 +2584,9 @@ export const marketRouter = router({
 
       return {
         balanceMinor,
-        balanceMajor: toMajorUnits(Number(balanceMinor), VCOIN_DECIMALS),
+        balanceMajor: toMajorUnits(Number(balanceMinor), TOMATO_DECIMALS),
         assetCode: DEFAULT_ASSET,
-        decimals: VCOIN_DECIMALS,
+        decimals: TOMATO_DECIMALS,
       };
     }),
 
@@ -2663,7 +2663,7 @@ export const marketRouter = router({
             high: Number(candle.high),
             low: Number(candle.low),
             close: Number(candle.close),
-            volume: toMajorUnits(Number(candle.volume_minor), VCOIN_DECIMALS),
+            volume: toMajorUnits(Number(candle.volume_minor), TOMATO_DECIMALS),
             tradesCount: Number(candle.trades_count ?? 0),
           };
         });
@@ -2692,7 +2692,7 @@ export const marketRouter = router({
           high: Number(candle.high),
           low: Number(candle.low),
           close: Number(candle.close),
-          volume: toMajorUnits(Number(candle.volume_minor), VCOIN_DECIMALS),
+          volume: toMajorUnits(Number(candle.volume_minor), TOMATO_DECIMALS),
           tradesCount: candle.trades_count,
         };
       });
@@ -2788,7 +2788,7 @@ export const marketRouter = router({
           outcome: trade.outcome,
           outcomeId: trade.outcome_id ?? null,
           outcomeTitle: trade.market_outcomes?.title ?? null,
-          collateralGross: toMajorUnits(Number(trade.collateral_gross_minor), VCOIN_DECIMALS),
+          collateralGross: toMajorUnits(Number(trade.collateral_gross_minor), TOMATO_DECIMALS),
           sharesDelta: Number(trade.shares_delta),
           priceBefore: Number(trade.price_before),
           priceAfter: Number(trade.price_after),
@@ -3092,7 +3092,7 @@ export const marketRouter = router({
         expiresAt: z.string(), // Accepts datetime-local format (YYYY-MM-DDTHH:MM)
         categoryId: z.string().min(1),
         imageUrl: z.string().optional().nullable(), // Optional image URL from Supabase storage
-        settlementAssetCode: z.enum(["VCOIN", "USDC"]).optional(),
+        settlementAssetCode: z.enum(["TOMATO", "USDC"]).optional(),
         marketType: z.enum(["binary", "multi_choice"]).optional(),
         options: z.array(
           z.object({
@@ -3556,100 +3556,116 @@ export const marketRouter = router({
   // Tomato System
   // ═══════════════════════════════════════════════════════════════
 
-  /** Get user's tomato balance */
+  /** Get user's tomato balance (reads from wallet_balances with TOMATO asset) */
   tomatoBalance: protectedProcedure.query(async ({ ctx }) => {
-    const db = ctx.supabaseService as any;
-    const { data } = await db
-      .from("tomato_balances")
-      .select("balance, total_earned, total_spent, last_daily_claim")
+    const { supabaseService } = ctx;
+    const { data } = await supabaseService
+      .from("wallet_balances")
+      .select("balance_minor")
       .eq("user_id", ctx.userId)
+      .eq("asset_code", DEFAULT_ASSET)
       .maybeSingle();
-    if (!data) {
-      // Auto-create on first access with 1000 starter tomatoes
-      await db.from("tomato_balances").insert({ user_id: ctx.userId, balance: 1000, total_earned: 1000 });
-      await db.from("tomato_transactions").insert({ user_id: ctx.userId, amount: 1000, reason: "signup" });
-      return { balance: 1000, totalEarned: 1000, totalSpent: 0, lastDailyClaim: null as string | null };
-    }
+
+    const { data: userRow } = await supabaseService
+      .from("users")
+      .select("last_daily_claim")
+      .eq("id", ctx.userId)
+      .maybeSingle();
+
+    const balance = toMajorUnits(Number(data?.balance_minor ?? 0), TOMATO_DECIMALS);
     return {
-      balance: Number(data.balance),
-      totalEarned: Number(data.total_earned),
-      totalSpent: Number(data.total_spent),
-      lastDailyClaim: data.last_daily_claim ? String(data.last_daily_claim) : null,
+      balance,
+      lastDailyClaim: (userRow as any)?.last_daily_claim ? String((userRow as any).last_daily_claim) : null,
     };
   }),
 
   /** Claim daily tomatoes (+50) */
   tomatoClaimDaily: protectedProcedure.mutation(async ({ ctx }) => {
-    const db = ctx.supabaseService as any;
-    const { data: bal } = await db
-      .from("tomato_balances")
+    const { supabaseService } = ctx;
+    const db = supabaseService as any;
+
+    const { data: userRow } = await supabaseService
+      .from("users")
       .select("last_daily_claim")
-      .eq("user_id", ctx.userId)
+      .eq("id", ctx.userId)
       .maybeSingle();
 
-    // Auto-create if missing
-    if (!bal) {
-      await db.from("tomato_balances").insert({ user_id: ctx.userId, balance: 1000, total_earned: 1000 });
-      await db.from("tomato_transactions").insert({ user_id: ctx.userId, amount: 1000, reason: "signup" });
-    }
-
-    const lastClaim = bal?.last_daily_claim ? new Date(bal.last_daily_claim) : null;
+    const lastClaim = (userRow as any)?.last_daily_claim ? new Date(String((userRow as any).last_daily_claim)) : null;
     const now = new Date();
     if (lastClaim && now.getTime() - lastClaim.getTime() < 20 * 60 * 60 * 1000) {
       throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "DAILY_ALREADY_CLAIMED" });
     }
 
-    const bonus = 50;
-    const { data: current } = await db
-      .from("tomato_balances")
-      .select("balance, total_earned")
+    const bonusMajor = 50;
+    const bonusMinor = toMinorUnits(bonusMajor, TOMATO_DECIMALS);
+
+    // Get current balance
+    const { data: walletRow } = await supabaseService
+      .from("wallet_balances")
+      .select("balance_minor")
       .eq("user_id", ctx.userId)
+      .eq("asset_code", DEFAULT_ASSET)
       .maybeSingle();
 
-    const newBalance = Number(current?.balance ?? 0) + bonus;
-    const newEarned = Number(current?.total_earned ?? 0) + bonus;
+    const currentMinor = Number(walletRow?.balance_minor ?? 0);
+    const newMinor = currentMinor + bonusMinor;
 
-    await db.from("tomato_balances")
-      .update({ balance: newBalance, total_earned: newEarned, last_daily_claim: now.toISOString() })
-      .eq("user_id", ctx.userId);
+    // Update balance
+    await supabaseService
+      .from("wallet_balances")
+      .upsert(
+        { user_id: ctx.userId, asset_code: DEFAULT_ASSET, balance_minor: newMinor } as any,
+        { onConflict: "user_id,asset_code" }
+      );
 
-    await db.from("tomato_transactions").insert({ user_id: ctx.userId, amount: bonus, reason: "daily" });
+    // Mark daily claim
+    await supabaseService
+      .from("users")
+      .update({ last_daily_claim: now.toISOString() } as any)
+      .eq("id", ctx.userId);
 
-    return { earned: bonus, newBalance };
+    // Log transaction
+    await db.from("tomato_transactions").insert({ user_id: ctx.userId, amount: bonusMajor, reason: "daily" });
+
+    return { earned: bonusMajor, newBalance: toMajorUnits(newMinor, TOMATO_DECIMALS) };
   }),
 
-  /** Vote tomatoes on a market */
+  /** Vote tomatoes on a market (deducts from wallet balance) */
   tomatoVote: protectedProcedure
     .input(z.object({ marketId: z.string().uuid(), amount: z.number().int().min(1).max(500) }))
     .mutation(async ({ ctx, input }) => {
-      const db = ctx.supabaseService as any;
+      const { supabaseService } = ctx;
+      const db = supabaseService as any;
+      const amountMinor = toMinorUnits(input.amount, TOMATO_DECIMALS);
 
       // Check balance
-      const { data: bal } = await db
-        .from("tomato_balances")
-        .select("balance")
+      const { data: walletRow } = await supabaseService
+        .from("wallet_balances")
+        .select("balance_minor")
         .eq("user_id", ctx.userId)
+        .eq("asset_code", DEFAULT_ASSET)
         .maybeSingle();
 
-      const current = Number(bal?.balance ?? 0);
-      if (current < input.amount) {
+      const currentMinor = Number(walletRow?.balance_minor ?? 0);
+      if (currentMinor < amountMinor) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "INSUFFICIENT_TOMATOES" });
       }
 
-      // Deduct + record vote
-      await db.from("tomato_balances")
-        .update({
-          balance: current - input.amount,
-          total_spent: Number(bal?.total_spent ?? 0) + input.amount,
-        })
-        .eq("user_id", ctx.userId);
+      // Deduct
+      await supabaseService
+        .from("wallet_balances")
+        .update({ balance_minor: currentMinor - amountMinor } as any)
+        .eq("user_id", ctx.userId)
+        .eq("asset_code", DEFAULT_ASSET);
 
+      // Record vote
       await db.from("tomato_votes").insert({
         user_id: ctx.userId,
         market_id: input.marketId,
         amount: input.amount,
       });
 
+      // Log transaction
       await db.from("tomato_transactions").insert({
         user_id: ctx.userId,
         amount: -input.amount,
@@ -3657,7 +3673,7 @@ export const marketRouter = router({
         reference_id: input.marketId,
       });
 
-      return { spent: input.amount, newBalance: current - input.amount };
+      return { spent: input.amount, newBalance: toMajorUnits(currentMinor - amountMinor, TOMATO_DECIMALS) };
     }),
 
   /** Get tomato votes for a market */

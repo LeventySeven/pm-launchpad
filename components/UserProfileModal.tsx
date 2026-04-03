@@ -83,8 +83,8 @@ const PortfolioItem: React.FC<PortfolioItemProps> = ({ item, lang, onClick }) =>
                 ) : (
                     <div className="font-mono text-sm font-bold text-white">
                         {unrealizedPnL !== null
-                          ? `${isProfit ? '+' : ''}$${Math.abs(unrealizedPnL).toFixed(2)}`
-                          : `$${item.amount.toFixed(2)}`
+                          ? `${isProfit ? '+' : ''}🍅${Math.abs(unrealizedPnL).toFixed(2)}`
+                          : `🍅${item.amount.toFixed(2)}`
                         }
                     </div>
                 )}
@@ -136,7 +136,7 @@ const SellHistoryItem: React.FC<SellHistoryItemProps> = ({ trade, lang, onClick 
       : null;
   const pnlIsPositive = (realizedPnlValue ?? 0) >= 0;
   const formatPrice = (value: number | null) =>
-    value !== null && Number.isFinite(value) ? `$${value.toFixed(3)}` : lang === 'RU' ? '—' : '—';
+    value !== null && Number.isFinite(value) ? `🍅${value.toFixed(3)}` : lang === 'RU' ? '—' : '—';
 
   return (
     <div

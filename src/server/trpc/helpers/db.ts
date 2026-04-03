@@ -1,9 +1,9 @@
 import { TRPCError } from "@trpc/server";
 
-const DEFAULT_ASSET = "VCOIN";
+const DEFAULT_ASSET = "TOMATO";
 
 /**
- * Fetch the VCOIN wallet balance for a user. Returns 0 if no row exists.
+ * Fetch the TOMATO wallet balance for a user. Returns 0 if no row exists.
  */
 export async function getWalletBalance(
   db: { from: (table: string) => any },

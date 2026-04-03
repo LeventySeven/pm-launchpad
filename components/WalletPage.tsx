@@ -48,7 +48,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
   const activeBets = bets.filter((b) => b.status === 'open');
   const settledBets = bets.filter((b) => b.status !== 'open');
 
-  const formatMoney = (value: number) => `$${value.toFixed(2)}`;
+  const formatMoney = (value: number) => `🍅${value.toFixed(2)}`;
 
   return (
     <div className="max-w-xl mx-auto px-4 py-8 pb-24 animate-in fade-in duration-500">

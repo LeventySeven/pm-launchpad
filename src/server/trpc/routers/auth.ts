@@ -34,10 +34,10 @@ const persistSupabaseSession = (session: Session, setCookie: (value: string) => 
   }
 };
 
-const DEFAULT_ASSET = "VCOIN";
-const VCOIN_DECIMALS = 6;
-const SIGNUP_BONUS_MAJOR = 1500;
-const SIGNUP_BONUS_MINOR = SIGNUP_BONUS_MAJOR * Math.pow(10, VCOIN_DECIMALS);
+const DEFAULT_ASSET = "TOMATO";
+const TOMATO_DECIMALS = 6;
+const SIGNUP_BONUS_MAJOR = 1000;
+const SIGNUP_BONUS_MINOR = SIGNUP_BONUS_MAJOR * Math.pow(10, TOMATO_DECIMALS);
 
 const emailSchema = z.string().email().max(255);
 const usernameSchema = z
@@ -172,7 +172,7 @@ const toPublicUser = (row: DbUserRow, balanceMinor: number = 0): PublicUser => (
       ? null
       : Number(row.referral_commission_rate),
   referralEnabled: row.referral_enabled,
-  balance: toMajorUnits(balanceMinor, VCOIN_DECIMALS),
+  balance: toMajorUnits(balanceMinor, TOMATO_DECIMALS),
   createdAt: new Date(row.created_at).toISOString(),
   isAdmin: Boolean(row.is_admin),
   solanaWalletAddress: row.solana_wallet_address ?? null,
@@ -529,7 +529,7 @@ export const authRouter = router({
             asset_code: DEFAULT_ASSET,
             balance_minor: SIGNUP_BONUS_MINOR,
           } as WalletBalanceInsert,
-          // IMPORTANT: do not overwrite initial credit (1500 VCOIN) if your DB trigger already created it.
+          // IMPORTANT: do not overwrite initial credit (1500 TOMATO) if your DB trigger already created it.
           { onConflict: "user_id,asset_code", ignoreDuplicates: true }
         );
 

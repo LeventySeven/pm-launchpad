@@ -1,24 +1,6 @@
--- Tomato voting system: gamification currency for market launchpad
+-- Tomato voting system: launchpad voting + transaction log
+-- Tomato balance lives in wallet_balances with asset_code = 'TOMATO' (no separate table)
 begin;
-
--- Tomato balances per user
-create table if not exists public.tomato_balances (
-  user_id uuid primary key references public.users(id) on delete cascade,
-  balance int not null default 1000,
-  total_earned int not null default 1000,
-  total_spent int not null default 0,
-  last_daily_claim timestamptz,
-  created_at timestamptz not null default now()
-);
-
-alter table public.tomato_balances enable row level security;
-
-create policy "tomato_balances_select" on public.tomato_balances
-  for select using (true);
-
-grant select on table public.tomato_balances to anon;
-grant select on table public.tomato_balances to authenticated;
-grant all on table public.tomato_balances to service_role;
 
 -- Tomato votes on markets (launchpad voting)
 create table if not exists public.tomato_votes (
@@ -41,7 +23,7 @@ grant select on table public.tomato_votes to anon;
 grant select on table public.tomato_votes to authenticated;
 grant all on table public.tomato_votes to service_role;
 
--- Tomato transaction log (earn/spend history)
+-- Tomato transaction log (earn/spend history for daily claims, votes, etc.)
 create table if not exists public.tomato_transactions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
@@ -60,5 +42,8 @@ create policy "tomato_tx_select_own" on public.tomato_transactions
 
 grant select on table public.tomato_transactions to authenticated;
 grant all on table public.tomato_transactions to service_role;
+
+-- Add last_daily_claim to users table for tracking daily tomato farming
+alter table public.users add column if not exists last_daily_claim timestamptz;
 
 commit;

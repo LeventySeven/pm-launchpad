@@ -9,8 +9,8 @@ import { leaderboardUsersSchema } from "../../../schemas/leaderboard";
 import { buildInitialsAvatarDataUrl } from "@/lib/avatar";
 import { PublicKey } from "@solana/web3.js";
 
-const DEFAULT_ASSET = "VCOIN";
-const VCOIN_DECIMALS = 6;
+const DEFAULT_ASSET = "TOMATO";
+const TOMATO_DECIMALS = 6;
 
 type UserRow = Database["public"]["Tables"]["users"]["Row"];
 type UserInsert = Database["public"]["Tables"]["users"]["Insert"];
@@ -74,7 +74,7 @@ const formatUser = (row: UserRow, balanceMinor: number = 0) => ({
       ? null
       : Number(row.referral_commission_rate),
   referralEnabled: row.referral_enabled,
-  balance: toMajorUnits(balanceMinor, VCOIN_DECIMALS),
+  balance: toMajorUnits(balanceMinor, TOMATO_DECIMALS),
   createdAt: new Date(row.created_at).toISOString(),
   isAdmin: Boolean(row.is_admin),
   // Solana wallet fields
@@ -152,7 +152,7 @@ const buildRealizedPnlByUser = (
     const shares = Math.abs(Number(trade.shares_delta ?? 0));
     if (!Number.isFinite(shares) || shares <= PRICE_EPS) return;
 
-    const grossMajor = toMajorUnits(Number(trade.collateral_gross_minor ?? 0), VCOIN_DECIMALS);
+    const grossMajor = toMajorUnits(Number(trade.collateral_gross_minor ?? 0), TOMATO_DECIMALS);
     const unitPrice = shares > 0 ? grossMajor / shares : null;
     if (!unitPrice || !Number.isFinite(unitPrice)) return;
 
@@ -359,7 +359,7 @@ export const userRouter = router({
         id: tx.id,
         assetCode: tx.asset_code,
         amountMinor: Number(tx.amount_minor),
-        amountMajor: toMajorUnits(Number(tx.amount_minor), VCOIN_DECIMALS),
+        amountMajor: toMajorUnits(Number(tx.amount_minor), TOMATO_DECIMALS),
         kind: tx.kind,
         marketId: tx.market_id,
         tradeId: tx.trade_id,
@@ -448,7 +448,7 @@ export const userRouter = router({
       }
 
       const row = leaderboardRes.data as Pick<LeaderboardRow, "pnl_minor" | "bet_count" | "rank"> | null;
-      const pnlMajor = row ? toMajorUnits(Number(row.pnl_minor ?? 0), VCOIN_DECIMALS) : 0;
+      const pnlMajor = row ? toMajorUnits(Number(row.pnl_minor ?? 0), TOMATO_DECIMALS) : 0;
 
       // Volume: sum from wallet_transactions for this user (trading-related kinds)
       let totalVolumeMajor = 0;
@@ -464,7 +464,7 @@ export const userRouter = router({
             (sum, r) => sum + Math.abs(Number(r.amount_minor ?? 0)),
             0,
           );
-          totalVolumeMajor = toMajorUnits(total, VCOIN_DECIMALS);
+          totalVolumeMajor = toMajorUnits(total, TOMATO_DECIMALS);
         }
       } catch {
         // Best-effort
@@ -512,7 +512,7 @@ export const userRouter = router({
       const rows = (data ?? []) as UserPnlDailyRow[];
       return rows.map((r) => ({
         day: new Date(r.day).toISOString(),
-        pnlMajor: toMajorUnits(Number(r.pnl_minor ?? 0), VCOIN_DECIMALS),
+        pnlMajor: toMajorUnits(Number(r.pnl_minor ?? 0), TOMATO_DECIMALS),
       }));
     }),
 
@@ -639,7 +639,7 @@ export const userRouter = router({
       return rows.map((r) => ({
         id: r.id,
         kind: String(r.kind),
-        amountMajor: toMajorUnits(Number(r.amount_minor ?? 0), VCOIN_DECIMALS),
+        amountMajor: toMajorUnits(Number(r.amount_minor ?? 0), TOMATO_DECIMALS),
         marketId: r.market_id ?? null,
         marketTitleRu: r.market_title_rus ?? r.market_title_eng ?? null,
         marketTitleEn: r.market_title_eng ?? null,
@@ -908,8 +908,8 @@ export const userRouter = router({
           name,
           username: r.username ?? undefined,
           avatar,
-          balance: toMajorUnits(Number(r.balance_minor ?? 0), VCOIN_DECIMALS),
-          pnl: toMajorUnits(Number(r.pnl_minor ?? 0), VCOIN_DECIMALS),
+          balance: toMajorUnits(Number(r.balance_minor ?? 0), TOMATO_DECIMALS),
+          pnl: toMajorUnits(Number(r.pnl_minor ?? 0), TOMATO_DECIMALS),
           referrals: Number(r.referrals ?? 0),
           betCount: Number(r.bet_count ?? 0),
         };

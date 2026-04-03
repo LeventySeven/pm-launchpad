@@ -889,7 +889,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                             {lang === 'RU' ? 'Кошелек' : 'Wallet'}
                           </div>
                           <div className="mt-1 text-sm font-mono text-zinc-100">
-                            {walletBalanceMajor === null ? '—' : `${walletBalanceMajor.toFixed(2)}`}
+                            {walletBalanceMajor === null ? '—' : `🍅${walletBalanceMajor.toFixed(0)}`}
                           </div>
                         </div>
                         <div className="rounded-xl border border-zinc-900 bg-black/40 p-3">

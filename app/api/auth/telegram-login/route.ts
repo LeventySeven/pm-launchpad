@@ -43,10 +43,10 @@ type DbUserRow = Database["public"]["Tables"]["users"]["Row"];
 type UserInsert = Database["public"]["Tables"]["users"]["Insert"];
 type WalletBalanceInsert = Database["public"]["Tables"]["wallet_balances"]["Insert"];
 
-const DEFAULT_ASSET = "VCOIN";
-const VCOIN_DECIMALS = 6;
-const SIGNUP_BONUS_MAJOR = 1500;
-const SIGNUP_BONUS_MINOR = SIGNUP_BONUS_MAJOR * Math.pow(10, VCOIN_DECIMALS);
+const DEFAULT_ASSET = "TOMATO";
+const TOMATO_DECIMALS = 6;
+const SIGNUP_BONUS_MAJOR = 1000;
+const SIGNUP_BONUS_MINOR = SIGNUP_BONUS_MAJOR * Math.pow(10, TOMATO_DECIMALS);
 
 const TELEGRAM_PLACEHOLDER_DOMAIN = "telegram.local";
 const buildTelegramEmail = (telegramId: number) => `tg_${telegramId}@${TELEGRAM_PLACEHOLDER_DOMAIN}`;

@@ -93,7 +93,7 @@ export function calculateSellProceeds(
 
 /**
  * Convert major units (user-facing) to minor units (DB storage)
- * e.g., 1.5 VCOIN with decimals=6 -> 1500000 minor units
+ * e.g., 1.5 TOMATO with decimals=6 -> 1500000 minor units
  */
 export function toMinorUnits(amount: number, decimals: number): number {
   return Math.floor(amount * Math.pow(10, decimals));
