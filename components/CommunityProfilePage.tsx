@@ -107,8 +107,9 @@ export default function CommunityProfilePage({
   });
   const [quickCreateLoading, setQuickCreateLoading] = useState(false);
   const [quickCreateError, setQuickCreateError] = useState<string | null>(null);
-  // Activity feed
-  const [activityItems, setActivityItems] = useState<Array<{ id: string; type: string; userName: string; userAvatar: string | null; marketTitle: string; marketId: string | null; createdAt: string }>>([]);
+  // Activity feed — mixed: join events + market cards
+  type FeedItem = { id: string; type: "join" | "market"; userName: string; userAvatar: string | null; marketId: string | null; createdAt: string; market?: Market | null };
+  const [activityItems, setActivityItems] = useState<FeedItem[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
   // Share card state
   const [shareCardOpen, setShareCardOpen] = useState(false);
@@ -301,30 +302,50 @@ export default function CommunityProfilePage({
     } finally { setQuickCreateLoading(false); }
   };
 
-  // Activity feed loader (simple: recent trades + joins for community markets)
+  // Activity feed: mix member joins + community market cards, sorted by date
   const loadActivityFeed = useCallback(async () => {
     if (!community) return;
     setActivityLoading(true);
     try {
-      // Fetch community market IDs, then recent trades on those markets
-      const marketData = await trpcClient.community.marketIds.query({ communityId: community.id, limit: 50 });
-      const mIds = marketData.marketIds ?? [];
-      // Build activity items from members (joins) — simple approach for MVP
-      const membersData = await trpcClient.community.members.query({ communityId: community.id, limit: 20 });
-      const items: typeof activityItems = (membersData.members ?? []).map((m) => ({
-        id: `join-${m.userId}`,
-        type: "join",
-        userName: m.displayName ?? m.username,
-        userAvatar: m.avatarUrl,
-        marketTitle: "",
-        marketId: null,
-        createdAt: m.joinedAt,
-      }));
-      // Sort by date desc
+      const [marketData, membersData] = await Promise.all([
+        trpcClient.community.marketIds.query({ communityId: community.id, limit: 50 }),
+        trpcClient.community.members.query({ communityId: community.id, limit: 30 }),
+      ]);
+
+      const items: FeedItem[] = [];
+
+      // Join events
+      for (const m of (membersData.members ?? [])) {
+        items.push({
+          id: `join-${m.userId}`,
+          type: "join",
+          userName: m.displayName ?? m.username,
+          userAvatar: m.avatarUrl,
+          marketId: null,
+          createdAt: m.joinedAt,
+        });
+      }
+
+      // Market cards — match IDs against the `markets` prop passed from parent
+      const communityMarketIds = new Set(marketData.marketIds ?? []);
+      for (const mkt of markets) {
+        if (communityMarketIds.has(mkt.id)) {
+          items.push({
+            id: `market-${mkt.id}`,
+            type: "market",
+            userName: mkt.creatorName ?? "",
+            userAvatar: mkt.creatorAvatarUrl ?? null,
+            marketId: mkt.id,
+            createdAt: mkt.createdAt ?? new Date().toISOString(),
+            market: mkt,
+          });
+        }
+      }
+
       items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setActivityItems(items.slice(0, 30));
+      setActivityItems(items.slice(0, 50));
     } catch { /* silent */ } finally { setActivityLoading(false); }
-  }, [community]);
+  }, [community, markets]);
 
   useEffect(() => {
     if (tab === "ACTIVITY" && activityItems.length === 0) void loadActivityFeed();
@@ -774,40 +795,49 @@ export default function CommunityProfilePage({
                 <Loader2 size={20} className="animate-spin mx-auto" />
               </div>
             ) : activityItems.length > 0 ? (
-              <div className="space-y-2">
-                {activityItems.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => item.marketId && onMarketClick(markets.find((m) => m.id === item.marketId) ?? { id: item.marketId } as any)}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl bg-zinc-950/30 hover:bg-zinc-950/60 transition text-left"
-                  >
-                    {item.userAvatar ? (
-                      <img src={item.userAvatar} alt="" className="h-8 w-8 rounded-full object-cover shrink-0" />
-                    ) : (
-                      <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400 shrink-0">
-                        {item.userName.slice(0, 2).toUpperCase()}
+              <div className="space-y-3">
+                {activityItems.map((item) => {
+                  // Market card in feed
+                  if (item.type === "market" && item.market) {
+                    return (
+                      <MarketCard
+                        key={item.id}
+                        market={item.market}
+                        bookmarked={false}
+                        onClick={() => onMarketClick(item.market!)}
+                        onQuickBet={onQuickBet ? (side) => onQuickBet(item.market!, side) : () => {}}
+                        lang={lang}
+                      />
+                    );
+                  }
+                  // Join event row
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => item.userName && onUserClick(item.id.replace("join-", ""))}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl bg-zinc-950/20 hover:bg-zinc-950/40 transition text-left"
+                    >
+                      {item.userAvatar ? (
+                        <img src={item.userAvatar} alt="" className="h-8 w-8 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400 shrink-0">
+                          {item.userName.slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <span className="text-sm text-zinc-300">
+                          <span className="font-medium text-white">{item.userName}</span>
+                          {" "}
+                          {lang === "RU" ? "присоединился" : "joined"}
+                        </span>
                       </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <span className="text-sm text-zinc-300">
-                        <span className="font-medium text-white">{item.userName}</span>
-                        {" "}
-                        {item.type === "join"
-                          ? (lang === "RU" ? "присоединился" : "joined")
-                          : item.type === "bet"
-                            ? (lang === "RU" ? "сделал ставку на" : "bet on")
-                            : (lang === "RU" ? "создал" : "created")}
-                        {item.marketTitle && (
-                          <span className="text-[rgba(245,68,166,1)]"> {item.marketTitle}</span>
-                        )}
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-zinc-600 shrink-0">
-                      {new Date(item.createdAt).toLocaleDateString(lang === "RU" ? "ru-RU" : "en-US", { month: "short", day: "numeric" })}
-                    </div>
-                  </button>
-                ))}
+                      <div className="text-[10px] text-zinc-600 shrink-0">
+                        {new Date(item.createdAt).toLocaleDateString(lang === "RU" ? "ru-RU" : "en-US", { month: "short", day: "numeric" })}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-16">

@@ -3551,4 +3551,127 @@ export const marketRouter = router({
 
       return { ok: true };
     }),
+
+  // ═══════════════════════════════════════════════════════════════
+  // Tomato System
+  // ═══════════════════════════════════════════════════════════════
+
+  /** Get user's tomato balance */
+  tomatoBalance: protectedProcedure.query(async ({ ctx }) => {
+    const db = ctx.supabaseService as any;
+    const { data } = await db
+      .from("tomato_balances")
+      .select("balance, total_earned, total_spent, last_daily_claim")
+      .eq("user_id", ctx.userId)
+      .maybeSingle();
+    if (!data) {
+      // Auto-create on first access with 1000 starter tomatoes
+      await db.from("tomato_balances").insert({ user_id: ctx.userId, balance: 1000, total_earned: 1000 });
+      await db.from("tomato_transactions").insert({ user_id: ctx.userId, amount: 1000, reason: "signup" });
+      return { balance: 1000, totalEarned: 1000, totalSpent: 0, lastDailyClaim: null as string | null };
+    }
+    return {
+      balance: Number(data.balance),
+      totalEarned: Number(data.total_earned),
+      totalSpent: Number(data.total_spent),
+      lastDailyClaim: data.last_daily_claim ? String(data.last_daily_claim) : null,
+    };
+  }),
+
+  /** Claim daily tomatoes (+50) */
+  tomatoClaimDaily: protectedProcedure.mutation(async ({ ctx }) => {
+    const db = ctx.supabaseService as any;
+    const { data: bal } = await db
+      .from("tomato_balances")
+      .select("last_daily_claim")
+      .eq("user_id", ctx.userId)
+      .maybeSingle();
+
+    // Auto-create if missing
+    if (!bal) {
+      await db.from("tomato_balances").insert({ user_id: ctx.userId, balance: 1000, total_earned: 1000 });
+      await db.from("tomato_transactions").insert({ user_id: ctx.userId, amount: 1000, reason: "signup" });
+    }
+
+    const lastClaim = bal?.last_daily_claim ? new Date(bal.last_daily_claim) : null;
+    const now = new Date();
+    if (lastClaim && now.getTime() - lastClaim.getTime() < 20 * 60 * 60 * 1000) {
+      throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "DAILY_ALREADY_CLAIMED" });
+    }
+
+    const bonus = 50;
+    const { data: current } = await db
+      .from("tomato_balances")
+      .select("balance, total_earned")
+      .eq("user_id", ctx.userId)
+      .maybeSingle();
+
+    const newBalance = Number(current?.balance ?? 0) + bonus;
+    const newEarned = Number(current?.total_earned ?? 0) + bonus;
+
+    await db.from("tomato_balances")
+      .update({ balance: newBalance, total_earned: newEarned, last_daily_claim: now.toISOString() })
+      .eq("user_id", ctx.userId);
+
+    await db.from("tomato_transactions").insert({ user_id: ctx.userId, amount: bonus, reason: "daily" });
+
+    return { earned: bonus, newBalance };
+  }),
+
+  /** Vote tomatoes on a market */
+  tomatoVote: protectedProcedure
+    .input(z.object({ marketId: z.string().uuid(), amount: z.number().int().min(1).max(500) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = ctx.supabaseService as any;
+
+      // Check balance
+      const { data: bal } = await db
+        .from("tomato_balances")
+        .select("balance")
+        .eq("user_id", ctx.userId)
+        .maybeSingle();
+
+      const current = Number(bal?.balance ?? 0);
+      if (current < input.amount) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "INSUFFICIENT_TOMATOES" });
+      }
+
+      // Deduct + record vote
+      await db.from("tomato_balances")
+        .update({
+          balance: current - input.amount,
+          total_spent: Number(bal?.total_spent ?? 0) + input.amount,
+        })
+        .eq("user_id", ctx.userId);
+
+      await db.from("tomato_votes").insert({
+        user_id: ctx.userId,
+        market_id: input.marketId,
+        amount: input.amount,
+      });
+
+      await db.from("tomato_transactions").insert({
+        user_id: ctx.userId,
+        amount: -input.amount,
+        reason: "vote",
+        reference_id: input.marketId,
+      });
+
+      return { spent: input.amount, newBalance: current - input.amount };
+    }),
+
+  /** Get tomato votes for a market */
+  tomatoMarketVotes: publicProcedure
+    .input(z.object({ marketId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const db = ctx.supabaseService as any;
+      const { data } = await db
+        .from("tomato_votes")
+        .select("amount")
+        .eq("market_id", input.marketId);
+
+      const total = (data ?? []).reduce((sum: number, r: any) => sum + Number(r.amount), 0);
+      const voters = (data ?? []).length;
+      return { totalTomatoes: total, voterCount: voters };
+    }),
 });
