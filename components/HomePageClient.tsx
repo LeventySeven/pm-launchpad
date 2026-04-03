@@ -3103,6 +3103,14 @@ export default function HomePageClient({
                       onCreateCommunity={() => setShowCommunityCreateModal(true)}
                       isLoggedIn={!!user}
                       onLogin={() => openAuth("SIGN_IN")}
+                      markets={markets}
+                      user={user}
+                      onMarketClick={(m) => {
+                        setSelectedMarketId(m.id);
+                        navigateToMarketUrl(m.id, m.titleEn ?? m.titleRu ?? m.title);
+                      }}
+                      onQuickBet={(m, side) => handleOpenMarketBet(m, side)}
+                      onUserClick={(userId) => void openPublicProfile(userId)}
                     />
                   </div>
                 </div>
