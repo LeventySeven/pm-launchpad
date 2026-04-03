@@ -41,8 +41,8 @@ const Header: React.FC<HeaderProps> = ({
           aria-label={onLogoClick ? t.home : undefined}
         >
           <img
-            src="/white.svg"
-            alt="Logo"
+            src={"/pink.svg"}
+            alt="Yalla"
             className="h-3.5 sm:h-4 w-auto block"
             draggable={false}
           />
