@@ -38,9 +38,9 @@ if (typeof window !== "undefined") {
   (window as unknown as { runWalletDiagnostics?: typeof runDiagnostics }).runWalletDiagnostics = runDiagnostics;
 }
 
-// TOMATO decimals for display
-const TOMATO_DECIMALS = 6;
-const toMajorUnits = (minor: number) => minor / Math.pow(10, TOMATO_DECIMALS);
+// VOTE decimals for display
+const VOTE_DECIMALS = 6;
+const toMajorUnits = (minor: number) => minor / Math.pow(10, VOTE_DECIMALS);
 
 type ErrorLike = string | Error | { message?: string; data?: { message?: string } } | null | undefined;
 const getErrorMessage = (error: ErrorLike): string => {
@@ -617,6 +617,7 @@ export default function HomePageClient({
   const [marketContextLoadingId, setMarketContextLoadingId] = useState<string | null>(null);
   const [marketContextErrorById, setMarketContextErrorById] = useState<Record<string, string | null>>({});
   const [walletBalanceMajor, setWalletBalanceMajor] = useState<number | null>(null);
+  const [lastDailyClaim, setLastDailyClaim] = useState<string | null>(null);
   const [editMarketOpen, setEditMarketOpen] = useState(false);
   const [editMarketTarget, setEditMarketTarget] = useState<Market | null>(null);
   const [deleteMarketOpen, setDeleteMarketOpen] = useState(false);
@@ -1256,6 +1257,15 @@ export default function HomePageClient({
     }
   }, [navigateToCatalogUrl]);
 
+  const handleClaimDaily = useCallback(async () => {
+    const result = await trpcClient.market.voteClaimDaily.mutate();
+    setLastDailyClaim(new Date().toISOString());
+    if (typeof result.newBalance === "number") {
+      setWalletBalanceMajor(result.newBalance);
+    }
+    return result;
+  }, []);
+
   const deriveLegacyBets = useCallback(
     (positions: Position[]): Bet[] =>
       positions.map((p, idx) => {
@@ -1386,6 +1396,10 @@ export default function HomePageClient({
       if (walletBalanceRaw && typeof walletBalanceRaw.balanceMajor === "number") {
         setWalletBalanceMajor(walletBalanceRaw.balanceMajor);
       }
+      try {
+        const voteInfo = await trpcClient.market.voteBalance.query();
+        if (voteInfo?.lastDailyClaim) setLastDailyClaim(voteInfo.lastDailyClaim);
+      } catch { /* ignore */ }
       try {
         const stats = await trpcClient.user.publicUserStats.query({ userId: user.id });
         if (stats && typeof stats.pnlMajor === "number") {
@@ -2139,7 +2153,7 @@ export default function HomePageClient({
         selectedMarket && selectedMarket.id === marketId
           ? selectedMarket
           : feedMarkets.find((m) => m.id === marketId) || filteredMarkets.find((m) => m.id === marketId) || null;
-      const settlementAsset = String(marketForAsset?.settlementAsset || "TOMATO").toUpperCase();
+      const settlementAsset = String(marketForAsset?.settlementAsset || "VOTE").toUpperCase();
       const isOnChain = settlementAsset === "USDC" || settlementAsset === "USDT";
 
       // Verify auth is still valid before placing bet (in case cookies expired or weren't set)
@@ -2256,7 +2270,7 @@ export default function HomePageClient({
         return;
       }
 
-      // Legacy TOMATO flow (unchanged)
+      // Legacy VOTE flow (unchanged)
       const res = await trpcClient.market.placeBet.mutate({
         amount,
         marketId,
@@ -2599,7 +2613,7 @@ export default function HomePageClient({
         selectedMarket && selectedMarket.id === marketId
           ? selectedMarket
           : feedMarkets.find((m) => m.id === marketId) || filteredMarkets.find((m) => m.id === marketId) || null;
-      const settlementAsset = String(marketForAsset?.settlementAsset || "TOMATO").toUpperCase();
+      const settlementAsset = String(marketForAsset?.settlementAsset || "VOTE").toUpperCase();
       const isOnChain = settlementAsset === "USDC" || settlementAsset === "USDT";
 
       if (isOnChain) {
@@ -3139,6 +3153,8 @@ export default function HomePageClient({
                     onSellPosition={handleSellPosition}
                     onLoadBets={() => void loadMyBets()}
                     onLoadComments={() => void loadMyComments()}
+                    lastDailyClaim={lastDailyClaim}
+                    onClaimDaily={handleClaimDaily}
                     onMarketClick={(marketId) => {
                       setMarketBetIntent(null); // Clear bet intent when clicking from profile
                       const market = markets.find((m) => m.id === marketId);

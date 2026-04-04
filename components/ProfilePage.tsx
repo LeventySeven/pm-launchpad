@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LogOut, Mail, User as UserIcon, Shield, Pencil, X, Image, CheckCircle2, XCircle, ArrowUpRight, ArrowDownRight, Clock, Wallet } from 'lucide-react';
+import { LogOut, Mail, User as UserIcon, Shield, Pencil, X, Image, CheckCircle2, XCircle, ArrowUpRight, ArrowDownRight, Clock, Wallet, Gift } from 'lucide-react';
 import Button from './Button';
 import type { Bet, Market, Trade, User, UserCommentSummary } from '../types';
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -30,6 +30,8 @@ type ProfilePageProps = {
   onSellPosition?: (params: { marketId: string; side: 'YES' | 'NO'; outcomeId?: string; shares: number }) => Promise<void>;
   onLoadBets?: () => void;
   onLoadComments?: () => void;
+  lastDailyClaim?: string | null;
+  onClaimDaily?: () => Promise<{ earned: number; newBalance: number }>;
 };
 
 const initialsFrom = (value?: string) => {
@@ -203,6 +205,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   onSellPosition,
   onLoadBets,
   onLoadComments,
+  lastDailyClaim,
+  onClaimDaily,
 }) => {
   const displayName = user?.name ?? user?.username ?? (lang === 'RU' ? 'Пользователь' : 'User');
   const handle = user?.username ? `@${user.username}` : null;
@@ -226,6 +230,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   const [sellError, setSellError] = useState<string | null>(null);
   const [sellErrorKey, setSellErrorKey] = useState<string | null>(null);
   const [sellSuccessKey, setSellSuccessKey] = useState<string | null>(null);
+  const [claiming, setClaiming] = useState(false);
+  const [claimResult, setClaimResult] = useState<{ earned: number } | null>(null);
 
   type ErrorLike = string | Error | { message?: string } | null | undefined;
   const getErrorMessage = (error: ErrorLike): string => {
@@ -272,9 +278,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   const activeBets = bets.filter((b) => b.status === 'open' && Number(b.shares ?? 0) > 0);
   const settledBets = bets.filter((b) => b.status !== 'open');
 
-  const formatMoney = (value: number) => `🍅${value.toFixed(2)}`;
+  const formatMoney = (value: number) => `${value.toFixed(2)} V`;
   const formatPct = (value: number) => `${value.toFixed(1)}%`;
-  const formatSignedMoney = (value: number) => `${value >= 0 ? '+' : '-'}🍅${Math.abs(value).toFixed(2)}`;
+  const formatSignedMoney = (value: number) => `${value >= 0 ? '+' : '-'}${Math.abs(value).toFixed(2)} V`;
 
   const accentSeed = String(user?.avatarUrl ?? user?.telegramPhotoUrl ?? user?.id ?? displayName);
   const [accent, setAccent] = useState(() => accentPairFromSeed(accentSeed));
@@ -632,6 +638,70 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Daily votes claim */}
+      {onClaimDaily && (() => {
+        const canClaim = !lastDailyClaim || (Date.now() - new Date(lastDailyClaim).getTime() >= 20 * 60 * 60 * 1000);
+        const nextClaimDate = lastDailyClaim ? new Date(new Date(lastDailyClaim).getTime() + 20 * 60 * 60 * 1000) : null;
+        const hoursLeft = nextClaimDate ? Math.max(0, Math.ceil((nextClaimDate.getTime() - Date.now()) / (1000 * 60 * 60))) : 0;
+
+        return (
+          <div className="mt-3 border border-zinc-900 bg-black rounded-2xl p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="h-10 w-10 rounded-full border border-zinc-900 bg-zinc-950/40 flex items-center justify-center">
+                  <Gift size={18} className="text-[rgba(245,68,166,1)]" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-zinc-100">
+                    {lang === 'RU' ? 'Ежедневные голоса' : 'Daily Votes'}
+                  </div>
+                  <div className="text-[11px] text-zinc-500">
+                    {claimResult
+                      ? (lang === 'RU' ? `+${claimResult.earned} V получено!` : `+${claimResult.earned} V collected!`)
+                      : canClaim
+                        ? (lang === 'RU' ? '+100 V доступно' : '+100 V available')
+                        : (lang === 'RU' ? `Доступно через ${hoursLeft} ч` : `Available in ${hoursLeft}h`)
+                    }
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={!canClaim || claiming || !!claimResult}
+                onClick={async () => {
+                  setClaiming(true);
+                  setClaimResult(null);
+                  try {
+                    const result = await onClaimDaily();
+                    setClaimResult({ earned: result.earned });
+                  } catch {
+                    // silently fail — button stays enabled for retry
+                  } finally {
+                    setClaiming(false);
+                  }
+                }}
+                className={`shrink-0 h-10 px-5 rounded-full text-sm font-semibold transition-all ${
+                  claimResult
+                    ? 'bg-[rgba(190,255,29,0.15)] text-[rgba(190,255,29,1)] border border-[rgba(190,255,29,0.3)] cursor-default'
+                    : canClaim && !claiming
+                      ? 'bg-[rgba(245,68,166,1)] text-black hover:bg-[rgba(245,68,166,0.85)] active:scale-95'
+                      : 'bg-zinc-900 text-zinc-500 border border-zinc-800 cursor-not-allowed'
+                }`}
+              >
+                {claimResult
+                  ? (lang === 'RU' ? 'Получено' : 'Collected')
+                  : claiming
+                    ? (lang === 'RU' ? 'Получаю...' : 'Claiming...')
+                    : canClaim
+                      ? (lang === 'RU' ? 'Собрать' : 'Collect')
+                      : `${hoursLeft}h`
+                }
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Tabs */}
       <div className="mt-6 border-b border-zinc-900 flex">

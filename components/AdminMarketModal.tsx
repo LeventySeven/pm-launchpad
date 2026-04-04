@@ -31,7 +31,7 @@ type AdminMarketModalProps = {
     expiresAt: string;
     categoryId: string;
     imageUrl?: string | null;
-    settlementAssetCode: "TOMATO" | "USDC";
+    settlementAssetCode: "VOTE" | "USDC";
     marketType?: "binary" | "multi_choice";
     options?: Array<{
       title: string;
@@ -74,7 +74,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [settlementAssetCode, setSettlementAssetCode] = useState<"TOMATO" | "USDC">("TOMATO");
+  const [settlementAssetCode, setSettlementAssetCode] = useState<"VOTE" | "USDC">("VOTE");
   const [marketType, setMarketType] = useState<"binary" | "multi_choice">("binary");
   const [options, setOptions] = useState<Array<{ title: string; iconFile: File | null; iconUrl: string | null; chartColor: string | null }>>([
     { title: "", iconFile: null, iconUrl: null, chartColor: null },
@@ -107,7 +107,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
       setCategoryId(initialValues.categoryId ?? "");
       setImageUrl(initialValues.imageUrl ?? null);
       setImageFile(null);
-      setSettlementAssetCode("TOMATO");
+      setSettlementAssetCode("VOTE");
       setMarketType("binary");
     } else if (mode === "create") {
       setTitleEn("");
@@ -117,7 +117,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
       setCategoryId("");
       setImageFile(null);
       setImageUrl(null);
-      setSettlementAssetCode("TOMATO");
+      setSettlementAssetCode("VOTE");
       setMarketType("binary");
       setOptions([
         { title: "", iconFile: null, iconUrl: null, chartColor: null },
@@ -394,7 +394,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
         expiresAt,
         categoryId,
         imageUrl: finalImageUrl,
-        settlementAssetCode: isAdmin ? settlementAssetCode : "TOMATO",
+        settlementAssetCode: isAdmin ? settlementAssetCode : "VOTE",
         marketType,
         options: preparedOptions,
       };
@@ -574,7 +574,7 @@ const AdminMarketModal: React.FC<AdminMarketModalProps> = ({
             </div>
 
             {/* Settlement asset selector hidden — USDC not yet enabled in production.
-               Logic preserved in backend; always defaults to TOMATO. */}
+               Logic preserved in backend; always defaults to VOTE. */}
             {mode === "create" && (
               <div>
                 <label className="block text-xs font-bold text-white mb-2">{t("Тип рынка", "Market type")}</label>

@@ -160,7 +160,7 @@ export interface User {
   solanaWalletAddress?: string | null; // Connected Solana wallet public key (base58)
   solanaCluster?: string | null; // Solana cluster (devnet, testnet, mainnet-beta)
   solanaWalletConnectedAt?: string | null; // When Solana wallet was connected
-  balance: number; // In major units (e.g., 1.5 TOMATO)
+  balance: number; // In major units (e.g., 1.5 VOTE)
   isAdmin?: boolean;
   pnl?: number; // Total Profit/Loss
   name?: string; // Display name

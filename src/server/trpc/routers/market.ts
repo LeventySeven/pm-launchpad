@@ -28,8 +28,8 @@ import bs58 from "bs58";
 type SupabaseDbClient = SupabaseClient<Database, "public">;
 
 // Default asset for the platform
-const DEFAULT_ASSET = "TOMATO";
-const TOMATO_DECIMALS = 6;
+const DEFAULT_ASSET = "VOTE";
+const VOTE_DECIMALS = 6;
 
 type MarketRow = Database["public"]["Tables"]["markets"]["Row"];
 type DbUserRow = Database["public"]["Tables"]["users"]["Row"];
@@ -312,7 +312,7 @@ const deriveVolumeMajor = (amm: AmmStateRow | null, feeBps?: number | null) => {
     return 0;
   }
   const volumeMinor = (feeMinor * 10000) / bps;
-  return toMajorUnits(volumeMinor, TOMATO_DECIMALS);
+  return toMajorUnits(volumeMinor, VOTE_DECIMALS);
 };
 
 const normalizeHexColor = (value: string | null | undefined): string | null => {
@@ -804,7 +804,7 @@ export const marketRouter = router({
           const minor = Number(c.volume_minor ?? 0);
           if (!Number.isFinite(minor) || minor <= 0) return;
           const prev = volumeByMarketId.get(key) ?? 0;
-          volumeByMarketId.set(key, prev + toMajorUnits(minor, TOMATO_DECIMALS));
+          volumeByMarketId.set(key, prev + toMajorUnits(minor, VOTE_DECIMALS));
         });
       }
 
@@ -880,7 +880,7 @@ export const marketRouter = router({
           return Number.isFinite(n) && n > 0 ? acc + n : acc;
         }, 0);
         if (totalMinor > 0) {
-          volumeMajor = toMajorUnits(totalMinor, TOMATO_DECIMALS);
+          volumeMajor = toMajorUnits(totalMinor, VOTE_DECIMALS);
         }
       }
       const labelsById = new Map<string, Pick<MarketCategoryRow, "label_ru" | "label_en">>();
@@ -1168,7 +1168,7 @@ export const marketRouter = router({
           marketId,
           outcomeId,
           price: Number(result.price_after),
-          volumeMinor: toMinorUnits(amount, TOMATO_DECIMALS),
+          volumeMinor: toMinorUnits(amount, VOTE_DECIMALS),
         });
       }
 
@@ -2331,7 +2331,7 @@ export const marketRouter = router({
       }
 
       const rows = (data ?? []) as PositionWithMarket[];
-      return rows.map((r) => mapPositionRow(r, TOMATO_DECIMALS));
+      return rows.map((r) => mapPositionRow(r, VOTE_DECIMALS));
     }),
 
   /**
@@ -2371,7 +2371,7 @@ export const marketRouter = router({
       }
 
       const rows: TradeWithMarket[] = data ?? [];
-      return rows.map((r) => mapTradeRow(r, TOMATO_DECIMALS));
+      return rows.map((r) => mapTradeRow(r, VOTE_DECIMALS));
     }),
 
   /**
@@ -2584,9 +2584,9 @@ export const marketRouter = router({
 
       return {
         balanceMinor,
-        balanceMajor: toMajorUnits(Number(balanceMinor), TOMATO_DECIMALS),
+        balanceMajor: toMajorUnits(Number(balanceMinor), VOTE_DECIMALS),
         assetCode: DEFAULT_ASSET,
-        decimals: TOMATO_DECIMALS,
+        decimals: VOTE_DECIMALS,
       };
     }),
 
@@ -2663,7 +2663,7 @@ export const marketRouter = router({
             high: Number(candle.high),
             low: Number(candle.low),
             close: Number(candle.close),
-            volume: toMajorUnits(Number(candle.volume_minor), TOMATO_DECIMALS),
+            volume: toMajorUnits(Number(candle.volume_minor), VOTE_DECIMALS),
             tradesCount: Number(candle.trades_count ?? 0),
           };
         });
@@ -2692,7 +2692,7 @@ export const marketRouter = router({
           high: Number(candle.high),
           low: Number(candle.low),
           close: Number(candle.close),
-          volume: toMajorUnits(Number(candle.volume_minor), TOMATO_DECIMALS),
+          volume: toMajorUnits(Number(candle.volume_minor), VOTE_DECIMALS),
           tradesCount: candle.trades_count,
         };
       });
@@ -2788,7 +2788,7 @@ export const marketRouter = router({
           outcome: trade.outcome,
           outcomeId: trade.outcome_id ?? null,
           outcomeTitle: trade.market_outcomes?.title ?? null,
-          collateralGross: toMajorUnits(Number(trade.collateral_gross_minor), TOMATO_DECIMALS),
+          collateralGross: toMajorUnits(Number(trade.collateral_gross_minor), VOTE_DECIMALS),
           sharesDelta: Number(trade.shares_delta),
           priceBefore: Number(trade.price_before),
           priceAfter: Number(trade.price_after),
@@ -3092,7 +3092,7 @@ export const marketRouter = router({
         expiresAt: z.string(), // Accepts datetime-local format (YYYY-MM-DDTHH:MM)
         categoryId: z.string().min(1),
         imageUrl: z.string().optional().nullable(), // Optional image URL from Supabase storage
-        settlementAssetCode: z.enum(["TOMATO", "USDC"]).optional(),
+        settlementAssetCode: z.enum(["VOTE", "USDC"]).optional(),
         marketType: z.enum(["binary", "multi_choice"]).optional(),
         options: z.array(
           z.object({
@@ -3553,11 +3553,11 @@ export const marketRouter = router({
     }),
 
   // ═══════════════════════════════════════════════════════════════
-  // Tomato System
+  // Vote System
   // ═══════════════════════════════════════════════════════════════
 
-  /** Get user's tomato balance (reads from wallet_balances with TOMATO asset) */
-  tomatoBalance: protectedProcedure.query(async ({ ctx }) => {
+  /** Get user's vote balance (reads from wallet_balances with VOTE asset) */
+  voteBalance: protectedProcedure.query(async ({ ctx }) => {
     const { supabaseService } = ctx;
     const { data } = await supabaseService
       .from("wallet_balances")
@@ -3572,15 +3572,15 @@ export const marketRouter = router({
       .eq("id", ctx.userId)
       .maybeSingle();
 
-    const balance = toMajorUnits(Number(data?.balance_minor ?? 0), TOMATO_DECIMALS);
+    const balance = toMajorUnits(Number(data?.balance_minor ?? 0), VOTE_DECIMALS);
     return {
       balance,
       lastDailyClaim: (userRow as any)?.last_daily_claim ? String((userRow as any).last_daily_claim) : null,
     };
   }),
 
-  /** Claim daily tomatoes (+50) */
-  tomatoClaimDaily: protectedProcedure.mutation(async ({ ctx }) => {
+  /** Claim daily votes (+100) */
+  voteClaimDaily: protectedProcedure.mutation(async ({ ctx }) => {
     const { supabaseService } = ctx;
     const db = supabaseService as any;
 
@@ -3596,8 +3596,8 @@ export const marketRouter = router({
       throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "DAILY_ALREADY_CLAIMED" });
     }
 
-    const bonusMajor = 50;
-    const bonusMinor = toMinorUnits(bonusMajor, TOMATO_DECIMALS);
+    const bonusMajor = 100;
+    const bonusMinor = toMinorUnits(bonusMajor, VOTE_DECIMALS);
 
     // Get current balance
     const { data: walletRow } = await supabaseService
@@ -3625,18 +3625,18 @@ export const marketRouter = router({
       .eq("id", ctx.userId);
 
     // Log transaction
-    await db.from("tomato_transactions").insert({ user_id: ctx.userId, amount: bonusMajor, reason: "daily" });
+    await db.from("vote_transactions").insert({ user_id: ctx.userId, amount: bonusMajor, reason: "daily" });
 
-    return { earned: bonusMajor, newBalance: toMajorUnits(newMinor, TOMATO_DECIMALS) };
+    return { earned: bonusMajor, newBalance: toMajorUnits(newMinor, VOTE_DECIMALS) };
   }),
 
-  /** Vote tomatoes on a market (deducts from wallet balance) */
-  tomatoVote: protectedProcedure
+  /** Spend votes on a market (deducts from wallet balance) */
+  voteOnMarket: protectedProcedure
     .input(z.object({ marketId: z.string().uuid(), amount: z.number().int().min(1).max(500) }))
     .mutation(async ({ ctx, input }) => {
       const { supabaseService } = ctx;
       const db = supabaseService as any;
-      const amountMinor = toMinorUnits(input.amount, TOMATO_DECIMALS);
+      const amountMinor = toMinorUnits(input.amount, VOTE_DECIMALS);
 
       // Check balance
       const { data: walletRow } = await supabaseService
@@ -3648,7 +3648,7 @@ export const marketRouter = router({
 
       const currentMinor = Number(walletRow?.balance_minor ?? 0);
       if (currentMinor < amountMinor) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "INSUFFICIENT_TOMATOES" });
+        throw new TRPCError({ code: "BAD_REQUEST", message: "INSUFFICIENT_VOTES" });
       }
 
       // Deduct
@@ -3659,35 +3659,35 @@ export const marketRouter = router({
         .eq("asset_code", DEFAULT_ASSET);
 
       // Record vote
-      await db.from("tomato_votes").insert({
+      await db.from("votes").insert({
         user_id: ctx.userId,
         market_id: input.marketId,
         amount: input.amount,
       });
 
       // Log transaction
-      await db.from("tomato_transactions").insert({
+      await db.from("vote_transactions").insert({
         user_id: ctx.userId,
         amount: -input.amount,
         reason: "vote",
         reference_id: input.marketId,
       });
 
-      return { spent: input.amount, newBalance: toMajorUnits(currentMinor - amountMinor, TOMATO_DECIMALS) };
+      return { spent: input.amount, newBalance: toMajorUnits(currentMinor - amountMinor, VOTE_DECIMALS) };
     }),
 
-  /** Get tomato votes for a market */
-  tomatoMarketVotes: publicProcedure
+  /** Get vote totals for a market */
+  marketVotes: publicProcedure
     .input(z.object({ marketId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const db = ctx.supabaseService as any;
       const { data } = await db
-        .from("tomato_votes")
+        .from("votes")
         .select("amount")
         .eq("market_id", input.marketId);
 
       const total = (data ?? []).reduce((sum: number, r: any) => sum + Number(r.amount), 0);
       const voters = (data ?? []).length;
-      return { totalTomatoes: total, voterCount: voters };
+      return { totalVotes: total, voterCount: voters };
     }),
 });
