@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { Search, Plus, Loader2 } from "lucide-react";
 import { trpcClient } from "@/src/utils/trpcClient";
 import CommunityCard from "@/components/CommunityCard";
-import MarketCard from "@/components/MarketCard";
 import type { CommunityPublic } from "@/src/server/services/communities";
 import type { Market, User } from "@/types";
 
@@ -55,9 +54,17 @@ export default function DiscoverPage({
   const [loading, setLoading] = useState(true);
   const [searchLoading, setSearchLoading] = useState(false);
 
-  // Feed: user's communities + their markets
+  // Feed
   const [userCommunities, setUserCommunities] = useState<CommunityPublic[]>([]);
   const [feedLoading, setFeedLoading] = useState(false);
+  type GlobalFeedItem = {
+    id: string; type: "bet" | "join" | "community_created" | "market_created";
+    userId: string; userName: string; userAvatar: string | null;
+    marketId: string | null; marketTitle: string | null;
+    communityId: string | null; communityName: string | null; communitySlug: string | null;
+    outcome: string | null; createdAt: string;
+  };
+  const [feedItems, setFeedItems] = useState<GlobalFeedItem[]>([]);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -86,19 +93,22 @@ export default function DiscoverPage({
   }, []);
 
   const loadUserFeed = useCallback(async () => {
-    if (!user) return;
     setFeedLoading(true);
     try {
-      const myCommunities = await trpcClient.community.userCommunities.query({ userId: user.id });
-      setUserCommunities(myCommunities);
+      const [feedResult, commResult] = await Promise.all([
+        trpcClient.community.globalFeed.query(),
+        user ? trpcClient.community.userCommunities.query({ userId: user.id }) : Promise.resolve([]),
+      ]);
+      setFeedItems(feedResult as GlobalFeedItem[]);
+      setUserCommunities(commResult);
     } catch { /* silent */ } finally { setFeedLoading(false); }
   }, [user]);
 
   useEffect(() => {
     void loadCategories();
     void loadCommunities();
-    if (user) void loadUserFeed();
-  }, [loadCategories, loadCommunities, loadUserFeed, user]);
+    void loadUserFeed();
+  }, [loadCategories, loadCommunities, loadUserFeed]);
 
   useEffect(() => {
     if (hubTab !== "COMMUNITIES") return;
@@ -110,15 +120,6 @@ export default function DiscoverPage({
     }, search ? 300 : 0);
     return () => clearTimeout(timer);
   }, [activeCategory, search, loadCommunities, hubTab]);
-
-  // Build feed items: markets from user's communities
-  const feedMarketIds = new Set(
-    userCommunities.flatMap(() => []) // We don't have market IDs here, so show recent markets instead
-  );
-  // For the feed, show recent markets sorted by creation date
-  const recentMarkets = [...markets]
-    .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime())
-    .slice(0, 20);
 
   return (
     <div className="px-4 pt-2">
@@ -146,85 +147,184 @@ export default function DiscoverPage({
       {/* ═══ FEED TAB ═══ */}
       {hubTab === "FEED" && (
         <div>
-          {!user ? (
-            <div className="text-center py-16">
-              <div className="text-zinc-500 text-sm mb-3">
-                {lang === "RU" ? "Войдите, чтобы видеть ленту" : "Sign in to see your feed"}
+          {/* User's communities horizontal scroll */}
+          {userCommunities.length > 0 && (
+            <div className="mb-4">
+              <div className="flex gap-2 overflow-x-auto pb-2" data-swipe-ignore="true">
+                {userCommunities.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => onCommunityClick(c.slug)}
+                    className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-full border border-zinc-800 bg-zinc-950/40 hover:bg-zinc-950/70 transition"
+                  >
+                    {c.bannerUrl ? (
+                      <img src={c.bannerUrl} alt="" className="h-6 w-6 rounded-full object-cover" />
+                    ) : (
+                      <div className="h-6 w-6 rounded-full bg-zinc-800 flex items-center justify-center text-[8px] font-bold text-zinc-400">
+                        {c.name.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <span className="text-xs text-zinc-300 font-medium max-w-[80px] truncate">{c.name}</span>
+                  </button>
+                ))}
               </div>
-              <button onClick={onLogin} className="px-4 py-2 rounded-full bg-[rgba(245,68,166,1)] text-white text-xs font-semibold">
-                {lang === "RU" ? "Войти" : "Sign in"}
-              </button>
             </div>
-          ) : feedLoading ? (
+          )}
+
+          {/* Global social feed */}
+          {feedLoading ? (
             <div className="text-center py-12 text-zinc-500">
               <Loader2 size={20} className="animate-spin mx-auto" />
             </div>
-          ) : (
-            <div>
-              {/* User's communities row */}
-              {userCommunities.length > 0 && (
-                <div className="mb-4">
-                  <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">
-                    {lang === "RU" ? "Ваши сообщества" : "Your Communities"}
-                  </div>
-                  <div className="flex gap-2 overflow-x-auto pb-2" data-swipe-ignore="true">
-                    {userCommunities.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => onCommunityClick(c.slug)}
-                        className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-full border border-zinc-800 bg-zinc-950/40 hover:bg-zinc-950/70 transition"
-                      >
-                        {c.bannerUrl ? (
-                          <img src={c.bannerUrl} alt="" className="h-6 w-6 rounded-full object-cover" />
-                        ) : (
-                          <div className="h-6 w-6 rounded-full bg-zinc-800 flex items-center justify-center text-[8px] font-bold text-zinc-400">
-                            {c.name.slice(0, 2).toUpperCase()}
-                          </div>
-                        )}
-                        <span className="text-xs text-zinc-300 font-medium max-w-[80px] truncate">{c.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+          ) : feedItems.length > 0 ? (
+            <div className="divide-y divide-zinc-900/60 pb-8">
+              {feedItems.map((item) => {
+                const timeStr = new Date(item.createdAt).toLocaleDateString(
+                  lang === "RU" ? "ru-RU" : "en-US", { month: "short", day: "numeric" }
+                );
 
-              {/* Recent markets as feed */}
-              <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">
-                {lang === "RU" ? "Последние прогнозы" : "Recent Predictions"}
-              </div>
-              {recentMarkets.length > 0 ? (
-                <div className="space-y-3 pb-8">
-                  {recentMarkets.map((m) => (
-                    <div key={m.id}>
-                      {/* Creator attribution */}
-                      {m.creatorName && (
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <img src="/pink.svg" alt="" className="h-4 w-4" />
-                          <span className="text-xs text-zinc-500">
-                            <span className="font-medium text-zinc-300">{m.creatorName}</span>
-                            {" "}{lang === "RU" ? "создал" : "created"}
-                          </span>
-                          <span className="text-[10px] text-zinc-600 ml-auto">
-                            {m.createdAt && new Date(m.createdAt).toLocaleDateString(lang === "RU" ? "ru-RU" : "en-US", { month: "short", day: "numeric" })}
-                          </span>
+                // ── Bet: "Slava placed a bet YES on 'Will BTC...'" ──
+                if (item.type === "bet") {
+                  const market = markets.find((m) => m.id === item.marketId);
+                  return (
+                    <div key={item.id} className="py-3">
+                      <div className="flex gap-3">
+                        <div className="shrink-0 mt-0.5">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="rgba(190,255,29,1)" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                          </svg>
                         </div>
-                      )}
-                      <MarketCard
-                        market={m}
-                        bookmarked={false}
-                        onClick={() => onMarketClick?.(m)}
-                        onQuickBet={onQuickBet ? (side) => onQuickBet(m, side) : () => {}}
-                        lang={lang}
-                      />
+                        <button type="button" onClick={() => item.userId && onUserClick?.(item.userId)} className="shrink-0">
+                          {item.userAvatar ? (
+                            <img src={item.userAvatar} alt="" className="h-9 w-9 rounded-full object-cover" />
+                          ) : (
+                            <div className="h-9 w-9 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400">
+                              {item.userName.slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm">
+                            <span className="font-semibold text-white">{item.userName}</span>
+                            <span className="text-zinc-400"> {lang === "RU" ? "поставил" : "placed a bet"} </span>
+                            {item.outcome && (
+                              <span className={`font-bold ${item.outcome === "YES" ? "text-[rgba(190,255,29,1)]" : "text-[rgba(245,68,166,1)]"}`}>
+                                {item.outcome}
+                              </span>
+                            )}
+                            {item.marketTitle && (
+                              <span className="text-zinc-400"> {lang === "RU" ? "на" : "on"} </span>
+                            )}
+                          </div>
+                          {item.marketTitle && (
+                            <button
+                              type="button"
+                              onClick={() => market && onMarketClick?.(market)}
+                              className="text-sm text-[rgba(245,68,166,1)] hover:underline text-left mt-0.5 line-clamp-2"
+                            >
+                              &ldquo;{item.marketTitle}&rdquo;
+                            </button>
+                          )}
+                          <div className="text-[10px] text-zinc-600 mt-1">{timeStr}</div>
+                        </div>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12 text-zinc-500 text-sm">
-                  {lang === "RU" ? "Пока нет прогнозов" : "No predictions yet"}
-                </div>
-              )}
+                  );
+                }
+
+                // ── Join: "Slava joined Bitcoin Puppets" ──
+                if (item.type === "join") {
+                  return (
+                    <div key={item.id} className="py-3">
+                      <div className="flex gap-3">
+                        <div className="shrink-0 mt-0.5">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="rgba(245,68,166,1)" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                          </svg>
+                        </div>
+                        <button type="button" onClick={() => item.userId && onUserClick?.(item.userId)} className="shrink-0">
+                          {item.userAvatar ? (
+                            <img src={item.userAvatar} alt="" className="h-9 w-9 rounded-full object-cover" />
+                          ) : (
+                            <div className="h-9 w-9 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400">
+                              {item.userName.slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm">
+                            <span className="font-semibold text-white">{item.userName}</span>
+                            <span className="text-zinc-400"> {lang === "RU" ? "присоединился к" : "joined"} </span>
+                            {item.communitySlug ? (
+                              <button
+                                type="button"
+                                onClick={() => item.communitySlug && onCommunityClick(item.communitySlug)}
+                                className="font-semibold text-white hover:underline"
+                              >
+                                {item.communityName}
+                              </button>
+                            ) : (
+                              <span className="font-semibold text-white">{item.communityName}</span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-zinc-600 mt-1">{timeStr}</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // ── Community created: "Slava created Bitcoin Puppets" ──
+                if (item.type === "community_created") {
+                  return (
+                    <div key={item.id} className="py-3">
+                      <div className="flex gap-3">
+                        <div className="shrink-0 mt-0.5">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="rgba(99,102,241,1)" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                          </svg>
+                        </div>
+                        <button type="button" onClick={() => item.userId && onUserClick?.(item.userId)} className="shrink-0">
+                          {item.userAvatar ? (
+                            <img src={item.userAvatar} alt="" className="h-9 w-9 rounded-full object-cover" />
+                          ) : (
+                            <div className="h-9 w-9 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400">
+                              {item.userName.slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm">
+                            <span className="font-semibold text-white">{item.userName}</span>
+                            <span className="text-zinc-400"> {lang === "RU" ? "создал сообщество" : "created"} </span>
+                            {item.communitySlug ? (
+                              <button
+                                type="button"
+                                onClick={() => item.communitySlug && onCommunityClick(item.communitySlug)}
+                                className="font-semibold text-white hover:underline"
+                              >
+                                {item.communityName}
+                              </button>
+                            ) : (
+                              <span className="font-semibold text-white">{item.communityName}</span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-zinc-600 mt-1">{timeStr}</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return null;
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <div className="text-zinc-500 text-sm mb-3">
+                {lang === "RU" ? "Пока нет активности" : "No activity yet"}
+              </div>
             </div>
           )}
         </div>

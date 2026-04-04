@@ -167,4 +167,149 @@ export const communityRouter = router({
     .mutation(({ ctx, input }) =>
       communityService.deleteMessage(ctx.userId, input.messageId, ctx.supabaseService),
     ),
+
+  /** Global social feed: recent bets, community joins, community creations, market creations */
+  globalFeed: publicProcedure
+    .input(z.object({ limit: z.number().min(1).max(50).default(30) }).optional())
+    .query(async ({ ctx }) => {
+      const db = ctx.supabaseService;
+      const limit = 30;
+
+      // Fetch 3 streams in parallel, then merge + sort
+      const [tradesResult, membersResult, communitiesResult] = await Promise.all([
+        // Recent trades (bets)
+        db.from("trades" as any)
+          .select("id, user_id, market_id, action, outcome, created_at")
+          .order("created_at", { ascending: false })
+          .limit(limit),
+        // Recent community joins
+        (db as any).from("community_members")
+          .select("user_id, community_id, joined_at")
+          .order("joined_at", { ascending: false })
+          .limit(limit),
+        // Recent community creations
+        (db as any).from("communities")
+          .select("id, slug, name, created_by, created_at, banner_url")
+          .order("created_at", { ascending: false })
+          .limit(15),
+      ]);
+
+      const trades = (tradesResult.data ?? []) as any[];
+      const joins = (membersResult.data ?? []) as any[];
+      const newCommunities = (communitiesResult.data ?? []) as any[];
+
+      // Collect all user IDs + market IDs + community IDs for batch lookup
+      const userIds = new Set<string>();
+      const marketIds = new Set<string>();
+      const communityIds = new Set<string>();
+
+      for (const t of trades) { userIds.add(t.user_id); marketIds.add(t.market_id); }
+      for (const j of joins) { userIds.add(j.user_id); communityIds.add(j.community_id); }
+      for (const c of newCommunities) { userIds.add(c.created_by); }
+
+      // Batch fetch users, markets, communities
+      const [usersResult, marketsResult, commResult] = await Promise.all([
+        userIds.size > 0
+          ? db.from("users").select("id, username, display_name, avatar_url, telegram_photo_url").in("id", [...userIds])
+          : Promise.resolve({ data: [] }),
+        marketIds.size > 0
+          ? db.from("markets").select("id, title_eng, title_rus").in("id", [...marketIds])
+          : Promise.resolve({ data: [] }),
+        communityIds.size > 0
+          ? (db as any).from("communities").select("id, slug, name, banner_url").in("id", [...communityIds])
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      type UInfo = { name: string; avatar: string | null };
+      type MInfo = { title: string };
+      type CInfo = { name: string; slug: string; bannerUrl: string | null };
+      const usersMap = new Map<string, UInfo>((usersResult.data ?? []).map((u: any) => [
+        String(u.id), { name: u.display_name ?? u.username ?? "", avatar: u.avatar_url ?? u.telegram_photo_url ?? null },
+      ]));
+      const marketsMap = new Map<string, MInfo>((marketsResult.data ?? []).map((m: any) => [
+        String(m.id), { title: m.title_eng ?? m.title_rus ?? "" },
+      ]));
+      const commMap = new Map<string, CInfo>((commResult.data ?? []).map((c: any) => [
+        String(c.id), { name: c.name, slug: c.slug, bannerUrl: c.banner_url ?? null },
+      ]));
+
+      type FeedItem = {
+        id: string;
+        type: "bet" | "join" | "community_created" | "market_created";
+        userId: string;
+        userName: string;
+        userAvatar: string | null;
+        marketId: string | null;
+        marketTitle: string | null;
+        communityId: string | null;
+        communityName: string | null;
+        communitySlug: string | null;
+        outcome: string | null;
+        createdAt: string;
+      };
+
+      const items: FeedItem[] = [];
+
+      // Trades → bets
+      for (const t of trades) {
+        const u = usersMap.get(t.user_id);
+        const m = marketsMap.get(t.market_id);
+        items.push({
+          id: `bet-${t.id}`,
+          type: "bet",
+          userId: t.user_id,
+          userName: u?.name ?? "",
+          userAvatar: u?.avatar ?? null,
+          marketId: t.market_id,
+          marketTitle: m?.title ?? null,
+          communityId: null,
+          communityName: null,
+          communitySlug: null,
+          outcome: t.outcome ?? null,
+          createdAt: t.created_at,
+        });
+      }
+
+      // Joins
+      for (const j of joins) {
+        const u = usersMap.get(j.user_id);
+        const c = commMap.get(j.community_id);
+        items.push({
+          id: `join-${j.user_id}-${j.community_id}`,
+          type: "join",
+          userId: j.user_id,
+          userName: u?.name ?? "",
+          userAvatar: u?.avatar ?? null,
+          marketId: null,
+          marketTitle: null,
+          communityId: j.community_id,
+          communityName: c?.name ?? null,
+          communitySlug: c?.slug ?? null,
+          outcome: null,
+          createdAt: j.joined_at,
+        });
+      }
+
+      // Community creations
+      for (const c of newCommunities) {
+        const u = usersMap.get(c.created_by);
+        items.push({
+          id: `comm-${c.id}`,
+          type: "community_created",
+          userId: c.created_by,
+          userName: u?.name ?? "",
+          userAvatar: u?.avatar ?? null,
+          marketId: null,
+          marketTitle: null,
+          communityId: c.id,
+          communityName: c.name,
+          communitySlug: c.slug,
+          outcome: null,
+          createdAt: c.created_at,
+        });
+      }
+
+      items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return items.slice(0, limit);
+    }),
 });
