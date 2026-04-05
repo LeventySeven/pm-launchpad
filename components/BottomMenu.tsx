@@ -35,7 +35,7 @@ const BottomMenu: React.FC<BottomMenuProps> = ({ currentView, onChange, lang, us
         <button
           type="button"
           onClick={() => { if (!user) { onLoginRequest(); return; } onCreateMarket(); }}
-          className="fixed z-[52] left-1/2 -translate-x-1/2 bottom-[52px] h-14 w-14 rounded-full bg-[rgba(245,68,166,1)] shadow-lg shadow-pink-500/30 flex items-center justify-center hover:opacity-90 active:scale-95 border-[3px] border-black"
+          className="fixed z-[81] left-1/2 -translate-x-1/2 bottom-[52px] h-14 w-14 rounded-full bg-[rgba(245,68,166,1)] shadow-lg shadow-pink-500/30 flex items-center justify-center hover:opacity-90 active:scale-95 border-[3px] border-black"
           style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
         >
           <Plus size={24} className="text-white" />
@@ -43,7 +43,7 @@ const BottomMenu: React.FC<BottomMenuProps> = ({ currentView, onChange, lang, us
       )}
 
       {/* Tab bar — fully opaque background */}
-      <nav className="fixed bottom-0 left-0 right-0 z-[51] border-t border-zinc-900 bg-black pb-safe">
+      <nav className="fixed bottom-0 left-0 right-0 z-[80] border-t border-zinc-900 bg-black pb-safe">
         <div className="h-14 flex items-stretch">
           <button onClick={() => onChange('FEED')} className={tabClass(currentView === 'FEED')}>
             <Newspaper size={18} />

@@ -3215,7 +3215,7 @@ export default function HomePageClient({
             <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">
               {lang === "RU" ? "Статус" : "Status"}
             </div>
-            <div role="radiogroup" className="space-y-2 mb-4">
+            <div role="radiogroup" className="flex flex-wrap gap-2 mb-4">
               {([
                 { id: "ALL" as const, labelRu: "Все", labelEn: "All" },
                 { id: "ONGOING" as const, labelRu: "Текущие", labelEn: "Ongoing" },
@@ -3229,13 +3229,13 @@ export default function HomePageClient({
                     role="radio"
                     aria-checked={selected}
                     onClick={() => setCatalogStatus(opt.id)}
-                    className={`w-full text-left rounded-xl border px-4 py-3 transition-colors ${
+                    className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-colors ${
                       selected
-                        ? "border-[rgba(245,68,166,1)] bg-[rgba(245,68,166,0.10)] text-white"
-                        : "border-zinc-900 bg-zinc-950/30 text-zinc-300 hover:bg-zinc-950/50"
+                        ? "border-[rgba(245,68,166,1)] bg-[rgba(245,68,166,0.15)] text-white"
+                        : "border-zinc-800 bg-zinc-950/40 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700"
                     }`}
                   >
-                    <div className="text-sm font-semibold">{lang === "RU" ? opt.labelRu : opt.labelEn}</div>
+                    {lang === "RU" ? opt.labelRu : opt.labelEn}
                   </button>
                 );
               })}
@@ -3244,11 +3244,11 @@ export default function HomePageClient({
             <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">
               {lang === "RU" ? "Время" : "Time"}
             </div>
-            <div role="radiogroup" className="space-y-2 mb-4">
+            <div role="radiogroup" className="flex flex-wrap gap-2 mb-4">
               {([
                 { id: "ANY" as const, labelRu: "Любое", labelEn: "Any" },
-                { id: "HOUR" as const, labelRu: "Закончится в течение часа", labelEn: "Ends within an hour" },
-                { id: "DAY" as const, labelRu: "Закончится в течение дня", labelEn: "Ends within a day" },
+                { id: "HOUR" as const, labelRu: "< 1ч", labelEn: "< 1h" },
+                { id: "DAY" as const, labelRu: "< 24ч", labelEn: "< 24h" },
               ]).map((opt) => {
                 const selected = catalogTimeFilter === opt.id;
                 return (
@@ -3258,13 +3258,13 @@ export default function HomePageClient({
                     role="radio"
                     aria-checked={selected}
                     onClick={() => setCatalogTimeFilter(opt.id)}
-                    className={`w-full text-left rounded-xl border px-4 py-3 transition-colors ${
+                    className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-colors ${
                       selected
-                        ? "border-[rgba(245,68,166,1)] bg-[rgba(245,68,166,0.10)] text-white"
-                        : "border-zinc-900 bg-zinc-950/30 text-zinc-300 hover:bg-zinc-950/50"
+                        ? "border-[rgba(245,68,166,1)] bg-[rgba(245,68,166,0.15)] text-white"
+                        : "border-zinc-800 bg-zinc-950/40 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700"
                     }`}
                   >
-                    <div className="text-sm font-semibold">{lang === "RU" ? opt.labelRu : opt.labelEn}</div>
+                    {lang === "RU" ? opt.labelRu : opt.labelEn}
                   </button>
                 );
               })}
@@ -3274,13 +3274,13 @@ export default function HomePageClient({
               {lang === "RU" ? "Сортировка" : "Sort"}
             </div>
 
-            <div role="radiogroup" className="space-y-2">
+            <div role="radiogroup" className="flex flex-wrap gap-2">
               {([
-                { id: "CREATED_DESC" as const, labelRu: "Дата создания ↓", labelEn: "Creation date ↓" },
-                { id: "CREATED_ASC" as const, labelRu: "Дата создания ↑", labelEn: "Creation date ↑" },
-                { id: "ENDING_SOON" as const, labelRu: "Скоро закончится", labelEn: "Ending soon" },
-                { id: "VOLUME_DESC" as const, labelRu: "Объём ↓", labelEn: "Volume ↓" },
-                { id: "VOLUME_ASC" as const, labelRu: "Объём ↑", labelEn: "Volume ↑" },
+                { id: "CREATED_DESC" as const, labelRu: "Новые", labelEn: "Newest" },
+                { id: "CREATED_ASC" as const, labelRu: "Старые", labelEn: "Oldest" },
+                { id: "ENDING_SOON" as const, labelRu: "Скоро", labelEn: "Ending" },
+                { id: "VOLUME_DESC" as const, labelRu: "Объём ↓", labelEn: "Vol ↓" },
+                { id: "VOLUME_ASC" as const, labelRu: "Объём ↑", labelEn: "Vol ↑" },
               ]).map((opt) => {
                 const selected = catalogSort === opt.id;
                 return (
@@ -3290,13 +3290,13 @@ export default function HomePageClient({
                     role="radio"
                     aria-checked={selected}
                     onClick={() => setCatalogSort(opt.id)}
-                    className={`w-full text-left rounded-xl border px-4 py-3 transition-colors ${
+                    className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-colors ${
                       selected
-                        ? "border-[rgba(245,68,166,1)] bg-[rgba(245,68,166,0.10)] text-white"
-                        : "border-zinc-900 bg-zinc-950/30 text-zinc-300 hover:bg-zinc-950/50"
+                        ? "border-[rgba(245,68,166,1)] bg-[rgba(245,68,166,0.15)] text-white"
+                        : "border-zinc-800 bg-zinc-950/40 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700"
                     }`}
                   >
-                    <div className="text-sm font-semibold">{lang === "RU" ? opt.labelRu : opt.labelEn}</div>
+                    {lang === "RU" ? opt.labelRu : opt.labelEn}
                   </button>
                 );
               })}
@@ -3305,7 +3305,7 @@ export default function HomePageClient({
             <button
               type="button"
               onClick={() => setCatalogFiltersOpen(false)}
-              className="mt-4 w-full h-11 rounded-full bg-[rgba(245,68,166,1)] hover:bg-[rgba(245,68,166,0.90)] text-white font-semibold transition-colors"
+              className="mt-5 w-full h-10 rounded-full bg-[rgba(245,68,166,1)] hover:bg-[rgba(245,68,166,0.90)] text-white text-sm font-semibold transition-colors"
             >
               {lang === "RU" ? "Готово" : "Done"}
             </button>
@@ -3481,7 +3481,7 @@ export default function HomePageClient({
 
       {/* Community Profile Page (full-screen overlay) */}
       {selectedCommunitySlug && (
-        <div className="fixed inset-0 z-[70] bg-black overflow-y-auto" data-swipe-ignore="true">
+        <div className="fixed inset-0 z-[70] bg-black overflow-y-auto pb-20" data-swipe-ignore="true">
           <CommunityProfilePage
             communitySlug={selectedCommunitySlug}
             user={user}
