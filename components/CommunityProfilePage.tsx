@@ -5,6 +5,7 @@ import { ArrowLeft, Users, BarChart3, Globe, Lock, Plus, Loader2, Search, Check,
 import { trpcClient } from "@/src/utils/trpcClient";
 import type { Market, User } from "@/types";
 import MarketCard from "@/components/MarketCard";
+import MarketLaunchCard from "@/components/MarketLaunchCard";
 import ShareCard from "@/components/ShareCard";
 
 type CommunityData = {
@@ -949,48 +950,28 @@ export default function CommunityProfilePage({
         </button>
       )}
 
-      {/* ── Quick Create Overlay ── */}
-      {quickCreateOpen && (
-        <div className="fixed inset-0 z-[85] bg-black/60 backdrop-blur-sm flex items-end justify-center" onClick={() => setQuickCreateOpen(false)}>
-          <div className="w-full max-w-md bg-[#111111] border-t border-zinc-800/60 rounded-t-2xl p-5 animate-slide-up" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-center pt-0 pb-3">
-              <div className="w-10 h-1 rounded-full bg-zinc-700" />
-            </div>
-            <div className="text-sm font-bold text-white mb-4">
-              {lang === "RU" ? "Новый прогноз" : "New Prediction"}
-            </div>
-            <input
-              type="text"
-              value={quickCreateTitle}
-              onChange={(e) => setQuickCreateTitle(e.target.value)}
-              placeholder={lang === "RU" ? "Что произойдёт?" : "What will happen?"}
-              autoFocus
-              maxLength={200}
-              className="w-full h-12 rounded-xl bg-zinc-950 border border-zinc-900 px-4 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700 mb-3"
-            />
-            <div className="flex items-center gap-2 mb-3">
-              <label className="text-xs text-zinc-500 shrink-0">{lang === "RU" ? "Дата:" : "Resolves:"}</label>
-              <input
-                type="datetime-local"
-                value={quickCreateDate}
-                onChange={(e) => setQuickCreateDate(e.target.value)}
-                className="flex-1 h-10 rounded-lg bg-zinc-950 border border-zinc-900 px-3 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-700"
-              />
-            </div>
-            {quickCreateError && (
-              <div className="text-xs text-red-400 mb-3">{quickCreateError}</div>
-            )}
-            <button
-              type="button"
-              onClick={() => void handleQuickCreate()}
-              disabled={quickCreateLoading || quickCreateTitle.trim().length < 5}
-              className="w-full h-12 rounded-full bg-[rgba(245,68,166,1)] hover:opacity-90 disabled:opacity-40 text-white font-semibold text-sm flex items-center justify-center gap-2 transition"
-            >
-              {quickCreateLoading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-              {lang === "RU" ? "Создать" : "Create"}
-            </button>
-          </div>
-        </div>
+      {/* ── Quick Create via Launch Card ── */}
+      {quickCreateOpen && user && (
+        <MarketLaunchCard
+          user={user}
+          lang={lang}
+          onClose={() => setQuickCreateOpen(false)}
+          onLaunch={async (data) => {
+            if (!community) return;
+            const result = await trpcClient.market.quickCreate.mutate({
+              communityId: community.id,
+              title: data.title,
+              resolvesAt: data.resolvesAt,
+              imageUrl: data.imageUrl,
+              lang,
+            });
+            setQuickCreateOpen(false);
+            setShareCardMarketId(result.id);
+            setShareCardTitle(result.title);
+            setShareCardOpen(true);
+            void loadCommunity();
+          }}
+        />
       )}
 
       {/* ── Create Event Modal ── */}

@@ -3302,6 +3302,7 @@ export const marketRouter = router({
         title: z.string().min(5).max(200),
         resolvesAt: z.string(), // ISO datetime
         lang: z.enum(["RU", "EN"]).optional(),
+        imageUrl: z.string().url().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -3360,7 +3361,7 @@ export const marketRouter = router({
           title_eng: isRu ? null : title,
           description: null,
           source: null,
-          image_url: null,
+          image_url: input.imageUrl ?? null,
           state: "open",
           closes_at: isoDate,
           expires_at: isoDate,

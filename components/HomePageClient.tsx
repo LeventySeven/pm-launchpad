@@ -9,6 +9,7 @@ import MarketPage from "@/components/MarketPage";
 import OnboardingModal from "@/components/OnboardingModal";
 import BetConfirmModal from "@/components/BetConfirmModal";
 import AdminMarketModal from "@/components/AdminMarketModal";
+import MarketLaunchCard from "@/components/MarketLaunchCard";
 import ProfilePage from "@/components/ProfilePage";
 import PublicUserProfileModal from "@/components/PublicUserProfileModal";
 import Button from "@/components/Button";
@@ -603,6 +604,7 @@ export default function HomePageClient({
   type MarketBetIntent = { marketId: string; side?: "YES" | "NO"; outcomeId?: string; nonce: number } | null;
   const [marketBetIntent, setMarketBetIntent] = useState<MarketBetIntent>(null);
   const [showAdminModal, setShowAdminModal] = useState(false);
+  const [showLaunchCard, setShowLaunchCard] = useState(false);
   const [selectedCommunitySlug, setSelectedCommunitySlug] = useState<string | null>(initialCommunitySlug ?? null);
   const [showCommunityCreateModal, setShowCommunityCreateModal] = useState(false);
   const [marketCandles, setMarketCandles] = useState<PriceCandle[]>([]);
@@ -2914,7 +2916,7 @@ export default function HomePageClient({
             onLoginRequest={() => openAuth("SIGN_IN")}
             onCreateMarket={() => {
               if (currentView !== "FEED") goToView("FEED");
-              setShowAdminModal(true);
+              setShowLaunchCard(true);
             }}
             onAggregatorClick={() => setAggregatorOpen(true)}
             onChange={(view) => {
@@ -3179,7 +3181,7 @@ export default function HomePageClient({
             onLoginRequest={() => openAuth("SIGN_IN")}
             onCreateMarket={() => {
               if (currentView !== "FEED") goToView("FEED");
-              setShowAdminModal(true);
+              setShowLaunchCard(true);
             }}
             onAggregatorClick={() => setAggregatorOpen(true)}
             onChange={(view) => {
@@ -3521,6 +3523,34 @@ export default function HomePageClient({
           setSelectedCommunitySlug(created.slug);
         }}
       />
+      {/* Market Launch Card (quick create for all users) */}
+      {showLaunchCard && user && (
+        <MarketLaunchCard
+          user={user}
+          lang={lang}
+          onClose={() => setShowLaunchCard(false)}
+          onLaunch={async (data) => {
+            // Use full createMarket endpoint with a default category
+            const cats = marketCategories.length > 0 ? marketCategories : [];
+            const categoryId = cats[0]?.id ?? "";
+            if (!categoryId) {
+              await loadMarketCategories();
+            }
+            const finalCatId = categoryId || marketCategories[0]?.id || "";
+            await trpcClient.market.createMarket.mutate({
+              titleEn: data.title,
+              expiresAt: data.resolvesAt,
+              categoryId: finalCatId,
+              imageUrl: data.imageUrl ?? null,
+              settlementAssetCode: "VOTE",
+              marketType: "binary",
+            });
+            await loadMarkets();
+            setShowLaunchCard(false);
+          }}
+        />
+      )}
+
       <AdminMarketModal
         isOpen={showAdminModal}
         onClose={() => setShowAdminModal(false)}
