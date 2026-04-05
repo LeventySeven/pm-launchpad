@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Users, BarChart3, Globe, Lock, Plus, Loader2, Search, Check, Calendar, MessageCircle, X, Send, MapPin, ChevronDown, Camera } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, Users, BarChart3, Globe, Lock, Plus, Loader2, Search, Check, Calendar, MessageCircle, X, Send, MapPin, ChevronDown, Camera, Image as ImageIcon } from "lucide-react";
 import { trpcClient } from "@/src/utils/trpcClient";
 import type { Market, User } from "@/types";
 import MarketCard from "@/components/MarketCard";
@@ -37,6 +37,7 @@ type EventData = {
   groupId: string | null;
   title: string;
   description: string | null;
+  imageUrl: string | null;
   startsAt: string;
   endsAt: string | null;
   location: string | null;
@@ -123,6 +124,21 @@ export default function CommunityProfilePage({
   const [eventGroups, setEventGroups] = useState<EventGroupData[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  // Event creation
+  const [showCreateEvent, setShowCreateEvent] = useState(false);
+  const [newEventTitle, setNewEventTitle] = useState("");
+  const [newEventDescription, setNewEventDescription] = useState("");
+  const [newEventDate, setNewEventDate] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 16);
+  });
+  const [newEventEndDate, setNewEventEndDate] = useState("");
+  const [newEventLocation, setNewEventLocation] = useState("");
+  const [newEventImageFile, setNewEventImageFile] = useState<File | null>(null);
+  const [newEventImagePreview, setNewEventImagePreview] = useState<string | null>(null);
+  const [createEventLoading, setCreateEventLoading] = useState(false);
+  const [createEventError, setCreateEventError] = useState<string | null>(null);
+  const eventImageInputRef = useRef<HTMLInputElement | null>(null);
   // Messages
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -219,6 +235,7 @@ export default function CommunityProfilePage({
         groupId: e.groupId,
         title: e.title,
         description: e.description,
+        imageUrl: e.imageUrl,
         startsAt: e.startsAt,
         endsAt: e.endsAt,
         location: e.location,
@@ -300,6 +317,50 @@ export default function CommunityProfilePage({
         setQuickCreateError(lang === "RU" ? "Не удалось создать" : "Failed to create");
       }
     } finally { setQuickCreateLoading(false); }
+  };
+
+  // Event creation handler
+  const handleCreateEvent = async () => {
+    if (!community || !user || createEventLoading) return;
+    const title = newEventTitle.trim();
+    if (title.length < 2) {
+      setCreateEventError(lang === "RU" ? "Введите название" : "Enter a title");
+      return;
+    }
+    setCreateEventLoading(true);
+    setCreateEventError(null);
+    try {
+      let imageUrl: string | undefined;
+      if (newEventImageFile) {
+        const fd = new FormData();
+        fd.append("file", newEventImageFile);
+        const resp = await fetch("/api/market-image/upload", { method: "POST", body: fd });
+        const data = (await resp.json()) as { imageUrl?: string; error?: string };
+        if (!resp.ok || !data.imageUrl) throw new Error(data.error || "UPLOAD_FAILED");
+        imageUrl = data.imageUrl;
+      }
+      await trpcClient.community.createEvent.mutate({
+        communityId: community.id,
+        title,
+        description: newEventDescription.trim() || undefined,
+        imageUrl,
+        startsAt: new Date(newEventDate).toISOString(),
+        endsAt: newEventEndDate ? new Date(newEventEndDate).toISOString() : undefined,
+        location: newEventLocation.trim() || undefined,
+      });
+      setShowCreateEvent(false);
+      setNewEventTitle("");
+      setNewEventDescription("");
+      setNewEventLocation("");
+      setNewEventImageFile(null);
+      setNewEventImagePreview(null);
+      setNewEventEndDate("");
+      void loadEvents();
+    } catch {
+      setCreateEventError(lang === "RU" ? "Не удалось создать событие" : "Failed to create event");
+    } finally {
+      setCreateEventLoading(false);
+    }
   };
 
   // Activity feed: mix member joins + community market cards, sorted by date
@@ -698,6 +759,18 @@ export default function CommunityProfilePage({
         {/* Events tab */}
         {tab === "EVENTS" && (
           <div>
+            {/* Create event button */}
+            {isMember && (
+              <button
+                type="button"
+                onClick={() => { if (!user) { onLogin(); return; } setShowCreateEvent(true); }}
+                className="w-full mb-4 h-11 rounded-xl border border-dashed border-zinc-800 bg-zinc-950/30 hover:bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+              >
+                <Plus size={16} />
+                {lang === "RU" ? "Создать событие" : "Create event"}
+              </button>
+            )}
+
             {/* Event group filter chips */}
             {eventGroups.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
@@ -745,34 +818,40 @@ export default function CommunityProfilePage({
                   const date = new Date(ev.startsAt);
                   const isPast = date.getTime() < Date.now();
                   return (
-                    <div key={ev.id} className={`border border-zinc-800/60 bg-zinc-950/40 rounded-2xl p-4 ${isPast ? "opacity-60" : ""}`}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            {group && (
-                              <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider" style={{ backgroundColor: `${group.color}30`, color: group.color }}>
-                                {group.title}
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-sm font-bold text-white">{ev.title}</div>
-                          {ev.description && <div className="text-xs text-zinc-400 mt-1 line-clamp-2">{ev.description}</div>}
-                          <div className="flex items-center gap-3 mt-2 text-[11px] text-zinc-500">
-                            <span className="flex items-center gap-1">
-                              <Calendar size={11} />
-                              {date.toLocaleDateString(lang === "RU" ? "ru-RU" : "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                            </span>
-                            {ev.location && (
+                    <div key={ev.id} className={`border border-zinc-800/60 bg-zinc-950/40 rounded-2xl overflow-hidden ${isPast ? "opacity-60" : ""}`}>
+                      {ev.imageUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={ev.imageUrl} alt={ev.title} className="w-full h-32 object-cover" />
+                      )}
+                      <div className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              {group && (
+                                <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider" style={{ backgroundColor: `${group.color}30`, color: group.color }}>
+                                  {group.title}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm font-bold text-white">{ev.title}</div>
+                            {ev.description && <div className="text-xs text-zinc-400 mt-1 line-clamp-2">{ev.description}</div>}
+                            <div className="flex items-center gap-3 mt-2 text-[11px] text-zinc-500">
                               <span className="flex items-center gap-1">
-                                <MapPin size={11} />
-                                <span className="truncate max-w-[120px]">{ev.location}</span>
+                                <Calendar size={11} />
+                                {date.toLocaleDateString(lang === "RU" ? "ru-RU" : "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                               </span>
-                            )}
+                              {ev.location && (
+                                <span className="flex items-center gap-1">
+                                  <MapPin size={11} />
+                                  <span className="truncate max-w-[120px]">{ev.location}</span>
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <div className="shrink-0 text-center bg-zinc-900 rounded-xl px-3 py-2 border border-zinc-800">
-                          <div className="text-lg font-bold text-white leading-none">{date.getDate()}</div>
-                          <div className="text-[10px] uppercase text-zinc-400">{date.toLocaleDateString(lang === "RU" ? "ru-RU" : "en-US", { month: "short" })}</div>
+                          <div className="shrink-0 text-center bg-zinc-900 rounded-xl px-3 py-2 border border-zinc-800">
+                            <div className="text-lg font-bold text-white leading-none">{date.getDate()}</div>
+                            <div className="text-[10px] uppercase text-zinc-400">{date.toLocaleDateString(lang === "RU" ? "ru-RU" : "en-US", { month: "short" })}</div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -909,6 +988,143 @@ export default function CommunityProfilePage({
             >
               {quickCreateLoading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
               {lang === "RU" ? "Создать" : "Create"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Create Event Modal ── */}
+      {showCreateEvent && (
+        <div className="fixed inset-0 z-[85] bg-black/60 backdrop-blur-sm flex items-end justify-center" onClick={() => setShowCreateEvent(false)}>
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-[#111111] border-t border-zinc-800/60 rounded-t-2xl p-5 animate-slide-up" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-center pt-0 pb-3">
+              <div className="w-10 h-1 rounded-full bg-zinc-700" />
+            </div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-sm font-bold text-white">
+                {lang === "RU" ? "Новое событие" : "New Event"}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateEvent(false)}
+                className="h-8 w-8 rounded-full border border-zinc-800 bg-zinc-950/40 hover:bg-zinc-950/60 flex items-center justify-center text-zinc-400"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* Image upload */}
+            <input
+              ref={eventImageInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                setNewEventImageFile(f);
+                if (f) {
+                  const url = URL.createObjectURL(f);
+                  setNewEventImagePreview(url);
+                } else {
+                  setNewEventImagePreview(null);
+                }
+              }}
+            />
+            {newEventImagePreview ? (
+              <div className="relative mb-3 rounded-xl overflow-hidden border border-zinc-800">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={newEventImagePreview} alt="" className="w-full h-32 object-cover" />
+                <button
+                  type="button"
+                  onClick={() => { setNewEventImageFile(null); setNewEventImagePreview(null); }}
+                  className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/70 flex items-center justify-center text-zinc-300 hover:text-white"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => eventImageInputRef.current?.click()}
+                className="w-full mb-3 h-20 rounded-xl border border-dashed border-zinc-800 bg-zinc-950/30 hover:bg-zinc-950/60 text-zinc-500 hover:text-zinc-300 flex flex-col items-center justify-center gap-1 transition-colors"
+              >
+                <ImageIcon size={20} />
+                <span className="text-[11px]">{lang === "RU" ? "Добавить обложку" : "Add cover image"}</span>
+              </button>
+            )}
+
+            {/* Title */}
+            <input
+              type="text"
+              value={newEventTitle}
+              onChange={(e) => setNewEventTitle(e.target.value)}
+              placeholder={lang === "RU" ? "Название события" : "Event title"}
+              autoFocus
+              maxLength={200}
+              className="w-full h-12 rounded-xl bg-zinc-950 border border-zinc-900 px-4 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700 mb-3"
+            />
+
+            {/* Description */}
+            <textarea
+              value={newEventDescription}
+              onChange={(e) => setNewEventDescription(e.target.value)}
+              placeholder={lang === "RU" ? "Описание (необязательно)" : "Description (optional)"}
+              maxLength={2000}
+              rows={2}
+              className="w-full rounded-xl bg-zinc-950 border border-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700 mb-3 resize-none"
+            />
+
+            {/* Dates */}
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <div>
+                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1 block">
+                  {lang === "RU" ? "Начало" : "Start"}
+                </label>
+                <input
+                  type="datetime-local"
+                  value={newEventDate}
+                  onChange={(e) => setNewEventDate(e.target.value)}
+                  className="w-full h-10 rounded-lg bg-zinc-950 border border-zinc-900 px-3 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-700"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1 block">
+                  {lang === "RU" ? "Конец" : "End"}
+                </label>
+                <input
+                  type="datetime-local"
+                  value={newEventEndDate}
+                  onChange={(e) => setNewEventEndDate(e.target.value)}
+                  className="w-full h-10 rounded-lg bg-zinc-950 border border-zinc-900 px-3 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-700"
+                />
+              </div>
+            </div>
+
+            {/* Location */}
+            <div className="flex items-center gap-2 mb-3">
+              <MapPin size={14} className="text-zinc-500 shrink-0" />
+              <input
+                type="text"
+                value={newEventLocation}
+                onChange={(e) => setNewEventLocation(e.target.value)}
+                placeholder={lang === "RU" ? "Место (необязательно)" : "Location (optional)"}
+                maxLength={500}
+                className="flex-1 h-10 rounded-lg bg-zinc-950 border border-zinc-900 px-3 text-xs text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700"
+              />
+            </div>
+
+            {createEventError && (
+              <div className="text-xs text-red-400 mb-3">{createEventError}</div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => void handleCreateEvent()}
+              disabled={createEventLoading || newEventTitle.trim().length < 2}
+              className="w-full h-12 rounded-full bg-[rgba(245,68,166,1)] hover:opacity-90 disabled:opacity-40 text-white font-semibold text-sm flex items-center justify-center gap-2 transition"
+            >
+              {createEventLoading ? <Loader2 size={16} className="animate-spin" /> : <Calendar size={16} />}
+              {lang === "RU" ? "Создать событие" : "Create Event"}
             </button>
           </div>
         </div>
