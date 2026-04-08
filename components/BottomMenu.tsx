@@ -2,6 +2,7 @@
 import React from 'react';
 import { BarChart3, Compass, User as UserIcon, Newspaper, Plus, LayoutGrid } from 'lucide-react';
 import { User } from '../types';
+import { useHaptics } from '../lib/useHaptics';
 
 export type ViewType = 'LEADERBOARD' | 'FEED' | 'SOCIAL' | 'PROFILE';
 
@@ -16,6 +17,7 @@ interface BottomMenuProps {
 }
 
 const BottomMenu: React.FC<BottomMenuProps> = ({ currentView, onChange, lang, user, onLoginRequest, onCreateMarket, onAggregatorClick }) => {
+  const { selection } = useHaptics();
 
   const handleProtectedClick = (view: ViewType) => {
     if (!user && view === 'PROFILE') {
@@ -45,12 +47,12 @@ const BottomMenu: React.FC<BottomMenuProps> = ({ currentView, onChange, lang, us
       {/* Tab bar — fully opaque background */}
       <nav className="fixed bottom-0 left-0 right-0 z-[80] border-t border-zinc-900 bg-black pb-safe">
         <div className="h-14 flex items-stretch">
-          <button onClick={() => onChange('FEED')} className={tabClass(currentView === 'FEED')}>
+          <button onClick={() => { selection(); onChange('FEED'); }} className={tabClass(currentView === 'FEED')}>
             <Newspaper size={18} />
             <span className="text-[10px] font-medium leading-none">{lang === 'RU' ? 'Лента' : 'Feed'}</span>
           </button>
 
-          <button onClick={() => onChange('SOCIAL')} className={tabClass(currentView === 'SOCIAL')}>
+          <button onClick={() => { selection(); onChange('SOCIAL'); }} className={tabClass(currentView === 'SOCIAL')}>
             <Compass size={18} />
             <span className="text-[10px] font-medium leading-none">{lang === 'RU' ? 'Хабы' : 'Hubs'}</span>
           </button>
@@ -59,18 +61,18 @@ const BottomMenu: React.FC<BottomMenuProps> = ({ currentView, onChange, lang, us
           <div className="flex-1" />
 
           {onAggregatorClick ? (
-            <button onClick={onAggregatorClick} className={tabClass(false)}>
+            <button onClick={() => { selection(); onAggregatorClick?.(); }} className={tabClass(false)}>
               <LayoutGrid size={18} />
               <span className="text-[10px] font-medium leading-none">{lang === 'RU' ? 'Маркет' : 'Market'}</span>
             </button>
           ) : (
-            <button onClick={() => onChange('LEADERBOARD')} className={tabClass(currentView === 'LEADERBOARD')}>
+            <button onClick={() => { selection(); onChange('LEADERBOARD'); }} className={tabClass(currentView === 'LEADERBOARD')}>
               <BarChart3 size={18} />
               <span className="text-[10px] font-medium leading-none">{lang === 'RU' ? 'Топ' : 'Top'}</span>
             </button>
           )}
 
-          <button onClick={() => handleProtectedClick('PROFILE')} className={tabClass(currentView === 'PROFILE')}>
+          <button onClick={() => { selection(); handleProtectedClick('PROFILE'); }} className={tabClass(currentView === 'PROFILE')}>
             <UserIcon size={18} />
             <span className="text-[10px] font-medium leading-none">{lang === 'RU' ? 'Профиль' : 'Profile'}</span>
           </button>

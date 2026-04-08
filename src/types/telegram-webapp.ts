@@ -28,6 +28,12 @@ type TelegramWebApp = {
   expand?: () => void;
   /** Current platform: "android" | "ios" | "tdesktop" | "web" | etc */
   platform?: string;
+  /** Haptic feedback API for native vibration */
+  HapticFeedback?: {
+    impactOccurred?: (style: "light" | "medium" | "heavy" | "rigid" | "soft") => void;
+    notificationOccurred?: (type: "error" | "success" | "warning") => void;
+    selectionChanged?: () => void;
+  };
 };
 
 declare global {

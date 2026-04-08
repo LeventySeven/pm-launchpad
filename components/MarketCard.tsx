@@ -2,6 +2,7 @@ import React from 'react';
 import { Market } from '../types';
 import { Clock } from 'lucide-react';
 import { formatTimeRemaining } from '../lib/time';
+import { useHaptics } from '../lib/useHaptics';
 
 interface MarketCardProps {
   market: Market;
@@ -12,6 +13,7 @@ interface MarketCardProps {
 }
 
 const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, onQuickBet, bookmarked = false, lang = 'EN' }) => {
+  const { impact } = useHaptics();
   const localizedTitle =
     lang === 'RU'
       ? market.titleRu ?? market.titleEn ?? market.title
@@ -144,18 +146,7 @@ const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, onQuickBet, bo
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onQuickBet?.("YES");
-              }}
-              className="h-10 rounded-xl border border-zinc-900 bg-zinc-950/40 px-3 text-sm font-semibold text-zinc-200 hover:border-[rgba(190,255,29,1)] hover:text-white active:border-[rgba(190,255,29,1)] active:text-white transition-colors flex items-center justify-between tabular-nums"
-              aria-label={`${yesLabel} ${market.chance}%`}
-            >
-              <span>{yesLabel}</span>
-              <span className="font-mono">{market.chance}%</span>
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
+                impact("light");
                 onQuickBet?.("NO");
               }}
               className="h-10 rounded-xl border border-zinc-900 bg-zinc-950/40 px-3 text-sm font-semibold text-zinc-200 hover:border-[rgba(245,68,166,1)] hover:text-white transition-colors flex items-center justify-between tabular-nums"
@@ -163,6 +154,19 @@ const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, onQuickBet, bo
             >
               <span>{noLabel}</span>
               <span className="font-mono">{100 - market.chance}%</span>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                impact("light");
+                onQuickBet?.("YES");
+              }}
+              className="h-10 rounded-xl border border-zinc-900 bg-zinc-950/40 px-3 text-sm font-semibold text-zinc-200 hover:border-[rgba(190,255,29,1)] hover:text-white active:border-[rgba(190,255,29,1)] active:text-white transition-colors flex items-center justify-between tabular-nums"
+              aria-label={`${yesLabel} ${market.chance}%`}
+            >
+              <span>{yesLabel}</span>
+              <span className="font-mono">{market.chance}%</span>
             </button>
           </div>
         )}

@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 import Button from './Button';
+import { useHaptics } from '../lib/useHaptics';
 
 export type BetConfirmModalProps = {
   isOpen: boolean;
@@ -25,6 +26,14 @@ export const BetConfirmModal: React.FC<BetConfirmModalProps> = ({
   errorMessage,
   isLoading = false,
 }) => {
+  const { notification } = useHaptics();
+
+  useEffect(() => {
+    if (!isOpen || isLoading) return;
+    if (errorMessage) notification("error");
+    else notification("success");
+  }, [isOpen, isLoading, errorMessage]);
+
   if (!isOpen) return null;
 
   const isError = Boolean(errorMessage);

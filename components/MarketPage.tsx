@@ -6,6 +6,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { formatTimeRemaining } from '../lib/time';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useOnChainMarketData } from '../lib/solana/hooks';
+import { useHaptics } from '../lib/useHaptics';
 
 type ErrorLike = string | Error | { message?: string } | null | undefined;
 
@@ -140,6 +141,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
   onEditMarket,
   onDeleteMarket,
 }) => {
+  const { impact, selection } = useHaptics();
   const [activeTab, setActiveTab] = useState<'COMMENTS' | 'ACTIVITY'>('COMMENTS');
   const [commentText, setCommentText] = useState('');
   const [commentSendError, setCommentSendError] = useState<string | null>(null);
@@ -516,6 +518,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
     }
     setPlaceError(null);
     setPlacing(true);
+    impact("medium");
     try {
       await onPlaceBet({
         side: isMulti ? undefined : tradeType,
@@ -1043,22 +1046,32 @@ const MarketPage: React.FC<MarketPageProps> = ({
                                 : '0.00'}
                             </span>
                           </div>
-                          <Button
-                            fullWidth
-                            className="mt-3 !bg-zinc-800 !text-white hover:!bg-zinc-700"
-                            onClick={() =>
-                              onSellPosition({
-                                marketId: market.id,
-                                side: position.outcome ?? undefined,
-                                outcomeId: position.outcomeId ?? undefined,
-                                shares: position.shares ?? 0,
-                              })
-                            }
-                          >
-                            {lang === 'RU'
-                              ? `Продать ${position.outcomeTitle ?? (position.outcome === 'YES' ? 'ДА' : position.outcome === 'NO' ? 'НЕТ' : 'опцию')}`
-                              : `Sell ${position.outcomeTitle ?? position.outcome ?? 'option'}`}
-                          </Button>
+                          {(() => {
+                            const posPrice = isMulti
+                              ? ((market.outcomes ?? []).find(o => o.id === position.outcomeId)?.probability ?? 0)
+                              : (position.outcome === 'YES' ? market.yesPrice : market.noPrice);
+                            const estValue = (position.shares ?? 0) * posPrice;
+                            const outcomeLabel = position.outcomeTitle ?? (position.outcome === 'YES' ? (lang === 'RU' ? 'ДА' : 'YES') : position.outcome === 'NO' ? (lang === 'RU' ? 'НЕТ' : 'NO') : (lang === 'RU' ? 'опцию' : 'option'));
+                            return (
+                              <Button
+                                fullWidth
+                                className="mt-3 !bg-zinc-800 !text-white hover:!bg-zinc-700"
+                                onClick={() => {
+                                  impact("medium");
+                                  onSellPosition({
+                                    marketId: market.id,
+                                    side: position.outcome ?? undefined,
+                                    outcomeId: position.outcomeId ?? undefined,
+                                    shares: position.shares ?? 0,
+                                  });
+                                }}
+                              >
+                                {lang === 'RU'
+                                  ? `Продать ${outcomeLabel} ($${estValue.toFixed(2)})`
+                                  : `Sell ${outcomeLabel} ($${estValue.toFixed(2)})`}
+                              </Button>
+                            );
+                          })()}
                         </div>
                       ))}
                     </div>

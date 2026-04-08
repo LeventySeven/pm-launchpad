@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import Button from './Button';
 import { Globe } from 'lucide-react';
+import { useHaptics } from '../lib/useHaptics';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -52,6 +53,7 @@ const contentByLang = {
 const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, lang, onToggleLang }) => {
   const [step, setStep] = useState(1);
   const [demoPick, setDemoPick] = useState<'YES' | 'NO' | null>(null);
+  const { impact } = useHaptics();
   const telegramBotUsername = (process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'yalla_predict')
     .trim()
     .replace(/^@/, '');
@@ -99,19 +101,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, lang
               <div className="w-full flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setDemoPick("YES")}
-                  className={`flex-1 p-3 rounded-lg border flex flex-col items-center justify-center transition-all duration-200 active:scale-[0.98] ${
-                    demoPick === "YES"
-                      ? "bg-[rgba(190,255,29,1)] border-[rgba(190,255,29,1)] text-black shadow-[0_0_22px_rgba(190,255,29,0.22)]"
-                      : "bg-black border-neutral-800 text-white hover:border-neutral-600"
-                  }`}
-                >
-                  <span className="text-lg font-bold mb-1">{lang === "RU" ? "ДА" : "YES"}</span>
-                  <span className={`text-xs font-mono ${demoPick === "YES" ? "text-black/70" : "text-neutral-400"}`}>Outcome A</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDemoPick("NO")}
+                  onClick={() => { impact("light"); setDemoPick("NO"); }}
                   className={`flex-1 p-3 rounded-lg border flex flex-col items-center justify-center transition-all duration-200 active:scale-[0.98] ${
                     demoPick === "NO"
                       ? "bg-[rgba(245,68,166,1)] border-[rgba(245,68,166,1)] text-white shadow-[0_0_22px_rgba(245,68,166,0.18)]"
@@ -120,6 +110,18 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, lang
                 >
                   <span className="text-lg font-bold mb-1">{lang === "RU" ? "НЕТ" : "NO"}</span>
                   <span className={`text-xs font-mono ${demoPick === "NO" ? "text-white/80" : "text-neutral-400"}`}>Outcome B</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { impact("light"); setDemoPick("YES"); }}
+                  className={`flex-1 p-3 rounded-lg border flex flex-col items-center justify-center transition-all duration-200 active:scale-[0.98] ${
+                    demoPick === "YES"
+                      ? "bg-[rgba(190,255,29,1)] border-[rgba(190,255,29,1)] text-black shadow-[0_0_22px_rgba(190,255,29,0.22)]"
+                      : "bg-black border-neutral-800 text-white hover:border-neutral-600"
+                  }`}
+                >
+                  <span className="text-lg font-bold mb-1">{lang === "RU" ? "ДА" : "YES"}</span>
+                  <span className={`text-xs font-mono ${demoPick === "YES" ? "text-black/70" : "text-neutral-400"}`}>Outcome A</span>
                 </button>
               </div>
               <div className="mt-3 text-xs text-neutral-500">

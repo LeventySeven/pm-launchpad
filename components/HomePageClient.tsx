@@ -8,6 +8,8 @@ import MarketCard from "@/components/MarketCard";
 import MarketPage from "@/components/MarketPage";
 import OnboardingModal from "@/components/OnboardingModal";
 import BetConfirmModal from "@/components/BetConfirmModal";
+import SellConfirmModal from "@/components/SellConfirmModal";
+import { useHaptics } from "@/lib/useHaptics";
 import AdminMarketModal from "@/components/AdminMarketModal";
 import MarketLaunchCard from "@/components/MarketLaunchCard";
 import ProfilePage from "@/components/ProfilePage";
@@ -296,6 +298,7 @@ export default function HomePageClient({
     return { markets: [] as SSRMarketApiRow[], categories: [] as SSRMarketCategoryRow[], source: "none" as const };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only compute once on mount
+  const { selection: hapticSelection } = useHaptics();
   const [activeCategoryId, setActiveCategoryId] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -601,6 +604,19 @@ export default function HomePageClient({
     errorMessage?: string | null;
     isLoading?: boolean;
   }>({ open: false, marketTitle: "", side: "YES", amount: 0, newBalance: undefined, errorMessage: null });
+  const [sellConfirm, setSellConfirm] = useState<{
+    open: boolean;
+    marketTitle: string;
+    outcomeSide: string;
+    shares: number;
+    estimatedValue: number;
+    marketId: string;
+    side?: "YES" | "NO";
+    outcomeId?: string;
+    result?: { payout: number; newBalance: number } | null;
+    errorMessage?: string | null;
+    isLoading?: boolean;
+  }>({ open: false, marketTitle: "", outcomeSide: "", shares: 0, estimatedValue: 0, marketId: "" });
   type MarketBetIntent = { marketId: string; side?: "YES" | "NO"; outcomeId?: string; nonce: number } | null;
   const [marketBetIntent, setMarketBetIntent] = useState<MarketBetIntent>(null);
   const [showAdminModal, setShowAdminModal] = useState(false);
@@ -2595,9 +2611,9 @@ export default function HomePageClient({
   }, [user, postAuthAction, marketCategories.length, loadingMarketCategories, loadMarketCategories, markets, navigateToMarketUrl]);
 
   /**
-   * Handle selling a position (cash out)
+   * Open sell confirmation modal (does NOT execute the sell yet)
    */
-  const handleSellPosition = async ({
+  const requestSellConfirmation = async ({
     marketId,
     side,
     outcomeId,
@@ -2609,6 +2625,46 @@ export default function HomePageClient({
     shares: number;
   }) => {
     if (!user) return;
+    const marketForAsset =
+      selectedMarket && selectedMarket.id === marketId
+        ? selectedMarket
+        : feedMarkets.find((m) => m.id === marketId) || filteredMarkets.find((m) => m.id === marketId) || null;
+    const marketTitle = (() => {
+      if (!marketForAsset) return "";
+      return lang === "RU"
+        ? (marketForAsset as any).titleRu ?? (marketForAsset as any).titleEn ?? marketForAsset.title
+        : (marketForAsset as any).titleEn ?? (marketForAsset as any).titleRu ?? marketForAsset.title;
+    })();
+    const isMulti = marketForAsset?.marketType === "multi_choice" && Array.isArray((marketForAsset as any).outcomes);
+    const posPrice = isMulti
+      ? (((marketForAsset as any).outcomes ?? []).find((o: any) => o.id === outcomeId)?.probability ?? 0)
+      : (side === "YES" ? (marketForAsset?.yesPrice ?? 0.5) : (marketForAsset?.noPrice ?? 0.5));
+    const estimatedValue = shares * posPrice;
+    const outcomeSide = isMulti
+      ? (((marketForAsset as any).outcomes ?? []).find((o: any) => o.id === outcomeId)?.title ?? side ?? "Option")
+      : (side ?? "Option");
+    setSellConfirm({
+      open: true,
+      marketTitle,
+      outcomeSide,
+      shares,
+      estimatedValue,
+      marketId,
+      side: side as "YES" | "NO" | undefined,
+      outcomeId,
+      result: null,
+      errorMessage: null,
+      isLoading: false,
+    });
+  };
+
+  /**
+   * Execute the sell (called when user confirms in modal)
+   */
+  const executeSell = async () => {
+    if (!user) return;
+    const { marketId, side, outcomeId, shares } = sellConfirm;
+    setSellConfirm((prev) => ({ ...prev, isLoading: true, errorMessage: null, result: null }));
 
     try {
       const marketForAsset =
@@ -2619,15 +2675,9 @@ export default function HomePageClient({
       const isOnChain = settlementAsset === "USDC" || settlementAsset === "USDT";
 
       if (isOnChain) {
-        if (!side) {
-          throw new Error("SIDE_REQUIRED_FOR_ONCHAIN");
-        }
-        if (!user.isAdmin) {
-          throw new Error("ONCHAIN_UNAVAILABLE");
-        }
-        if (!isWalletConnected || !publicKey) {
-          throw new Error("WALLET_NOT_CONNECTED");
-        }
+        if (!side) throw new Error("SIDE_REQUIRED_FOR_ONCHAIN");
+        if (!user.isAdmin) throw new Error("ONCHAIN_UNAVAILABLE");
+        if (!isWalletConnected || !publicKey) throw new Error("WALLET_NOT_CONNECTED");
         const res = await trpcClient.market.prepareSell.mutate({
           marketId,
           side,
@@ -2639,15 +2689,15 @@ export default function HomePageClient({
         const tx = Transaction.from(Buffer.from(res.txBase64, "base64"));
         const signature = await sendOnchainTransaction(tx);
         await connection.confirmTransaction(signature, "confirmed");
-
-        const finalized = await trpcClient.market.finalizeSell.mutate({
-          marketId,
-          signature,
-        });
+        const finalized = await trpcClient.market.finalizeSell.mutate({ marketId, signature });
         const newBalanceMajor = toMajorUnits(finalized.newBalanceMinor);
         setUser((prev) => (prev ? { ...prev, balance: newBalanceMajor } : prev));
         setWalletBalanceMajor(newBalanceMajor);
-
+        setSellConfirm((prev) => ({
+          ...prev,
+          isLoading: false,
+          result: { payout: shares * (side === "YES" ? (marketForAsset?.yesPrice ?? 0.5) : (marketForAsset?.noPrice ?? 0.5)), newBalance: newBalanceMajor },
+        }));
         await loadMarkets();
         await refreshUser();
         await loadMyBets();
@@ -2662,18 +2712,25 @@ export default function HomePageClient({
       });
 
       const newBalanceMajor = toMajorUnits(res.newBalanceMinor);
+      const payoutMajor = toMajorUnits(res.payoutMinor);
       setUser((prev) => (prev ? { ...prev, balance: newBalanceMajor } : prev));
       setWalletBalanceMajor(newBalanceMajor);
+      setSellConfirm((prev) => ({
+        ...prev,
+        isLoading: false,
+        result: { payout: payoutMajor, newBalance: newBalanceMajor },
+      }));
 
       await loadMarkets();
       await refreshUser();
       await loadMyBets();
     } catch (err) {
       console.error("sellPosition failed", err);
+      const msg = formatBetError(err instanceof Error ? err.message : String(err));
+      setSellConfirm((prev) => ({ ...prev, isLoading: false, errorMessage: msg }));
       await loadMarkets();
       await refreshUser();
       await loadMyBets();
-      throw err;
     }
   };
 
@@ -2880,7 +2937,7 @@ export default function HomePageClient({
                   : undefined
               }
               onPlaceBet={handlePlaceBet}
-              onSellPosition={handleSellPosition}
+              onSellPosition={requestSellConfirmation}
               onClaimWinnings={handleClaimWinnings}
               comments={marketComments}
                 onOpenUserProfile={(userId) => void openPublicProfile(userId)}
@@ -3009,11 +3066,11 @@ export default function HomePageClient({
                     )}
 
                     {/* Categories */}
-                    <div className="px-4 pb-3 border-b border-zinc-900">
+                    <div className="px-4 pt-3 pb-3 border-b border-zinc-900">
                       <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1" data-swipe-ignore="true">
                         <button
                           type="button"
-                          onClick={() => setActiveCategoryId("all")}
+                          onClick={() => { hapticSelection(); setActiveCategoryId("all"); }}
                           className={`shrink-0 px-3 py-1.5 rounded-full border text-xs font-semibold uppercase tracking-wider transition ${
                             activeCategoryId === "all"
                               ? "border-[rgba(245,68,166,1)] bg-[rgba(245,68,166,1)] text-white shadow-[0_10px_30px_rgba(245,68,166,0.12)] hover:opacity-90"
@@ -3029,7 +3086,7 @@ export default function HomePageClient({
                             <button
                               key={c.id}
                               type="button"
-                              onClick={() => setActiveCategoryId(c.id)}
+                              onClick={() => { hapticSelection(); setActiveCategoryId(c.id); }}
                               className={`shrink-0 px-3 py-1.5 rounded-full border text-xs font-semibold uppercase tracking-wider transition ${
                                 selected
                                   ? "border-[rgba(245,68,166,1)] bg-[rgba(245,68,166,1)] text-white shadow-[0_10px_30px_rgba(245,68,166,0.12)] hover:opacity-90"
@@ -3152,7 +3209,7 @@ export default function HomePageClient({
                     commentsError={myCommentsError}
                     bookmarks={bookmarkedMarkets}
                     myMarkets={myCreatedMarkets}
-                    onSellPosition={handleSellPosition}
+                    onSellPosition={requestSellConfirmation}
                     onLoadBets={() => void loadMyBets()}
                     onLoadComments={() => void loadMyComments()}
                     lastDailyClaim={lastDailyClaim}
@@ -3402,6 +3459,19 @@ export default function HomePageClient({
         newBalance={betConfirm.newBalance}
         errorMessage={betConfirm.errorMessage}
         isLoading={Boolean(betConfirm.isLoading)}
+      />
+      <SellConfirmModal
+        isOpen={sellConfirm.open}
+        onClose={() => setSellConfirm((prev) => ({ ...prev, open: false }))}
+        onConfirm={executeSell}
+        marketTitle={sellConfirm.marketTitle}
+        outcomeSide={sellConfirm.outcomeSide}
+        shares={sellConfirm.shares}
+        estimatedValue={sellConfirm.estimatedValue}
+        isLoading={Boolean(sellConfirm.isLoading)}
+        result={sellConfirm.result}
+        errorMessage={sellConfirm.errorMessage}
+        lang={lang}
       />
       <PublicUserProfileModal
         isOpen={publicProfileOpen}
