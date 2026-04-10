@@ -457,48 +457,14 @@ const MarketPage: React.FC<MarketPageProps> = ({
     return roots;
   }, [comments]);
 
-  const numericAmount = Number(amount || 0);
   const currentPrice = isMulti
     ? Number(selectedOutcome?.price ?? 0)
     : (tradeType === 'YES' ? market.yesPrice : market.noPrice);
-  // Estimated shares to receive
-  const estimatedShares = currentPrice > 0 ? numericAmount / currentPrice : 0;
-  // Potential return if prediction is correct ($1 per share)
-  const potentialReturn = estimatedShares.toFixed(2);
-  const potentialProfit = (estimatedShares - numericAmount).toFixed(2);
 
-  const handleAmountChange = (value: string) => {
-    const normalized = value.replace(',', '.');
-    if (/^\d*\.?\d*$/.test(normalized)) {
-      setAmount(normalized);
-    }
-  };
-
-  const setAmountFromNumber = (value: number) => {
-    if (!Number.isFinite(value) || value < 0) return;
-    const rounded = Math.round(value * 100) / 100;
-    const str = String(rounded)
-      .replace(/(\.\d*?)0+$/, '$1')
-      .replace(/\.$/, '');
-    setAmount(str);
-  };
-
-  const handleQuickAdd = (delta: number) => {
-    setAmountFromNumber(numericAmount + delta);
-  };
-
-  const handlePlaceBetClick = async () => {
+  // Vote handler — always 1 VOUT
+  const handleVote = async (side: 'YES' | 'NO', outcomeId?: string) => {
     if (isExpired) {
-      setPlaceError(lang === 'RU' ? 'Торги закрыты.' : 'Trading closed.');
-      return;
-    }
-    const numeric = Number(amount);
-    if (!numeric || Number.isNaN(numeric) || numeric <= 0) {
-      setPlaceError(lang === 'RU' ? 'Введите сумму числом больше 0' : 'Enter a numeric amount greater than 0');
-      return;
-    }
-    if (isMulti && !selectedOutcomeId) {
-      setPlaceError(lang === 'RU' ? 'Выберите вариант ответа' : 'Select an outcome option');
+      setPlaceError(lang === 'RU' ? 'Голосование закрыто.' : 'Voting closed.');
       return;
     }
     if (!user) {
@@ -506,9 +472,9 @@ const MarketPage: React.FC<MarketPageProps> = ({
       if (onRequireBetAuth) {
         onRequireBetAuth({
           marketId: market.id,
-          side: isMulti ? undefined : tradeType,
-          outcomeId: isMulti ? selectedOutcomeId ?? undefined : undefined,
-          amount: numeric,
+          side: isMulti ? undefined : side,
+          outcomeId: isMulti ? outcomeId : undefined,
+          amount: 1,
           marketTitle: market.title,
         });
       } else {
@@ -521,19 +487,18 @@ const MarketPage: React.FC<MarketPageProps> = ({
     impact("medium");
     try {
       await onPlaceBet({
-        side: isMulti ? undefined : tradeType,
-        outcomeId: isMulti ? selectedOutcomeId ?? undefined : undefined,
-        amount: numeric,
+        side: isMulti ? undefined : side,
+        outcomeId: isMulti ? outcomeId : undefined,
+        amount: 1,
         marketId: market.id,
         marketTitle: market.title,
       });
-      setAmount('');
     } catch (error) {
       setPlaceError(
         getErrorMessage(
           error,
-          'Не удалось выполнить ставку',
-          'Failed to place bet',
+          'Не удалось проголосовать',
+          'Failed to vote',
           lang
         )
       );
@@ -941,17 +906,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                       <Button
                         fullWidth
                         className={`!h-14 !text-base !font-bold ${tradeType === 'YES' ? '!bg-[rgba(190,255,29,1)] !text-black hover:!opacity-90' : '!bg-zinc-900 !text-zinc-200 hover:!bg-zinc-800'}`}
-                        onClick={() => {
-                          setTradeType('YES');
-                          impact("medium");
-                          if (!user) {
-                            if (onRequireBetAuth) {
-                              onRequireBetAuth({ marketId: market.id, side: 'YES', amount: 1, marketTitle: market.title });
-                            } else { onLogin(); }
-                            return;
-                          }
-                          onPlaceBet({ side: 'YES', amount: 1, marketId: market.id, marketTitle: market.title });
-                        }}
+                        onClick={() => { setTradeType('YES'); handleVote('YES'); }}
                         disabled={placing || isExpired}
                       >
                         {lang === 'RU' ? 'ДА' : 'YES'}
@@ -960,17 +915,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                       <Button
                         fullWidth
                         className={`!h-14 !text-base !font-bold ${tradeType === 'NO' ? '!bg-[rgba(245,68,166,1)] !text-white hover:!opacity-90' : '!bg-zinc-900 !text-zinc-200 hover:!bg-zinc-800'}`}
-                        onClick={() => {
-                          setTradeType('NO');
-                          impact("medium");
-                          if (!user) {
-                            if (onRequireBetAuth) {
-                              onRequireBetAuth({ marketId: market.id, side: 'NO', amount: 1, marketTitle: market.title });
-                            } else { onLogin(); }
-                            return;
-                          }
-                          onPlaceBet({ side: 'NO', amount: 1, marketId: market.id, marketTitle: market.title });
-                        }}
+                        onClick={() => { setTradeType('NO'); handleVote('NO'); }}
                         disabled={placing || isExpired}
                       >
                         {lang === 'RU' ? 'НЕТ' : 'NO'}
@@ -980,16 +925,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                   ) : (
                     <Button
                       fullWidth
-                      onClick={() => {
-                        impact("medium");
-                        if (!user) {
-                          if (onRequireBetAuth) {
-                            onRequireBetAuth({ marketId: market.id, outcomeId: selectedOutcomeId ?? undefined, amount: 1, marketTitle: market.title });
-                          } else { onLogin(); }
-                          return;
-                        }
-                        onPlaceBet({ outcomeId: selectedOutcomeId ?? undefined, amount: 1, marketId: market.id, marketTitle: market.title });
-                      }}
+                      onClick={() => handleVote(tradeType, selectedOutcomeId ?? undefined)}
                       disabled={placing || isExpired || !selectedOutcomeId}
                     >
                       {!user

@@ -2616,7 +2616,7 @@ export default function HomePageClient({
       setSelectedMarketId(action.marketId);
       navigateToMarketUrl(action.marketId, action.marketTitle);
       void handlePlaceBet({
-        amount: action.amount,
+        amount: 1, // Always 1 VOUT per vote
         marketId: action.marketId,
         side: action.side,
         outcomeId: action.outcomeId,
