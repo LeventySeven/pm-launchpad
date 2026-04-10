@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { X, Loader2, ImagePlus } from "lucide-react";
+import { useHaptics } from "../lib/useHaptics";
 
 type CommunityCreateModalProps = {
   isOpen: boolean;
@@ -42,6 +43,7 @@ export default function CommunityCreateModal({
   lang,
   onCreate,
 }: CommunityCreateModalProps) {
+  const { notification } = useHaptics();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
@@ -89,6 +91,7 @@ export default function CommunityCreateModal({
         privacy,
         bannerFile: bannerFile ?? undefined,
       });
+      notification("success");
       // Reset form
       setName("");
       setSlug("");
@@ -100,6 +103,7 @@ export default function CommunityCreateModal({
       setBannerFile(null);
       onClose();
     } catch (err) {
+      notification("error");
       const msg = err instanceof Error ? err.message : "Failed to create community";
       setError(msg);
     } finally {

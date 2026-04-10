@@ -8,6 +8,7 @@ import MarketCard from "@/components/MarketCard";
 import MarketLaunchCard from "@/components/MarketLaunchCard";
 import ShareCard from "@/components/ShareCard";
 import CommunityShareCard from "@/components/CommunityShareCard";
+import { useHaptics } from "@/lib/useHaptics";
 
 type CommunityData = {
   id: string;
@@ -94,6 +95,7 @@ export default function CommunityProfilePage({
   onLogin,
   onUserClick,
 }: CommunityProfilePageProps) {
+  const { impact, notification } = useHaptics();
   const [community, setCommunity] = useState<CommunityData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -433,13 +435,16 @@ export default function CommunityProfilePage({
     try {
       if (wasMember) {
         await trpcClient.community.leave.mutate({ communityId: community.id });
+        impact("light");
       } else {
         await trpcClient.community.join.mutate({ communityId: community.id });
+        notification("success");
       }
     } catch {
       // Revert on error
       setIsMember(wasMember);
       setOptimisticMemberCount(null);
+      notification("error");
     } finally {
       setJoinLoading(false);
     }
