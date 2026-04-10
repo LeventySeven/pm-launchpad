@@ -251,7 +251,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
       return lang === "RU" ? "Позиция не найдена." : "No position found.";
     }
     if (msg.includes("INSUFFICIENT_SHARES")) {
-      return lang === "RU" ? "Недостаточно акций для продажи." : "Insufficient shares.";
+      return lang === "RU" ? "Недостаточно голосов." : "Insufficient votes.";
     }
     if (msg.includes("AMOUNT_TOO_SMALL") || msg.includes("PAYOUT_TOO_SMALL")) {
       return lang === "RU" ? "Сумма слишком мала для продажи." : "Amount is too small to sell.";
@@ -278,9 +278,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   const activeBets = bets.filter((b) => b.status === 'open' && Number(b.shares ?? 0) > 0);
   const settledBets = bets.filter((b) => b.status !== 'open');
 
-  const formatMoney = (value: number) => `${value.toFixed(2)} V`;
+  const formatMoney = (value: number) => `${Math.round(value)} VOUTS`;
   const formatPct = (value: number) => `${value.toFixed(1)}%`;
-  const formatSignedMoney = (value: number) => `${value >= 0 ? '+' : '-'}${Math.abs(value).toFixed(2)} V`;
+  const formatSignedMoney = (value: number) => `${value >= 0 ? '+' : '-'}${Math.round(Math.abs(value))} V`;
 
   const accentSeed = String(user?.avatarUrl ?? user?.telegramPhotoUrl ?? user?.id ?? displayName);
   const [accent, setAccent] = useState(() => accentPairFromSeed(accentSeed));
@@ -580,40 +580,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
       {/* Solana Wallet Connection — hidden until on-chain features are enabled.
          Component and logic preserved; just not rendered. */}
 
-      {/* PnL graph (lightweight sparkline) */}
-      <div className="mt-4 border border-zinc-900 bg-black rounded-2xl overflow-hidden">
-        <div className="relative p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
-                {lang === "RU" ? "Прибыль / Убыток" : "Profit / Loss"}
-              </div>
-              <div className="mt-1 text-2xl font-mono font-bold text-[rgba(245,68,166,1)]">
-                {formatSignedMoney(pnlMajor)}
-              </div>
-              <div className="mt-0.5 text-[10px] uppercase tracking-wider text-zinc-500">
-                {lang === "RU" ? "За всё время" : "All-time"}
-              </div>
-            </div>
-            <div className="shrink-0 rounded-full border border-zinc-900 bg-zinc-950/40 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-zinc-300">
-              ALL
-            </div>
-          </div>
-
-          <svg viewBox="0 0 100 40" className="mt-4 h-16 w-full">
-            {pnlSparkline.lineD && (
-              <path
-                d={pnlSparkline.lineD}
-                fill="none"
-                stroke={"rgba(245,68,166,1)"}
-                strokeWidth="1.5"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-              />
-            )}
-          </svg>
-        </div>
-      </div>
+      {/* TODO: Re-enable PnL sparkline when $ trading launches */}
 
       {/* Balance + PnL */}
       <div className="mt-4 grid grid-cols-2 gap-3">
@@ -625,18 +592,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             {formatMoney(balanceMajor)}
           </div>
         </div>
-        <div className="border border-zinc-900 bg-black rounded-2xl p-4">
-          <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">
-            PnL
-          </div>
-          <div
-            className={`text-2xl font-mono font-bold ${
-              pnlIsPositive ? 'text-[rgba(190,255,29,1)]' : 'text-[rgba(245,68,166,1)]'
-            }`}
-          >
-            {pnlIsPositive ? '+' : '-'}${Math.abs(pnlMajor).toFixed(2)}
-          </div>
-        </div>
+        {/* TODO: Re-enable PNL card when $ trading launches */}
       </div>
 
       {/* Daily votes claim */}
@@ -722,7 +678,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             activeTab === 'BETS' ? 'border-white text-white' : 'border-transparent text-zinc-500 hover:text-white'
           }`}
         >
-          {lang === 'RU' ? 'Ставки' : 'Bets'}
+          {lang === 'RU' ? 'Голоса' : 'Votes'}
         </button>
         <button
           type="button"
@@ -804,7 +760,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
               </div>
               {activeBets.length === 0 ? (
                 <div className="text-sm text-zinc-500 px-1">
-                  {lang === 'RU' ? 'Нет активных ставок' : 'No active bets'}
+                  {lang === 'RU' ? 'Нет активных голосов' : 'No active votes'}
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -849,7 +805,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                               </span>
                             </div>
                             <div className="mt-1 text-[11px] text-zinc-500 font-mono">
-                              {shares.toFixed(1)} {lang === 'RU' ? 'акций' : 'shares'} @ {(entry * 100).toFixed(0)}%
+                              {Math.round(shares)} {lang === 'RU' ? 'голосов' : 'votes'} @ {(entry * 100).toFixed(0)}%
                             </div>
                             {canSell && (
                               <div className="mt-3">
@@ -872,7 +828,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                                         // Defensive: ensure we never leave the row in "loading/disabled" state.
                                         setSellingKey(null);
                                         setSellErrorKey(rowKey);
-                                        setSellError(lang === "RU" ? "Слишком мало акций для продажи." : "Too few shares to sell.");
+                                        setSellError(lang === "RU" ? "Слишком мало голосов." : "Too few votes to withdraw.");
                                         return;
                                       }
                                       await onSellPosition({
@@ -948,7 +904,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
 
           {(settledBets.length === 0 && soldTrades.length === 0) ? (
             <div className="text-sm text-zinc-500 px-1">
-              {lang === 'RU' ? 'Нет завершенных ставок' : 'No completed bets'}
+              {lang === 'RU' ? 'Нет завершенных голосов' : 'No completed votes'}
             </div>
           ) : (
             <div className="space-y-3">

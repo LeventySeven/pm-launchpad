@@ -51,7 +51,7 @@ export const BetConfirmModal: React.FC<BetConfirmModalProps> = ({
           <X size={22} />
         </button>
         <h2 className="text-xl font-bold text-white mb-3">
-          {isLoading ? 'Placing bet…' : isError ? 'Bet not accepted' : 'Bet placed'}
+          {isLoading ? 'Voting…' : isError ? 'Vote not accepted' : 'Vote placed'}
         </h2>
         {isLoading ? (
           <div className="py-8 flex flex-col items-center justify-center">
@@ -63,13 +63,13 @@ export const BetConfirmModal: React.FC<BetConfirmModalProps> = ({
         ) : (
           <>
             <p className="text-sm text-neutral-300 mb-4">
-              You placed a bet on:
+              You voted on:
               <br />
               <span className="font-semibold text-white">{marketTitle}</span>
             </p>
             <div className="space-y-2 text-sm text-neutral-300">
               <div className="flex justify-between">
-                <span className="text-neutral-500">Side</span>
+                <span className="text-neutral-500">Vote</span>
                 <span
                   className={`font-semibold ${sideColor}`}
                 >
@@ -77,13 +77,13 @@ export const BetConfirmModal: React.FC<BetConfirmModalProps> = ({
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-neutral-500">Amount</span>
-                <span className="font-semibold">${amount.toFixed(2)}</span>
+                <span className="text-neutral-500">Cost</span>
+                <span className="font-semibold">{Math.round(amount)} VOUT</span>
               </div>
               {newBalance !== undefined && (
                 <div className="flex justify-between">
-                  <span className="text-neutral-500">New balance</span>
-                  <span className="font-semibold text-zinc-100">${newBalance.toFixed(2)}</span>
+                  <span className="text-neutral-500">Balance</span>
+                  <span className="font-semibold text-zinc-100">{Math.round(newBalance)} VOUTS</span>
                 </div>
               )}
             </div>

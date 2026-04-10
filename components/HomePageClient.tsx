@@ -129,7 +129,7 @@ const mapMarketApiToMarket = (m: MarketApiRow, lang: "RU" | "EN"): Market => {
     categoryLabelRu: m.categoryLabelRu ?? null,
     categoryLabelEn: m.categoryLabelEn ?? null,
     imageUrl: (m.imageUrl ?? "").trim() || buildInitialsAvatarDataUrl(title, { bg: "#111111", fg: "#ffffff" }),
-    volume: `$${Number(m.volume).toFixed(2)}`,
+    volume: `${Math.round(Number(m.volume))}`,
     closesAt: m.closesAt,
     expiresAt: m.expiresAt,
     yesPrice: Number(m.priceYes),
@@ -317,7 +317,7 @@ export default function HomePageClient({
   const [catalogTimeFilter, setCatalogTimeFilter] = useState<CatalogTimeFilter>("ANY");
   const [catalogFiltersOpen, setCatalogFiltersOpen] = useState(false);
   type LeaderboardSort = "PNL" | "BETS";
-  const [leaderboardSort, setLeaderboardSort] = useState<LeaderboardSort>("PNL");
+  const [leaderboardSort, setLeaderboardSort] = useState<LeaderboardSort>("BETS");
   const [leaderboardSortOpen, setLeaderboardSortOpen] = useState(false);
   type PostAuthAction =
     | { type: "OPEN_CREATE_MARKET" }
@@ -960,7 +960,7 @@ export default function HomePageClient({
   }, [applyPublicUser, clearRelogin]);
 
   const formatBetError = (msg?: string) => {
-    if (!msg) return lang === "RU" ? "Не удалось поставить ставку" : "Failed to place bet";
+    if (!msg) return lang === "RU" ? "Не удалось проголосовать" : "Failed to place vote";
     const upper = msg.toUpperCase();
     const simPrefix = "SOLANA_SIMULATION_FAILED:";
     const simIdx = upper.indexOf(simPrefix);
@@ -971,7 +971,7 @@ export default function HomePageClient({
       return lang === "RU" ? "Требуется повторная авторизация." : "Re-authentication required.";
     }
     if (upper.includes("MARKET_EXPIRED") || upper.includes("MARKET_CLOSED") || upper.includes("MARKET_NOT_OPEN")) {
-      return lang === "RU" ? "Событие завершено, ставки закрыты." : "Market closed for trading.";
+      return lang === "RU" ? "Событие завершено, голосование закрыто." : "Market closed for voting.";
     }
     if (upper.includes("INSUFFICIENT_BALANCE")) {
       return lang === "RU" ? "Недостаточно средств на балансе." : "Insufficient balance.";
@@ -993,10 +993,10 @@ export default function HomePageClient({
       return lang === "RU" ? "Сумма слишком мала." : "Amount is too small.";
     }
     if (upper.includes("AMOUNT_TOO_LARGE") || upper.includes("VALUE OUT OF RANGE")) {
-      return lang === "RU" ? "Слишком большая ставка, попробуйте меньше." : "Bet amount is too large, try a smaller size.";
+      return lang === "RU" ? "Слишком много голосов, попробуйте меньше." : "Too many votes, try a smaller amount.";
     }
     if (upper.includes("BET_TOO_LARGE")) {
-      return lang === "RU" ? "Достигнут лимит максимальной ставки." : "Maximum bet limit reached.";
+      return lang === "RU" ? "Достигнут лимит голосов." : "Maximum vote limit reached.";
     }
     if (upper.includes("INVALID_LIQUIDITY")) {
       return lang === "RU" ? "У рынка нет ликвидности для торговли." : "Market liquidity is invalid.";
@@ -1429,14 +1429,15 @@ export default function HomePageClient({
         const voteInfo = await trpcClient.market.voteBalance.query();
         if (voteInfo?.lastDailyClaim) setLastDailyClaim(voteInfo.lastDailyClaim);
       } catch { /* ignore */ }
-      try {
-        const stats = await trpcClient.user.publicUserStats.query({ userId: user.id });
-        if (stats && typeof stats.pnlMajor === "number") {
-          setProfilePnlMajor(Number(stats.pnlMajor));
-        }
-      } catch (err) {
-        console.warn("Failed to refresh profile pnl", err);
-      }
+      // TODO: Re-enable PNL when $ trading launches
+      // try {
+      //   const stats = await trpcClient.user.publicUserStats.query({ userId: user.id });
+      //   if (stats && typeof stats.pnlMajor === "number") {
+      //     setProfilePnlMajor(Number(stats.pnlMajor));
+      //   }
+      // } catch (err) {
+      //   console.warn("Failed to refresh profile pnl", err);
+      // }
     } catch (err) {
       const errorMsg = getErrorMessage(err);
       console.error("Failed to load positions/trades", { error: errorMsg, err, userId: user?.id });
@@ -1451,7 +1452,7 @@ export default function HomePageClient({
         }
         setMyBetsError(lang === "RU" ? "Требуется повторная авторизация." : "Re-authentication required.");
       } else {
-        setMyBetsError(lang === "RU" ? "Не удалось загрузить ставки." : "Failed to load bets.");
+        setMyBetsError(lang === "RU" ? "Не удалось загрузить голоса." : "Failed to load votes.");
       }
     }
     finally {
@@ -2172,7 +2173,7 @@ export default function HomePageClient({
           side: safeSide,
           amount,
           newBalance: undefined,
-          errorMessage: lang === "RU" ? "Войдите, чтобы сделать ставку." : "Please log in to place a bet.",
+          errorMessage: lang === "RU" ? "Войдите, чтобы проголосовать." : "Please log in to vote.",
           isLoading: false,
         });
         return;
@@ -2361,11 +2362,13 @@ export default function HomePageClient({
         const refreshed = await attemptSilentRefresh();
         if (!refreshed) return;
       }
-      setMarketBetIntent({ marketId: market.id, side, nonce: Date.now() });
-      setSelectedMarketId(market.id);
-      navigateToMarketUrl(market.id, market.titleEn ?? market.titleRu ?? market.title);
+      // Direct 1 VOUT vote from feed card
+      const title = lang === "RU"
+        ? (market as any).titleRu ?? (market as any).titleEn ?? market.title
+        : (market as any).titleEn ?? (market as any).titleRu ?? market.title;
+      await handlePlaceBet({ amount: 1, marketId: market.id, side, marketTitle: title });
     },
-    [openAuth, user, reloginRequired, refreshUser, attemptSilentRefresh, navigateToMarketUrl]
+    [openAuth, user, reloginRequired, refreshUser, attemptSilentRefresh, handlePlaceBet, lang]
   );
 
   const openMarketWithAuthCheck = useCallback(
@@ -2538,7 +2541,8 @@ export default function HomePageClient({
           avatarUrl: u.avatarUrl ?? null,
           telegramPhotoUrl: u.telegramPhotoUrl ?? null,
         });
-        setPublicProfilePnl(Number(stats.pnlMajor ?? 0));
+        // TODO: Re-enable PNL when $ trading launches
+        // setPublicProfilePnl(Number(stats.pnlMajor ?? 0));
         setPublicProfileFollowerCount(Number(stats.followerCount ?? 0));
         setPublicProfileFollowingCount(Number(stats.followingCount ?? 0));
         setPublicProfileMarketsCreated(Number(stats.marketsCreated ?? 0));
@@ -3409,8 +3413,8 @@ export default function HomePageClient({
             </div>
             <div role="radiogroup" className="space-y-2">
               {([
+                { id: "BETS" as const, labelRu: "Голоса", labelEn: "Votes" },
                 { id: "PNL" as const, labelRu: "PnL", labelEn: "PnL" },
-                { id: "BETS" as const, labelRu: "Ставки", labelEn: "Bets" },
               ]).map((opt) => {
                 const selected = leaderboardSort === opt.id;
                 return (

@@ -31,7 +31,7 @@ const MarketCard: React.FC<MarketCardProps> = ({ market, onClick, onQuickBet, bo
   const yesLabel = lang === 'RU' ? 'Да' : 'Yes';
   const noLabel = lang === 'RU' ? 'Нет' : 'No';
   const chanceLabel = lang === 'RU' ? 'Вероятность' : 'Chance';
-  const volLabel = lang === 'RU' ? 'Объем' : 'Vol';
+  const volLabel = lang === 'RU' ? 'Голоса' : 'Votes';
   const categoryLabel =
     lang === "RU"
       ? market.categoryLabelRu ?? market.categoryLabelEn

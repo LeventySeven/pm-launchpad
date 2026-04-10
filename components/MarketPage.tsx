@@ -795,7 +795,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                     <div className="text-xs text-neutral-500 mt-2">
                       {lang === 'RU'
                         ? 'Исход подтвержден администратором. Победители получают $1 за акцию.'
-                        : 'Outcome confirmed by admin. Winning shares redeem for $1 each.'}
+                        : 'Outcome confirmed by admin. Winning votes are redeemed.'}
                     </div>
                   )}
                 </div>
@@ -831,7 +831,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                             />
                             <span className="truncate">{o.title}</span>
                           </span>
-                          <span className="font-mono">${o.price.toFixed(2)} • {(o.probability * 100).toFixed(1)}%</span>
+                          <span className="font-mono">{(o.probability * 100).toFixed(1)}%</span>
                         </button>
                       );
                     })}
@@ -846,7 +846,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                           : 'text-zinc-400 hover:text-white hover:bg-zinc-900/40'
                       }`}
                     >
-                      {lang === 'RU' ? 'ДА' : 'YES'} ${market.yesPrice.toFixed(2)}
+                      {lang === 'RU' ? 'ДА' : 'YES'} {(market.yesPrice * 100).toFixed(0)}%
                     </button>
                     <button
                       onClick={() => setTradeType('NO')}
@@ -856,7 +856,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                           : 'text-zinc-400 hover:text-white hover:bg-zinc-900/40'
                       }`}
                     >
-                      {lang === 'RU' ? 'НЕТ' : 'NO'} ${market.noPrice.toFixed(2)}
+                      {lang === 'RU' ? 'НЕТ' : 'NO'} {(market.noPrice * 100).toFixed(0)}%
                     </button>
                   </div>
                 )}
@@ -892,7 +892,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                             {lang === 'RU' ? 'Кошелек' : 'Wallet'}
                           </div>
                           <div className="mt-1 text-sm font-mono text-zinc-100">
-                            {walletBalanceMajor === null ? '—' : `${walletBalanceMajor.toFixed(0)} V`}
+                            {walletBalanceMajor === null ? '—' : `${Math.round(walletBalanceMajor)} VOUTS`}
                           </div>
                         </div>
                         <div className="rounded-xl border border-zinc-900 bg-black/40 p-3">
@@ -900,7 +900,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                             Vault
                           </div>
                           <div className="mt-1 text-sm font-mono text-zinc-100">
-                            {vaultBalanceMajor === null ? '—' : `${vaultBalanceMajor.toFixed(2)}`}
+                            {vaultBalanceMajor === null ? '—' : `${Math.round(vaultBalanceMajor)} VOUTS`}
                           </div>
                         </div>
                       </div>
@@ -909,13 +909,13 @@ const MarketPage: React.FC<MarketPageProps> = ({
                         <div className="rounded-xl border border-zinc-900 bg-black/40 p-3">
                           <div className="text-[10px] uppercase tracking-wider text-zinc-500">YES</div>
                           <div className="mt-1 text-sm font-mono text-zinc-100">
-                            {onchainYesShares === null ? '—' : `${onchainYesShares.toFixed(2)} sh`}
+                            {onchainYesShares === null ? '—' : `${Math.round(onchainYesShares)} votes`}
                           </div>
                         </div>
                         <div className="rounded-xl border border-zinc-900 bg-black/40 p-3">
                           <div className="text-[10px] uppercase tracking-wider text-zinc-500">NO</div>
                           <div className="mt-1 text-sm font-mono text-zinc-100">
-                            {onchainNoShares === null ? '—' : `${onchainNoShares.toFixed(2)} sh`}
+                            {onchainNoShares === null ? '—' : `${Math.round(onchainNoShares)} votes`}
                           </div>
                         </div>
                       </div>
@@ -933,82 +933,76 @@ const MarketPage: React.FC<MarketPageProps> = ({
                     </div>
                   )}
 
-                  <div className="relative">
-                    <label className="text-xs font-medium text-zinc-400 mb-2 block">
-                      {lang === 'RU' ? 'Сумма' : 'Amount'}
-                    </label>
-                    <div className="relative group">
-                      <span className="absolute left-3 top-2.5 text-zinc-500 transition-colors group-hover:text-white">$</span>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        pattern="[0-9]*[.,]?[0-9]*"
-                        value={amount}
-                        onChange={(e) => handleAmountChange(e.target.value)}
-                        placeholder="0"
-                        className="flex h-11 w-full rounded-md border border-zinc-900 bg-transparent px-3 py-2 pl-7 text-lg font-medium shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 placeholder:text-zinc-700"
-                      />
-                    </div>
-                <div className="mt-2 grid grid-cols-4 gap-2">
-                  {[1, 5, 10, 100].map((inc) => (
-                    <button
-                      key={inc}
-                      type="button"
-                      onClick={() => handleQuickAdd(inc)}
-                      disabled={placing || isExpired}
-                      className="h-9 rounded-md border border-zinc-900 bg-zinc-950/50 text-xs font-semibold text-zinc-200 hover:bg-zinc-900/40 transition-colors disabled:opacity-50 disabled:pointer-events-none tabular-nums"
-                    >
-                      +{inc}
-                    </button>
-                  ))}
-                </div>
-                  </div>
-
                   {placeError && <p className="text-sm text-red-400">{placeError}</p>}
 
-                  <div className="space-y-3 pt-4 border-t border-zinc-900/50">
-                    <div className="flex justify-between text-xs text-zinc-500 uppercase font-medium">
-                      <span>{lang === 'RU' ? 'Акций' : 'Shares'}</span>
-                      <span className="text-white font-mono">{estimatedShares.toFixed(2)}</span>
+                  {/* Vote buttons — 1 VOUT per vote */}
+                  {!isMulti ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        fullWidth
+                        className={`!h-14 !text-base !font-bold ${tradeType === 'YES' ? '!bg-[rgba(190,255,29,1)] !text-black hover:!opacity-90' : '!bg-zinc-900 !text-zinc-200 hover:!bg-zinc-800'}`}
+                        onClick={() => {
+                          setTradeType('YES');
+                          impact("medium");
+                          if (!user) {
+                            if (onRequireBetAuth) {
+                              onRequireBetAuth({ marketId: market.id, side: 'YES', amount: 1, marketTitle: market.title });
+                            } else { onLogin(); }
+                            return;
+                          }
+                          onPlaceBet({ side: 'YES', amount: 1, marketId: market.id, marketTitle: market.title });
+                        }}
+                        disabled={placing || isExpired}
+                      >
+                        {lang === 'RU' ? 'ДА' : 'YES'}
+                        <span className="block text-[10px] font-normal opacity-70 mt-0.5">1 VOUT</span>
+                      </Button>
+                      <Button
+                        fullWidth
+                        className={`!h-14 !text-base !font-bold ${tradeType === 'NO' ? '!bg-[rgba(245,68,166,1)] !text-white hover:!opacity-90' : '!bg-zinc-900 !text-zinc-200 hover:!bg-zinc-800'}`}
+                        onClick={() => {
+                          setTradeType('NO');
+                          impact("medium");
+                          if (!user) {
+                            if (onRequireBetAuth) {
+                              onRequireBetAuth({ marketId: market.id, side: 'NO', amount: 1, marketTitle: market.title });
+                            } else { onLogin(); }
+                            return;
+                          }
+                          onPlaceBet({ side: 'NO', amount: 1, marketId: market.id, marketTitle: market.title });
+                        }}
+                        disabled={placing || isExpired}
+                      >
+                        {lang === 'RU' ? 'НЕТ' : 'NO'}
+                        <span className="block text-[10px] font-normal opacity-70 mt-0.5">1 VOUT</span>
+                      </Button>
                     </div>
-                    <div className="flex justify-between text-xs text-zinc-500 uppercase font-medium">
-                      <span>{lang === 'RU' ? 'Потенциальный выигрыш' : 'Return if Win'}</span>
-                      <span className="text-white font-mono">${potentialReturn}</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-zinc-500 uppercase font-medium">
-                      <span>{lang === 'RU' ? 'Прибыль' : 'Profit'}</span>
-                      <span className="text-[rgba(190,255,29,1)] font-mono">{numericAmount > 0 && currentPrice > 0 ? (((1 / currentPrice) - 1) * 100).toFixed(1) : '0.0'}%</span>
-                    </div>
-                  </div>
-
-                  <Button
-                    fullWidth
-                    onClick={handlePlaceBetClick}
-                    disabled={placing}
-                  >
-                    {!user
-                      ? lang === 'RU'
-                        ? 'Зарегистрируйтесь, чтобы торговать'
-                        : 'Sign up to trade'
-                      : lang === 'RU'
-                      ? isMulti
-                        ? 'Купить опцию'
-                        : `Купить ${tradeType === 'YES' ? 'ДА' : 'НЕТ'}`
-                      : isMulti
-                        ? 'BUY OPTION'
-                        : `BUY ${tradeType}`}
-                  </Button>
-                  {showFee && (
-                    <p className="text-center text-[10px] uppercase text-zinc-600 tracking-wider">
-                      {feePercent}% {lang === 'RU' ? 'комиссия' : 'fee'}
-                    </p>
+                  ) : (
+                    <Button
+                      fullWidth
+                      onClick={() => {
+                        impact("medium");
+                        if (!user) {
+                          if (onRequireBetAuth) {
+                            onRequireBetAuth({ marketId: market.id, outcomeId: selectedOutcomeId ?? undefined, amount: 1, marketTitle: market.title });
+                          } else { onLogin(); }
+                          return;
+                        }
+                        onPlaceBet({ outcomeId: selectedOutcomeId ?? undefined, amount: 1, marketId: market.id, marketTitle: market.title });
+                      }}
+                      disabled={placing || isExpired || !selectedOutcomeId}
+                    >
+                      {!user
+                        ? lang === 'RU' ? 'Зарегистрируйтесь' : 'Sign up to vote'
+                        : lang === 'RU' ? 'Голосовать (1 VOUT)' : 'Vote (1 VOUT)'}
+                    </Button>
                   )}
                 </div>
 
                 {user && onSellPosition && !isOnChainMarket && sellablePositions.length > 0 && (
                   <div className="mt-6 space-y-3">
                     <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">
-                      {lang === 'RU' ? 'Активные ставки' : 'Your Active Bets'}
+                      {lang === 'RU' ? 'Ваши голоса' : 'Your Votes'}
                     </p>
                     <div className="space-y-3">
                       {sellablePositions.map((position) => (
@@ -1030,11 +1024,11 @@ const MarketPage: React.FC<MarketPageProps> = ({
                                 {position.outcomeTitle ?? position.outcome ?? (lang === 'RU' ? 'Опция' : 'Option')}
                               </span>
                               <span className="font-medium">
-                                {lang === 'RU' ? 'Ставка' : 'Position'}
+                                {lang === 'RU' ? 'Голос' : 'Vote'}
                               </span>
                             </div>
                             <span className="font-mono text-white">
-                              {(position.shares ?? 0).toFixed(2)} sh
+                              {Math.round(position.shares ?? 0)} {lang === 'RU' ? 'голосов' : 'votes'}
                             </span>
                           </div>
                           <div className="flex justify-between text-xs text-zinc-500 mt-1">
@@ -1047,10 +1041,6 @@ const MarketPage: React.FC<MarketPageProps> = ({
                             </span>
                           </div>
                           {(() => {
-                            const posPrice = isMulti
-                              ? ((market.outcomes ?? []).find(o => o.id === position.outcomeId)?.probability ?? 0)
-                              : (position.outcome === 'YES' ? market.yesPrice : market.noPrice);
-                            const estValue = (position.shares ?? 0) * posPrice;
                             const outcomeLabel = position.outcomeTitle ?? (position.outcome === 'YES' ? (lang === 'RU' ? 'ДА' : 'YES') : position.outcome === 'NO' ? (lang === 'RU' ? 'НЕТ' : 'NO') : (lang === 'RU' ? 'опцию' : 'option'));
                             return (
                               <Button
@@ -1067,8 +1057,8 @@ const MarketPage: React.FC<MarketPageProps> = ({
                                 }}
                               >
                                 {lang === 'RU'
-                                  ? `Продать ${outcomeLabel} ($${estValue.toFixed(2)})`
-                                  : `Sell ${outcomeLabel} ($${estValue.toFixed(2)})`}
+                                  ? `Забрать ${outcomeLabel}`
+                                  : `Withdraw ${outcomeLabel}`}
                               </Button>
                             );
                           })()}
@@ -1101,7 +1091,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                               </span>
                               <span className="font-medium">{lang === 'RU' ? 'Акций' : 'Shares'}</span>
                             </div>
-                            <span className="font-mono text-white">{p.shares.toFixed(2)} sh</span>
+                            <span className="font-mono text-white">{Math.round(p.shares)} votes</span>
                           </div>
                           <Button
                             fullWidth
@@ -1745,10 +1735,10 @@ const MarketPage: React.FC<MarketPageProps> = ({
                       </div>
                       <div className="text-right font-mono">
                         <p className="text-zinc-100">
-                          ${trade.collateralGross.toFixed(2)}
+                          {Math.round(trade.collateralGross)} V
                         </p>
                         <p className="text-[11px] text-neutral-500">
-                          {Math.abs(trade.sharesDelta).toFixed(2)} sh @ {(trade.priceAfter * 100).toFixed(1)}%
+                          {Math.round(Math.abs(trade.sharesDelta))} votes @ {(trade.priceAfter * 100).toFixed(1)}%
                         </p>
                       </div>
                     </div>
@@ -1845,8 +1835,8 @@ const MarketPage: React.FC<MarketPageProps> = ({
 
             <div className="text-sm text-zinc-300 leading-relaxed">
               {lang === 'RU'
-                ? `Если ваш прогноз верен, каждая акция погашается по цене $1.00. Если неверен — акции сгорают. Рынки прогнозов сопряжены с высоким риском потери средств.`
-                : `If your prediction is correct, each share is redeemed for $1.00. If incorrect — shares expire worthless. Prediction markets involve a high risk of total loss.`}
+                ? `Если ваш прогноз верен, голоса засчитываются. Если неверен — голоса сгорают.`
+                : `If your prediction is correct, your votes count. If incorrect — votes expire.`}
             </div>
           </div>
         </div>

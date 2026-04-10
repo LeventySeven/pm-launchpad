@@ -48,7 +48,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
   const activeBets = bets.filter((b) => b.status === 'open');
   const settledBets = bets.filter((b) => b.status !== 'open');
 
-  const formatMoney = (value: number) => `${value.toFixed(2)} V`;
+  const formatMoney = (value: number) => `${Math.round(value)} VOUTS`;
 
   return (
     <div className="max-w-xl mx-auto px-4 py-8 pb-24 animate-in fade-in duration-500">
@@ -61,43 +61,22 @@ const WalletPage: React.FC<WalletPageProps> = ({
             <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 block">
                 {lang === 'RU' ? 'Текущий баланс' : 'Current Balance'}
             </span>
-            <h1 className="text-4xl sm:text-5xl font-mono font-bold text-white mb-8 tracking-tighter">
-                ${user.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            <h1 className="text-4xl sm:text-5xl font-mono font-bold text-white mb-2 tracking-tighter">
+                {Math.round(user.balance).toLocaleString()}
             </h1>
+            <div className="text-sm font-semibold text-zinc-400 uppercase tracking-widest mb-6">VOUTS</div>
 
-            <div className="flex gap-4 justify-center">
-                <button className="flex-1 bg-black hover:bg-[rgba(245,68,166,0.10)] text-[rgba(245,68,166,1)] font-semibold py-2.5 px-4 rounded-md flex items-center justify-center gap-2 transition-colors border border-[rgba(245,68,166,1)] text-sm shadow-sm">
-                    <ArrowDownLeft size={16} />
-                    {lang === 'RU' ? 'Пополнить' : 'Deposit'}
-                </button>
-                <button className="flex-1 bg-black hover:bg-[rgba(245,68,166,0.10)] text-[rgba(245,68,166,1)] font-semibold py-2.5 px-4 rounded-md flex items-center justify-center gap-2 transition-colors border border-[rgba(245,68,166,1)] text-sm shadow-sm">
-                    <ArrowUpRight size={16} />
-                    {lang === 'RU' ? 'Вывести' : 'Withdraw'}
-                </button>
-            </div>
+            {/* TODO: Re-enable Deposit/Withdraw when $ trading launches */}
         </div>
       </div>
 
-      {/* PnL */}
-      <div className="mb-8">
-        <div className="border border-zinc-900 bg-black rounded-2xl p-5">
-          <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">
-            {lang === 'RU' ? 'Прибыль/Убыток (PnL)' : 'Profit/Loss (PnL)'}
-          </div>
-          <div className={`text-2xl font-mono font-bold ${pnlColor}`}>
-            {pnlIsPositive ? '+' : '-'}${Math.abs(pnlMajor).toFixed(2)}
-          </div>
-          <div className="text-xs text-zinc-500 mt-1">
-            {lang === 'RU' ? 'Реализованный PnL по закрытым сделкам' : 'Realized PnL from closed trades'}
-          </div>
-        </div>
-      </div>
+      {/* TODO: Re-enable PnL when $ trading launches */}
 
       {/* Bets (active + completed) */}
       <div className="mb-10 space-y-6">
         <div>
           <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4 px-1">
-            {lang === 'RU' ? 'Ставки' : 'Bets'}
+            {lang === 'RU' ? 'Голоса' : 'Votes'}
           </h3>
 
           {/* Active */}
@@ -107,7 +86,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
             </div>
             {activeBets.length === 0 ? (
               <div className="text-sm text-zinc-500 px-1">
-                {lang === 'RU' ? 'Нет активных ставок' : 'No active bets'}
+                {lang === 'RU' ? 'Нет активных голосов' : 'No active votes'}
               </div>
             ) : (
               <div className="space-y-3">
@@ -152,7 +131,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
 
             {(settledBets.length === 0 && soldTrades.length === 0) ? (
               <div className="text-sm text-zinc-500 px-1">
-                {lang === 'RU' ? 'Нет завершенных ставок' : 'No completed bets'}
+                {lang === 'RU' ? 'Нет завершенных голосов' : 'No completed votes'}
               </div>
             ) : (
               <div className="space-y-3">

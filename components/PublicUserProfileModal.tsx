@@ -67,9 +67,9 @@ type PublicUserProfileModalProps = {
 
 
 const formatCompact = (v: number) => {
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M V`;
-  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K V`;
-  return `${v.toFixed(2)} V`;
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`;
+  return `${Math.round(v)}`;
 };
 
 const formatFollowers = (n: number) => {
@@ -293,7 +293,7 @@ const PublicUserProfileModal: React.FC<PublicUserProfileModalProps> = ({
                   {bets.filter((b) => b.isActive).length > 0 && (
                     <div className="mb-4">
                       <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">
-                        {lang === "RU" ? "Активные ставки" : "Active Bets"}
+                        {lang === "RU" ? "Активные голоса" : "Active Votes"}
                       </div>
                       <div className="space-y-1.5">
                         {bets

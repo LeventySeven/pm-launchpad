@@ -11,9 +11,9 @@ interface LeaderboardProps {
 
 const Leaderboard: React.FC<LeaderboardProps> = ({ users, onUserClick, lang, sortBy }) => {
   const formatPnl = (value: number) =>
-    `$${value.toLocaleString(undefined, {
+    `${value.toLocaleString(undefined, {
       maximumFractionDigits: 0,
-    })}`;
+    })} V`;
 
   return (
     <div className="animate-fade-in">
@@ -30,7 +30,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, onUserClick, lang, sor
           </div>
           <div className="mt-1 text-[10px] text-neutral-500 uppercase tracking-wider">
             {sortBy === 'BETS'
-              ? (lang === 'RU' ? 'Топ по количеству ставок' : 'Top by bets')
+              ? (lang === 'RU' ? 'Топ по голосам' : 'Top by votes')
               : (lang === 'RU' ? 'Топ по прибыли' : 'Top by profit')}
           </div>
         </div>
@@ -58,7 +58,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, onUserClick, lang, sor
                 <div className="flex-1">
                     <h3 className="font-bold text-white text-sm transition-colors">{user.name}</h3>
                     <p className="text-[10px] text-neutral-500 uppercase tracking-wider">
-                        {user.betCount ?? 0} {lang === 'RU' ? 'ставок' : 'bets'}
+                        {user.betCount ?? 0} {lang === 'RU' ? 'голосов' : 'votes'}
                     </p>
                 </div>
 
@@ -67,7 +67,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ users, onUserClick, lang, sor
                   <div className="w-[140px] text-right font-mono font-bold tabular-nums text-zinc-100">
                     {(user.betCount ?? 0).toLocaleString()}
                     <div className="mt-0.5 text-[10px] uppercase tracking-wider text-zinc-500 font-sans">
-                      {lang === 'RU' ? 'ставок' : 'bets'}
+                      {lang === 'RU' ? 'голосов' : 'votes'}
                     </div>
                   </div>
                 ) : (

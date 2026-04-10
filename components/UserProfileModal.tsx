@@ -78,20 +78,20 @@ const PortfolioItem: React.FC<PortfolioItemProps> = ({ item, lang, onClick }) =>
             <div className="text-right">
                 {isSettled ? (
                     <div className={`font-mono text-sm font-bold ${isProfit ? 'text-[rgba(245,68,166,1)]' : 'text-[rgba(245,68,166,1)]'}`}>
-                        {isProfit ? '+' : ''}${Math.abs(displayPnL).toFixed(2)} ({Math.abs(displayPercent).toFixed(1)}%)
+                        {isProfit ? '+' : ''}{Math.round(Math.abs(displayPnL))} V ({Math.abs(displayPercent).toFixed(1)}%)
                     </div>
                 ) : (
                     <div className="font-mono text-sm font-bold text-white">
                         {unrealizedPnL !== null
-                          ? `${isProfit ? '+' : ''}${Math.abs(unrealizedPnL).toFixed(2)} V`
-                          : `${item.amount.toFixed(2)} V`
+                          ? `${isProfit ? '+' : ''}${Math.round(Math.abs(unrealizedPnL))} V`
+                          : `${Math.round(item.amount)} V`
                         }
                     </div>
                 )}
                 <div className="text-[10px] text-zinc-500 mt-1 flex flex-col items-end">
                     {shares !== null && entryPrice !== null && (
                       <span>
-                        {shares.toFixed(2)} sh @ ${entryPrice.toFixed(2)}
+                        {Math.round(shares)} votes @ {(entryPrice * 100).toFixed(0)}%
                       </span>
                     )}
                     <span className="uppercase tracking-wider">
@@ -136,7 +136,7 @@ const SellHistoryItem: React.FC<SellHistoryItemProps> = ({ trade, lang, onClick 
       : null;
   const pnlIsPositive = (realizedPnlValue ?? 0) >= 0;
   const formatPrice = (value: number | null) =>
-    value !== null && Number.isFinite(value) ? `${value.toFixed(3)} V` : lang === 'RU' ? '—' : '—';
+    value !== null && Number.isFinite(value) ? `${(value * 100).toFixed(0)}%` : '—';
 
   return (
     <div
@@ -148,15 +148,15 @@ const SellHistoryItem: React.FC<SellHistoryItemProps> = ({ trade, lang, onClick 
           {trade.marketTitleRu || trade.marketTitleEn || trade.marketId}
         </div>
         <div className="text-[11px] uppercase tracking-widest text-zinc-500 flex items-center gap-1">
-          <DollarSign size={10} /> {lang === 'RU' ? 'Продажа' : 'Sell'} · {formattedDate}
+          {lang === 'RU' ? 'Возврат' : 'Withdraw'} · {formattedDate}
         </div>
       </div>
       <div className="text-right">
         <div className="font-mono text-sm text-[rgba(245,68,166,1)]">
-          +${payout.toFixed(2)}
+          +{Math.round(payout)} V
         </div>
         <div className="text-[11px] text-zinc-500">
-          {sharesSold.toFixed(2)} sh · fee ${fee.toFixed(2)}
+          {Math.round(sharesSold)} votes · fee {Math.round(fee)} V
         </div>
         <div className="text-[11px] text-zinc-500">
           {lang === 'RU' ? 'Куплено' : 'Bought'} {formatPrice(avgEntryPrice)} ·{' '}
@@ -168,8 +168,7 @@ const SellHistoryItem: React.FC<SellHistoryItemProps> = ({ trade, lang, onClick 
               pnlIsPositive ? 'text-[rgba(245,68,166,1)]' : 'text-[rgba(245,68,166,1)]'
             }`}
           >
-            {lang === 'RU' ? 'Профит' : 'P&L'} {pnlIsPositive ? '+' : '-'}$
-            {Math.abs(realizedPnlValue).toFixed(2)}
+            {lang === 'RU' ? 'Профит' : 'P&L'} {pnlIsPositive ? '+' : '-'}{Math.round(Math.abs(realizedPnlValue))} V
           </div>
         )}
       </div>
@@ -223,26 +222,16 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest block mb-1">
                     {lang === 'RU' ? 'БАЛАНС' : 'BALANCE'}
                 </span>
-                <span className="text-2xl font-mono text-white tracking-tight">${user.balance.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).replace(',', ' ')}</span>
+                <span className="text-2xl font-mono text-white tracking-tight">{Math.round(user.balance).toLocaleString()} <span className="text-sm text-zinc-500">VOUTS</span></span>
             </div>
-            <div className="bg-zinc-950/40 border border-zinc-900 rounded-2xl p-4 relative overflow-hidden">
-                <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest block mb-1">
-                    PNL (PROFIT/LOSS)
-                </span>
-                <div className="flex items-center gap-2">
-                    <span className={`text-2xl font-mono tracking-tight ${isPositivePnL ? 'text-[rgba(245,68,166,1)]' : 'text-[rgba(245,68,166,1)]'}`}>
-                        {isPositivePnL ? '+' : ''}${Math.abs(totalRealizedPnL).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).replace('.', ',')}
-                    </span>
-                    {isPositivePnL ? <TrendingUp size={16} className="text-[rgba(245,68,166,1)]"/> : <TrendingDown size={16} className="text-[rgba(245,68,166,1)]"/>}
-                </div>
-            </div>
+            {/* TODO: Re-enable PNL card when $ trading launches */}
         </div>
 
         {/* Bets Lists */}
         <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar mb-4 space-y-8">
           <section>
             <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4 sticky top-0 bg-black py-2 z-10">
-              {lang === 'RU' ? 'АКТИВНЫЕ СТАВКИ' : 'ACTIVE BETS'}
+              {lang === 'RU' ? 'АКТИВНЫЕ ГОЛОСА' : 'ACTIVE VOTES'}
             </h3>
             <div className="space-y-3">
               {bets && bets.length > 0 ? (
@@ -256,7 +245,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 ))
               ) : (
                 <div className="text-center py-10 text-zinc-600 text-sm">
-                  {lang === 'RU' ? 'Нет активных ставок' : 'No active bets'}
+                  {lang === 'RU' ? 'Нет активных голосов' : 'No active votes'}
                 </div>
               )}
             </div>
@@ -264,7 +253,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
           <section>
             <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4 sticky top-0 bg-black py-2 z-10">
-              {lang === 'RU' ? 'ПРОДАННЫЕ СТАВКИ' : 'SOLD BETS'}
+              {lang === 'RU' ? 'ЗАВЕРШЁННЫЕ' : 'COMPLETED'}
             </h3>
             <div className="space-y-3">
               {soldTrades && soldTrades.length > 0 ? (
@@ -278,7 +267,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 ))
               ) : (
                 <div className="text-center py-6 text-zinc-600 text-sm">
-                  {lang === 'RU' ? 'Нет завершённых продаж' : 'No sold bets yet'}
+                  {lang === 'RU' ? 'Нет завершённых голосов' : 'No completed votes yet'}
                 </div>
               )}
             </div>

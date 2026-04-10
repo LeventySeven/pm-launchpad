@@ -92,11 +92,11 @@ export const SellConfirmModal: React.FC<SellConfirmModalProps> = ({
             </p>
             <div className="flex justify-between">
               <span className="text-neutral-500">{lang === 'RU' ? 'Выплата' : 'Payout'}</span>
-              <span className="font-semibold font-mono text-white">${result.payout.toFixed(2)}</span>
+              <span className="font-semibold font-mono text-white">{Math.round(result.payout)} VOUTS</span>
             </div>
             <div className="flex justify-between">
               <span className="text-neutral-500">{lang === 'RU' ? 'Новый баланс' : 'New balance'}</span>
-              <span className="font-semibold font-mono text-zinc-100">${result.newBalance.toFixed(2)}</span>
+              <span className="font-semibold font-mono text-zinc-100">{Math.round(result.newBalance)} VOUTS</span>
             </div>
           </div>
         ) : (
@@ -112,12 +112,12 @@ export const SellConfirmModal: React.FC<SellConfirmModalProps> = ({
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-neutral-500">{lang === 'RU' ? 'Акций' : 'Shares'}</span>
-                <span className="font-semibold font-mono">{shares.toFixed(2)}</span>
+                <span className="text-neutral-500">{lang === 'RU' ? 'Голосов' : 'Votes'}</span>
+                <span className="font-semibold font-mono">{Math.round(shares)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-neutral-500">{lang === 'RU' ? 'Оценочная стоимость' : 'Est. value'}</span>
-                <span className="font-semibold font-mono text-white">${estimatedValue.toFixed(2)}</span>
+                <span className="text-neutral-500">{lang === 'RU' ? 'Возврат' : 'Return'}</span>
+                <span className="font-semibold font-mono text-white">{Math.round(estimatedValue)} VOUTS</span>
               </div>
             </div>
             <p className="text-[10px] text-zinc-600 mt-3">
