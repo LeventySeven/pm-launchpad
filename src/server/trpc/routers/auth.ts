@@ -36,7 +36,7 @@ const persistSupabaseSession = (session: Session, setCookie: (value: string) => 
 
 const DEFAULT_ASSET = "VOTE";
 const VOTE_DECIMALS = 6;
-const SIGNUP_BONUS_MAJOR = 1000;
+const SIGNUP_BONUS_MAJOR = 50;
 const SIGNUP_BONUS_MINOR = SIGNUP_BONUS_MAJOR * Math.pow(10, VOTE_DECIMALS);
 
 const emailSchema = z.string().email().max(255);

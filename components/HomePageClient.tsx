@@ -992,6 +992,9 @@ export default function HomePageClient({
     if (upper.includes("AMOUNT_TOO_SMALL") || upper.includes("INVALID_AMOUNT")) {
       return lang === "RU" ? "Сумма слишком мала." : "Amount is too small.";
     }
+    if (upper.includes("DAILY_MARKET_VOTE_LIMIT")) {
+      return lang === "RU" ? "Лимит: 5 голосов в день на одно событие." : "Limit: 5 votes per day on this event.";
+    }
     if (upper.includes("AMOUNT_TOO_LARGE") || upper.includes("VALUE OUT OF RANGE")) {
       return lang === "RU" ? "Слишком много голосов, попробуйте меньше." : "Too many votes, try a smaller amount.";
     }

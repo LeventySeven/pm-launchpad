@@ -1064,6 +1064,20 @@ export const marketRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "SIDE_REQUIRED" });
       }
 
+      // Rate limit: max 5 votes per user per market per day
+      const DAILY_VOTE_LIMIT = 5;
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const { count: todayVoteCount } = await (supabaseService as SupabaseDbClient)
+        .from("trades")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", authUser.id)
+        .eq("market_id", marketId)
+        .gte("created_at", todayStart.toISOString());
+      if ((todayVoteCount ?? 0) >= DAILY_VOTE_LIMIT) {
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "DAILY_MARKET_VOTE_LIMIT" });
+      }
+
       // Ensure we have a Supabase session for the RPC call (it uses auth.uid() internally).
       // If the user client doesn't have a session, try to refresh it or use service client with user_id override.
       // For now, try the user client first. If it fails with NOT_AUTHENTICATED, we'll handle it below.
@@ -3597,7 +3611,7 @@ export const marketRouter = router({
       throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "DAILY_ALREADY_CLAIMED" });
     }
 
-    const bonusMajor = 100;
+    const bonusMajor = 5;
     const bonusMinor = toMinorUnits(bonusMajor, VOTE_DECIMALS);
 
     // Get current balance

@@ -616,7 +616,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                     {claimResult
                       ? (lang === 'RU' ? `+${claimResult.earned} V получено!` : `+${claimResult.earned} V collected!`)
                       : canClaim
-                        ? (lang === 'RU' ? '+100 V доступно' : '+100 V available')
+                        ? (lang === 'RU' ? '+5 VOUTS доступно' : '+5 VOUTS available')
                         : (lang === 'RU' ? `Доступно через ${hoursLeft} ч` : `Available in ${hoursLeft}h`)
                     }
                   </div>
