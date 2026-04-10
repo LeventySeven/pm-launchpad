@@ -113,6 +113,18 @@ const translateFieldError = (
       : 'Password must contain at least 8 characters.';
   }
 
+  // Known backend error codes
+  if (message === 'ACCOUNT_EXISTS' || messageLower.includes('already registered') || messageLower.includes('already exists')) {
+    return lang === 'RU'
+      ? 'Аккаунт с таким email уже существует. Попробуйте войти.'
+      : 'An account with this email already exists. Try logging in.';
+  }
+  if (message === 'ACCOUNT_CREATED_LOGIN_REQUIRED') {
+    return lang === 'RU'
+      ? 'Аккаунт создан! Войдите с вашими данными.'
+      : 'Account created! Please log in with your credentials.';
+  }
+
   return message || friendlyMessages[lang].genericError;
 };
 

@@ -226,12 +226,39 @@ export const authRouter = router({
         });
       }
 
-      const createdUser = await supabaseService.auth.admin.createUser({
+      let createdUser = await supabaseService.auth.admin.createUser({
         email,
         password: input.password,
         email_confirm: true,
         user_metadata: { username },
       });
+
+      // Recovery: if auth user already exists but no users row (orphan from a previous failed signup)
+      if (createdUser.error) {
+        const errMsg = String(createdUser.error.message ?? "").toLowerCase();
+        if (errMsg.includes("already") || errMsg.includes("registered") || errMsg.includes("exists")) {
+          // Check if there's a users row — if yes, it's a real duplicate
+          const existingRow = await supabaseService.from("users").select("id").eq("email", email).maybeSingle();
+          if (existingRow.data) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "ACCOUNT_EXISTS",
+            });
+          }
+          // Orphaned auth user — try to clean up and retry
+          const { data: listData } = await supabaseService.auth.admin.listUsers({ perPage: 1, page: 1 });
+          const orphanedAuthUser = (listData?.users ?? []).find((u) => u.email === email);
+          if (orphanedAuthUser) {
+            await supabaseService.auth.admin.deleteUser(orphanedAuthUser.id);
+            createdUser = await supabaseService.auth.admin.createUser({
+              email,
+              password: input.password,
+              email_confirm: true,
+              user_metadata: { username },
+            });
+          }
+        }
+      }
 
       if (createdUser.error || !createdUser.data?.user) {
         throw new TRPCError({
@@ -258,7 +285,7 @@ export const authRouter = router({
         .single();
 
       if (inserted.error || !inserted.data) {
-        await supabase.auth.admin.deleteUser(userId);
+        await supabaseService.auth.admin.deleteUser(userId);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: inserted.error?.message ?? "Failed to create user",
@@ -321,7 +348,7 @@ export const authRouter = router({
       if (autoLogin.error || !autoLogin.data?.session) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: autoLogin.error?.message ?? "Failed to start session",
+          message: "ACCOUNT_CREATED_LOGIN_REQUIRED",
         });
       }
 

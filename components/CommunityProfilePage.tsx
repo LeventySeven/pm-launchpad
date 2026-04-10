@@ -7,6 +7,7 @@ import type { Market, User } from "@/types";
 import MarketCard from "@/components/MarketCard";
 import MarketLaunchCard from "@/components/MarketLaunchCard";
 import ShareCard from "@/components/ShareCard";
+import CommunityShareCard from "@/components/CommunityShareCard";
 
 type CommunityData = {
   id: string;
@@ -117,6 +118,7 @@ export default function CommunityProfilePage({
   const [shareCardOpen, setShareCardOpen] = useState(false);
   const [shareCardMarketId, setShareCardMarketId] = useState("");
   const [shareCardTitle, setShareCardTitle] = useState("");
+  const [communityShareOpen, setCommunityShareOpen] = useState(false);
   const [members, setMembers] = useState<MemberInfo[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersDropdownOpen, setMembersDropdownOpen] = useState(false);
@@ -538,32 +540,41 @@ export default function CommunityProfilePage({
           >
             <ArrowLeft size={16} />
           </button>
-          {(isCreator || memberRole === "moderator") && (
-            <label className="h-9 px-3 rounded-full border border-zinc-900 bg-black/60 backdrop-blur hover:bg-black/80 flex items-center justify-center gap-1.5 text-zinc-300 cursor-pointer text-[10px] font-semibold uppercase tracking-wider">
-              <Camera size={14} />
-              {lang === "RU" ? "Баннер" : "Banner"}
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="hidden"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file || !community) return;
-                  const form = new FormData();
-                  form.append("file", file);
-                  form.append("communityId", community.id);
-                  try {
-                    const res = await fetch("/api/community-banner/upload", { method: "POST", body: form });
-                    const json = await res.json();
-                    if (json.bannerUrl) {
-                      setCommunity((prev) => prev ? { ...prev, bannerUrl: json.bannerUrl } : prev);
-                    }
-                  } catch { /* silent */ }
-                  e.target.value = "";
-                }}
-              />
-            </label>
-          )}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCommunityShareOpen(true)}
+              className="h-9 w-9 rounded-full border border-zinc-900 bg-black/60 backdrop-blur hover:bg-black/80 flex items-center justify-center text-zinc-300"
+              title={lang === "RU" ? "Поделиться" : "Share"}
+            >
+              <Send size={14} />
+            </button>
+            {(isCreator || memberRole === "moderator") && (
+              <label className="h-9 px-3 rounded-full border border-zinc-900 bg-black/60 backdrop-blur hover:bg-black/80 flex items-center justify-center gap-1.5 text-zinc-300 cursor-pointer text-[10px] font-semibold uppercase tracking-wider">
+                <Camera size={14} />
+                {lang === "RU" ? "Баннер" : "Banner"}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !community) return;
+                    const form = new FormData();
+                    form.append("file", file);
+                    form.append("communityId", community.id);
+                    try {
+                      const res = await fetch("/api/community-banner/upload", { method: "POST", body: form });
+                      const json = await res.json();
+                      if (json.bannerUrl) {
+                        setCommunity((prev) => prev ? { ...prev, bannerUrl: json.bannerUrl } : prev);
+                      }
+                    } catch { /* silent */ }
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            )}
+          </div>
         </div>
 
         <div className="flex items-start justify-between gap-3">
@@ -1111,7 +1122,7 @@ export default function CommunityProfilePage({
         </div>
       )}
 
-      {/* ── Share Card ── */}
+      {/* ── Share Card (market) ── */}
       <ShareCard
         isOpen={shareCardOpen}
         onClose={() => setShareCardOpen(false)}
@@ -1120,6 +1131,21 @@ export default function CommunityProfilePage({
         marketId={shareCardMarketId}
         action="created"
       />
+
+      {/* ── Community Share Card ── */}
+      {community && (
+        <CommunityShareCard
+          isOpen={communityShareOpen}
+          onClose={() => setCommunityShareOpen(false)}
+          lang={lang}
+          communityName={community.name}
+          communitySlug={community.slug}
+          communityDescription={community.description}
+          memberCount={community.memberCount}
+          marketCount={community.marketCount}
+          bannerUrl={community.bannerUrl}
+        />
+      )}
 
       {/* ── Members Dropdown Overlay ── */}
       {membersDropdownOpen && (

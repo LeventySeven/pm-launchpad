@@ -531,6 +531,17 @@ export default function HomePageClient({
     const startParamRaw =
       typeof window !== "undefined" ? (window.Telegram?.WebApp?.initDataUnsafe as { start_param?: string } | undefined)?.start_param : undefined;
     const startParam = String(startParamRaw ?? "").trim();
+
+    // Community deeplink: c_{slug}
+    if (startParam.startsWith("c_")) {
+      const slug = startParam.slice(2);
+      if (slug) {
+        setSelectedCommunitySlug(slug);
+        setCurrentView("FEED");
+        return;
+      }
+    }
+
     const marketIdFromStartParam = (() => {
       if (!startParam) return null;
       const v = startParam.startsWith("m_") ? startParam.slice(2) : startParam;
