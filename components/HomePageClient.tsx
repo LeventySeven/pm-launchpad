@@ -579,11 +579,29 @@ export default function HomePageClient({
     if (window.location.pathname === next && !window.location.search) return;
     window.history.pushState({ view }, "", next);
   }, []);
+  const navigateToCommunityUrl = useCallback((slug: string | null) => {
+    if (typeof window === "undefined") return;
+    if (slug) {
+      const next = `/community/${encodeURIComponent(slug)}`;
+      if (window.location.pathname === next) return;
+      window.history.pushState({ communitySlug: slug }, "", next);
+    } else {
+      navigateToCatalogUrl();
+    }
+  }, [navigateToCatalogUrl]);
 
-  // Keep UI synced with browser back/forward when market URL is in history.
+  // Keep UI synced with browser back/forward when market/community URL is in history.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onPopState = () => {
+      const path = window.location.pathname;
+      const communityMatch = path.match(/^\/community\/([^/]+)/);
+      if (communityMatch) {
+        setSelectedCommunitySlug(decodeURIComponent(communityMatch[1]));
+        setSelectedMarketId(null);
+        return;
+      }
+      setSelectedCommunitySlug(null);
       const marketId = getMarketIdFromLocation();
       setSelectedMarketId(marketId);
       setCurrentView(getViewFromLocation());
@@ -632,7 +650,14 @@ export default function HomePageClient({
   const [marketBetIntent, setMarketBetIntent] = useState<MarketBetIntent>(null);
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [showLaunchCard, setShowLaunchCard] = useState(false);
-  const [selectedCommunitySlug, setSelectedCommunitySlug] = useState<string | null>(initialCommunitySlug ?? null);
+  const [selectedCommunitySlug, setSelectedCommunitySlug] = useState<string | null>(() => {
+    if (initialCommunitySlug) return initialCommunitySlug;
+    if (typeof window !== "undefined") {
+      const match = window.location.pathname.match(/^\/community\/([^/]+)/);
+      if (match) return decodeURIComponent(match[1]);
+    }
+    return null;
+  });
   const [showCommunityCreateModal, setShowCommunityCreateModal] = useState(false);
   const [marketCandles, setMarketCandles] = useState<PriceCandle[]>([]);
   const [marketPublicTrades, setMarketPublicTrades] = useState<PublicTrade[]>([]);
@@ -2189,23 +2214,9 @@ export default function HomePageClient({
       const settlementAsset = String(marketForAsset?.settlementAsset || "VOTE").toUpperCase();
       const isOnChain = settlementAsset === "USDC" || settlementAsset === "USDT";
 
-      // Verify auth is still valid before placing bet (in case cookies expired or weren't set)
-      const authCheck = await refreshUser();
-      if (!authCheck) {
-        const refreshed = await attemptSilentRefresh();
-        if (!refreshed) {
-          setBetConfirm({
-            open: true,
-            marketTitle,
-            side: safeSide,
-            amount,
-            newBalance: undefined,
-            errorMessage: lang === "RU" ? "Требуется повторная авторизация." : "Re-authentication required.",
-            isLoading: false,
-          });
-          return;
-        }
-      }
+      // Silently try to refresh session before placing vote (best-effort, don't block on failure).
+      // The backend will fall back to service client if the Supabase session is expired.
+      await refreshUser().catch(() => null);
 
       if (isOnChain) {
         if (!user.isAdmin) {
@@ -2365,7 +2376,7 @@ export default function HomePageClient({
         const refreshed = await attemptSilentRefresh();
         if (!refreshed) return;
       }
-      // Direct 1 VOUT vote from feed card
+      // Direct 1 VOTE vote from feed card
       const title = lang === "RU"
         ? (market as any).titleRu ?? (market as any).titleEn ?? market.title
         : (market as any).titleEn ?? (market as any).titleRu ?? market.title;
@@ -2619,7 +2630,7 @@ export default function HomePageClient({
       setSelectedMarketId(action.marketId);
       navigateToMarketUrl(action.marketId, action.marketTitle);
       void handlePlaceBet({
-        amount: 1, // Always 1 VOUT per vote
+        amount: 1, // Always 1 VOTE per vote
         marketId: action.marketId,
         side: action.side,
         outcomeId: action.outcomeId,
@@ -3190,7 +3201,7 @@ export default function HomePageClient({
                   <div className="max-w-2xl mx-auto py-6 pb-32 pb-safe animate-in fade-in duration-300">
                     <DiscoverPage
                       lang={lang}
-                      onCommunityClick={(slug) => setSelectedCommunitySlug(slug)}
+                      onCommunityClick={(slug) => { setSelectedCommunitySlug(slug); navigateToCommunityUrl(slug); }}
                       onCreateCommunity={() => setShowCommunityCreateModal(true)}
                       isLoggedIn={!!user}
                       onLogin={() => openAuth("SIGN_IN")}
@@ -3506,6 +3517,7 @@ export default function HomePageClient({
         onCommunityClick={(slug) => {
           closePublicProfile();
           setSelectedCommunitySlug(slug);
+          navigateToCommunityUrl(slug);
         }}
         followerCount={publicProfileFollowerCount}
         followingCount={publicProfileFollowingCount}
@@ -3577,7 +3589,7 @@ export default function HomePageClient({
             user={user}
             lang={lang}
             markets={markets}
-            onBack={() => setSelectedCommunitySlug(null)}
+            onBack={() => { setSelectedCommunitySlug(null); navigateToCommunityUrl(null); }}
             onMarketClick={(market) => {
               setSelectedCommunitySlug(null);
               setSelectedMarketId(market.id);
@@ -3609,6 +3621,7 @@ export default function HomePageClient({
           }
           setShowCommunityCreateModal(false);
           setSelectedCommunitySlug(created.slug);
+          navigateToCommunityUrl(created.slug);
         }}
       />
       {/* Market Launch Card (quick create for all users) */}

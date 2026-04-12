@@ -1121,6 +1121,27 @@ export const marketRouter = router({
         await wait(150 * attempt);
       }
 
+      // If RPC failed with auth error, retry with service client (expired Supabase session but valid auth_token)
+      if (error) {
+        const errMsg = (error.message || "").toUpperCase();
+        if (errMsg.includes("NOT_AUTHENTICATED") || errMsg.includes("UNAUTHORIZED")) {
+          console.warn("[placeBet] Supabase session expired, retrying with service client", { userId: authUser.id });
+          const serviceDb = supabaseService as SupabaseDbClient;
+          const rpcName = marketType === "multi_choice" ? "place_bet_multi_service_tx" : "place_bet_service_tx";
+          const rpcParams = marketType === "multi_choice"
+            ? { p_user_id: authUser.id, p_market_id: marketId, p_outcome_id: outcomeId, p_amount: amount }
+            : { p_user_id: authUser.id, p_market_id: marketId, p_side: side, p_amount: amount };
+          const retryResult = await serviceDb.rpc(rpcName as any, rpcParams as any);
+          if (!retryResult.error) {
+            data = retryResult.data;
+            error = null;
+          } else {
+            console.error("[placeBet] Service client retry also failed", { error: retryResult.error.message });
+            error = retryResult.error;
+          }
+        }
+      }
+
       if (error) {
         // Map common DB errors to user-friendly messages
         const msg = (error.message || "").toUpperCase();

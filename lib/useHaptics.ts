@@ -74,5 +74,18 @@ export function useHaptics() {
     wh?.trigger("selection");
   };
 
-  return { impact, notification, selection };
+  const buzz = () => {
+    const tg = getTelegramHaptics();
+    if (tg?.impactOccurred) {
+      // Telegram doesn't have a long vibration, so chain 3 heavy impacts
+      tg.impactOccurred("heavy");
+      setTimeout(() => tg.impactOccurred?.("heavy"), 100);
+      setTimeout(() => tg.impactOccurred?.("rigid"), 200);
+      return;
+    }
+    const wh = getWebHaptics();
+    wh?.trigger("buzz");
+  };
+
+  return { impact, notification, selection, buzz };
 }

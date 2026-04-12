@@ -278,7 +278,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   const activeBets = bets.filter((b) => b.status === 'open' && Number(b.shares ?? 0) > 0);
   const settledBets = bets.filter((b) => b.status !== 'open');
 
-  const formatMoney = (value: number) => `${Math.round(value)} VOUTS`;
+  const formatMoney = (value: number) => `${Math.round(value)} VOTES`;
   const formatPct = (value: number) => `${value.toFixed(1)}%`;
   const formatSignedMoney = (value: number) => `${value >= 0 ? '+' : '-'}${Math.round(Math.abs(value))} V`;
 
@@ -616,7 +616,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                     {claimResult
                       ? (lang === 'RU' ? `+${claimResult.earned} V получено!` : `+${claimResult.earned} V collected!`)
                       : canClaim
-                        ? (lang === 'RU' ? '+5 VOUTS доступно' : '+5 VOUTS available')
+                        ? (lang === 'RU' ? '+5 VOTES доступно' : '+5 VOTES available')
                         : (lang === 'RU' ? `Доступно через ${hoursLeft} ч` : `Available in ${hoursLeft}h`)
                     }
                   </div>

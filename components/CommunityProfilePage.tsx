@@ -312,8 +312,9 @@ export default function CommunityProfilePage({
       setShareCardMarketId(result.id);
       setShareCardTitle(result.title);
       setShareCardOpen(true);
-      // Refresh market list
+      // Refresh market list and activity feed
       void loadCommunity();
+      void loadActivityFeed();
     } catch (err: any) {
       const msg = err?.message ?? "";
       if (msg.includes("DAILY_LIMIT")) {
@@ -986,6 +987,7 @@ export default function CommunityProfilePage({
             setShareCardTitle(result.title);
             setShareCardOpen(true);
             void loadCommunity();
+            void loadActivityFeed();
           }}
         />
       )}

@@ -222,7 +222,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest block mb-1">
                     {lang === 'RU' ? 'БАЛАНС' : 'BALANCE'}
                 </span>
-                <span className="text-2xl font-mono text-white tracking-tight">{Math.round(user.balance).toLocaleString()} <span className="text-sm text-zinc-500">VOUTS</span></span>
+                <span className="text-2xl font-mono text-white tracking-tight">{Math.round(user.balance).toLocaleString()} <span className="text-sm text-zinc-500">VOTES</span></span>
             </div>
             {/* TODO: Re-enable PNL card when $ trading launches */}
         </div>

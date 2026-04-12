@@ -48,7 +48,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
   const activeBets = bets.filter((b) => b.status === 'open');
   const settledBets = bets.filter((b) => b.status !== 'open');
 
-  const formatMoney = (value: number) => `${Math.round(value)} VOUTS`;
+  const formatMoney = (value: number) => `${Math.round(value)} VOTES`;
 
   return (
     <div className="max-w-xl mx-auto px-4 py-8 pb-24 animate-in fade-in duration-500">
@@ -64,7 +64,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
             <h1 className="text-4xl sm:text-5xl font-mono font-bold text-white mb-2 tracking-tighter">
                 {Math.round(user.balance).toLocaleString()}
             </h1>
-            <div className="text-sm font-semibold text-zinc-400 uppercase tracking-widest mb-6">VOUTS</div>
+            <div className="text-sm font-semibold text-zinc-400 uppercase tracking-widest mb-6">VOTES</div>
 
             {/* TODO: Re-enable Deposit/Withdraw when $ trading launches */}
         </div>

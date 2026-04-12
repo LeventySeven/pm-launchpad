@@ -78,12 +78,12 @@ export const BetConfirmModal: React.FC<BetConfirmModalProps> = ({
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-500">Cost</span>
-                <span className="font-semibold">{Math.round(amount)} VOUT</span>
+                <span className="font-semibold">{Math.round(amount)} VOTE</span>
               </div>
               {newBalance !== undefined && (
                 <div className="flex justify-between">
                   <span className="text-neutral-500">Balance</span>
-                  <span className="font-semibold text-zinc-100">{Math.round(newBalance)} VOUTS</span>
+                  <span className="font-semibold text-zinc-100">{Math.round(newBalance)} VOTES</span>
                 </div>
               )}
             </div>

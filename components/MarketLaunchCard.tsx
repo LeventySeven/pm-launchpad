@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-import { BarChart3, Clock, ImagePlus, Loader2, Send, X } from 'lucide-react';
+import { Clock, ImagePlus, Loader2, Send, X } from 'lucide-react';
 import type { User } from '../types';
 
 type MarketLaunchCardProps = {
@@ -195,13 +195,6 @@ const MarketLaunchCard: React.FC<MarketLaunchCardProps> = ({ user, lang, onLaunc
                 title={lang === 'RU' ? 'Дедлайн' : 'Deadline'}
               >
                 <Clock size={18} />
-              </button>
-              <button
-                type="button"
-                className="h-9 w-9 rounded-full hover:bg-zinc-800/60 flex items-center justify-center text-zinc-500 hover:text-zinc-300 transition-colors"
-                title={lang === 'RU' ? 'Исходы' : 'Outcomes'}
-              >
-                <BarChart3 size={18} />
               </button>
             </div>
 

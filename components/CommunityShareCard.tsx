@@ -92,7 +92,7 @@ export default function CommunityShareCard({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md bg-[#111111] border-t border-zinc-800/60 rounded-t-2xl overflow-hidden animate-slide-up"
+        className="w-full max-w-md bg-[#111111] border-t border-zinc-800/60 rounded-t-2xl overflow-hidden animate-slide-up mb-20"
         onClick={(e) => e.stopPropagation()}
         style={{ maxHeight: "70vh" }}
       >
@@ -161,6 +161,20 @@ export default function CommunityShareCard({
           >
             <Send size={16} />
             {lang === "RU" ? "Отправить в Telegram" : "Share to Telegram"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              impact("light");
+              const xText = encodeURIComponent(shareText.replace(tgDeeplink, "").trim());
+              const xUrl = encodeURIComponent(webUrl);
+              window.open(`https://x.com/intent/tweet?text=${xText}&url=${xUrl}`, "_blank");
+            }}
+            className="w-full h-10 rounded-full border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-zinc-300 text-sm flex items-center justify-center gap-2 transition mb-3"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            {lang === "RU" ? "Поделиться в X" : "Share to X"}
           </button>
 
           <button

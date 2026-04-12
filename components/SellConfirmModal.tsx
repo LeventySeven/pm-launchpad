@@ -92,11 +92,11 @@ export const SellConfirmModal: React.FC<SellConfirmModalProps> = ({
             </p>
             <div className="flex justify-between">
               <span className="text-neutral-500">{lang === 'RU' ? 'Выплата' : 'Payout'}</span>
-              <span className="font-semibold font-mono text-white">{Math.round(result.payout)} VOUTS</span>
+              <span className="font-semibold font-mono text-white">{Math.round(result.payout)} VOTES</span>
             </div>
             <div className="flex justify-between">
               <span className="text-neutral-500">{lang === 'RU' ? 'Новый баланс' : 'New balance'}</span>
-              <span className="font-semibold font-mono text-zinc-100">{Math.round(result.newBalance)} VOUTS</span>
+              <span className="font-semibold font-mono text-zinc-100">{Math.round(result.newBalance)} VOTES</span>
             </div>
           </div>
         ) : (
@@ -117,7 +117,7 @@ export const SellConfirmModal: React.FC<SellConfirmModalProps> = ({
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-500">{lang === 'RU' ? 'Возврат' : 'Return'}</span>
-                <span className="font-semibold font-mono text-white">{Math.round(estimatedValue)} VOUTS</span>
+                <span className="font-semibold font-mono text-white">{Math.round(estimatedValue)} VOTES</span>
               </div>
             </div>
             <p className="text-[10px] text-zinc-600 mt-3">

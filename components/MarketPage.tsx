@@ -141,7 +141,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
   onEditMarket,
   onDeleteMarket,
 }) => {
-  const { impact, selection } = useHaptics();
+  const { impact, selection, buzz } = useHaptics();
   const [activeTab, setActiveTab] = useState<'COMMENTS' | 'ACTIVITY'>('COMMENTS');
   const [commentText, setCommentText] = useState('');
   const [commentSendError, setCommentSendError] = useState<string | null>(null);
@@ -461,7 +461,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
     ? Number(selectedOutcome?.price ?? 0)
     : (tradeType === 'YES' ? market.yesPrice : market.noPrice);
 
-  // Vote handler — always 1 VOUT
+  // Vote handler — always 1 VOTE
   const handleVote = async (side: 'YES' | 'NO', outcomeId?: string) => {
     if (isExpired) {
       setPlaceError(lang === 'RU' ? 'Голосование закрыто.' : 'Voting closed.');
@@ -484,7 +484,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
     }
     setPlaceError(null);
     setPlacing(true);
-    impact("medium");
+    buzz();
     try {
       await onPlaceBet({
         side: isMulti ? undefined : side,
@@ -801,30 +801,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                       );
                     })}
                   </div>
-                ) : (
-                  <div className="bg-zinc-950 rounded-full p-1 flex mb-6 border border-zinc-900">
-                    <button
-                      onClick={() => setTradeType('YES')}
-                      className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-full transition-all ${
-                        tradeType === 'YES'
-                          ? 'bg-[rgba(190,255,29,1)] text-black shadow-[0_10px_30px_rgba(190,255,29,0.18)]'
-                          : 'text-zinc-400 hover:text-white hover:bg-zinc-900/40'
-                      }`}
-                    >
-                      {lang === 'RU' ? 'ДА' : 'YES'} {(market.yesPrice * 100).toFixed(0)}%
-                    </button>
-                    <button
-                      onClick={() => setTradeType('NO')}
-                      className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wide rounded-full transition-all ${
-                        tradeType === 'NO'
-                          ? 'bg-[rgba(245,68,166,1)] text-white shadow-[0_10px_30px_rgba(245,68,166,0.20)]'
-                          : 'text-zinc-400 hover:text-white hover:bg-zinc-900/40'
-                      }`}
-                    >
-                      {lang === 'RU' ? 'НЕТ' : 'NO'} {(market.noPrice * 100).toFixed(0)}%
-                    </button>
-                  </div>
-                )}
+                ) : null}
 
                 <div className="space-y-6">
                   {/* On-chain section hidden — USDC/on-chain features not yet enabled in production */}
@@ -857,7 +834,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                             {lang === 'RU' ? 'Кошелек' : 'Wallet'}
                           </div>
                           <div className="mt-1 text-sm font-mono text-zinc-100">
-                            {walletBalanceMajor === null ? '—' : `${Math.round(walletBalanceMajor)} VOUTS`}
+                            {walletBalanceMajor === null ? '—' : `${Math.round(walletBalanceMajor)} VOTES`}
                           </div>
                         </div>
                         <div className="rounded-xl border border-zinc-900 bg-black/40 p-3">
@@ -865,7 +842,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                             Vault
                           </div>
                           <div className="mt-1 text-sm font-mono text-zinc-100">
-                            {vaultBalanceMajor === null ? '—' : `${Math.round(vaultBalanceMajor)} VOUTS`}
+                            {vaultBalanceMajor === null ? '—' : `${Math.round(vaultBalanceMajor)} VOTES`}
                           </div>
                         </div>
                       </div>
@@ -900,26 +877,24 @@ const MarketPage: React.FC<MarketPageProps> = ({
 
                   {placeError && <p className="text-sm text-red-400">{placeError}</p>}
 
-                  {/* Vote buttons — 1 VOUT per vote */}
+                  {/* Vote buttons — 1 VOTE per vote */}
                   {!isMulti ? (
                     <div className="grid grid-cols-2 gap-3">
                       <Button
                         fullWidth
-                        className={`!h-14 !text-base !font-bold ${tradeType === 'YES' ? '!bg-[rgba(190,255,29,1)] !text-black hover:!opacity-90' : '!bg-zinc-900 !text-zinc-200 hover:!bg-zinc-800'}`}
+                        className="!h-12 !text-sm !font-bold !bg-[rgba(190,255,29,1)] !text-black hover:!opacity-90"
                         onClick={() => { setTradeType('YES'); handleVote('YES'); }}
                         disabled={placing || isExpired}
                       >
-                        {lang === 'RU' ? 'ДА' : 'YES'}
-                        <span className="block text-[10px] font-normal opacity-70 mt-0.5">1 VOUT</span>
+                        {lang === 'RU' ? 'ДА' : 'YES'} {(market.yesPrice * 100).toFixed(0)}%
                       </Button>
                       <Button
                         fullWidth
-                        className={`!h-14 !text-base !font-bold ${tradeType === 'NO' ? '!bg-[rgba(245,68,166,1)] !text-white hover:!opacity-90' : '!bg-zinc-900 !text-zinc-200 hover:!bg-zinc-800'}`}
+                        className="!h-12 !text-sm !font-bold !bg-[rgba(245,68,166,1)] !text-white hover:!opacity-90"
                         onClick={() => { setTradeType('NO'); handleVote('NO'); }}
                         disabled={placing || isExpired}
                       >
-                        {lang === 'RU' ? 'НЕТ' : 'NO'}
-                        <span className="block text-[10px] font-normal opacity-70 mt-0.5">1 VOUT</span>
+                        {lang === 'RU' ? 'НЕТ' : 'NO'} {(market.noPrice * 100).toFixed(0)}%
                       </Button>
                     </div>
                   ) : (
@@ -930,7 +905,7 @@ const MarketPage: React.FC<MarketPageProps> = ({
                     >
                       {!user
                         ? lang === 'RU' ? 'Зарегистрируйтесь' : 'Sign up to vote'
-                        : lang === 'RU' ? 'Голосовать (1 VOUT)' : 'Vote (1 VOUT)'}
+                        : lang === 'RU' ? 'Голосовать' : 'Vote'}
                     </Button>
                   )}
                 </div>
