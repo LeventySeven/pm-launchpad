@@ -13,7 +13,11 @@ if (!SUPABASE_URL) {
 }
 
 if (!SUPABASE_ANON_KEY) {
-  console.warn("SUPABASE_ANON_KEY is not set; Supabase user client will fail.");
+  console.warn(
+    SUPABASE_SERVICE_KEY
+      ? "SUPABASE_ANON_KEY is not set; server-side Supabase clients will use the service role key fallback."
+      : "SUPABASE_ANON_KEY is not set; Supabase user client will fail."
+  );
 }
 
 if (!SUPABASE_SERVICE_KEY) {
@@ -23,7 +27,9 @@ if (!SUPABASE_SERVICE_KEY) {
 }
 
 export const createSupabaseUserClient = (accessToken?: string) => {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  const supabaseKey = SUPABASE_ANON_KEY || SUPABASE_SERVICE_KEY;
+
+  if (!SUPABASE_URL || !supabaseKey) {
     throw new Error("Supabase environment variables are missing.");
   }
 
@@ -34,7 +40,7 @@ export const createSupabaseUserClient = (accessToken?: string) => {
         }
       : undefined;
 
-  return createClient<Database, "public">(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  return createClient<Database, "public">(SUPABASE_URL, supabaseKey, {
     global: {
       headers,
     },
@@ -63,4 +69,3 @@ export const getSupabaseServiceClient = () => {
 
   return serviceClient;
 };
-

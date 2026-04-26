@@ -1,18 +1,29 @@
 import { SignJWT, jwtVerify } from "jose";
 
-const JWT_SECRET = process.env.AUTH_JWT_SECRET;
 const JWT_ISSUER = "pravda-app";
 const JWT_AUDIENCE = "pravda-users";
 const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
 const IS_PROD = process.env.NODE_ENV === "production";
 const COOKIE_SAME_SITE = IS_PROD ? "None" : "Lax";
 const COOKIE_SECURE_PART = IS_PROD ? "Secure;" : "";
+let warnedAboutFallbackSecret = false;
 
 function getKey() {
-  if (!JWT_SECRET || JWT_SECRET.length < 48) {
-    throw new Error("AUTH_JWT_SECRET is not set or too short (min 48 chars)");
+  const jwtSecret = process.env.AUTH_JWT_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!jwtSecret || jwtSecret.length < 48) {
+    throw new Error(
+      "AUTH_JWT_SECRET is not set or too short (min 48 chars), and SUPABASE_SERVICE_ROLE_KEY is unavailable for fallback"
+    );
   }
-  return new TextEncoder().encode(JWT_SECRET);
+
+  if (!process.env.AUTH_JWT_SECRET && !warnedAboutFallbackSecret) {
+    warnedAboutFallbackSecret = true;
+    console.warn(
+      "AUTH_JWT_SECRET is not set; using SUPABASE_SERVICE_ROLE_KEY as the server-only app JWT signing fallback."
+    );
+  }
+
+  return new TextEncoder().encode(jwtSecret);
 }
 
 type JwtPayload = {
@@ -50,4 +61,3 @@ export function authCookie(token: string) {
 export function clearAuthCookie() {
   return `auth_token=; HttpOnly; Path=/; SameSite=${COOKIE_SAME_SITE}; Max-Age=0; ${COOKIE_SECURE_PART}`.trimEnd();
 }
-
